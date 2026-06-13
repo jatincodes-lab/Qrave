@@ -1,0 +1,158 @@
+using Npgsql;
+using QRApp.Api.Errors;
+using QRApp.Api.Hubs;
+using QRApp.Application.Auth;
+using QRApp.Application.Notifications;
+using QRApp.Application.WaiterCalls;
+
+namespace QRApp.Api.Endpoints;
+
+public static class WaiterCallEndpoints
+{
+    public static IEndpointRouteBuilder MapWaiterCallEndpoints(this IEndpointRouteBuilder app)
+    {
+        var publicGroup = app.MapGroup("/api/v1/public").AllowAnonymous();
+        publicGroup.MapPost("/qr/{qrToken}/waiter-calls", CreateAsync);
+
+        var adminGroup = app.MapGroup("/api/v1/admin").RequireAuthorization();
+        adminGroup.MapGet("/branches/{branchId:guid}/waiter-calls", GetListAsync);
+        adminGroup.MapPut("/branches/{branchId:guid}/waiter-calls/{waiterCallId:guid}/status", UpdateStatusAsync);
+
+        return app;
+    }
+
+    private static async Task<IResult> CreateAsync(
+        string qrToken,
+        CreateWaiterCallRequest request,
+        IWaiterCallService service,
+        IAdminNotificationService notificationService,
+        IAdminOrderRealtimeNotifier realtimeNotifier,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await service.CreateFromQrTokenAsync(qrToken, request, cancellationToken);
+            if (!result.IsSuccess)
+            {
+                return ApiProblemResponses.Validation(result.Errors);
+            }
+
+            var waiterCall = result.Value!;
+            try
+            {
+                await notificationService.CreateAsync(
+                    waiterCall.TenantId,
+                    new CreateAdminNotificationRequest(
+                        waiterCall.BranchId,
+                        "waiter-call-created",
+                        "Waiter call",
+                        $"{waiterCall.TableName} requested staff assistance.",
+                        "/admin/orders"),
+                    cancellationToken);
+            }
+            catch (Exception notificationException)
+            {
+                loggerFactory.CreateLogger(nameof(WaiterCallEndpoints)).LogWarning(notificationException, "Waiter call {WaiterCallId} was created, but its admin notification could not be stored.", waiterCall.WaiterCallId);
+            }
+
+            await realtimeNotifier.WaiterCallCreatedAsync(waiterCall, cancellationToken);
+            return Results.Created($"/api/v1/public/waiter-calls/{waiterCall.WaiterCallId}", waiterCall);
+        }
+        catch (Exception ex)
+        when (ex is PostgresException)
+        {
+            var postgresException = (PostgresException)ex;
+            loggerFactory.CreateLogger(nameof(WaiterCallEndpoints)).LogWarning(postgresException, "Database rejected waiter call creation.");
+            return SqlProblemMapper.ToProblem(postgresException);
+        }
+        catch (Exception ex)
+        {
+            loggerFactory.CreateLogger(nameof(WaiterCallEndpoints)).LogError(ex, "Failed to create waiter call.");
+            return ApiProblemResponses.ServerError("Waiter call could not be created.");
+        }
+    }
+
+    private static async Task<IResult> GetListAsync(
+        Guid branchId,
+        bool? includeResolved,
+        ITenantContext tenantContext,
+        IWaiterCallService service,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var calls = await service.GetListByBranchAsync(
+                tenantContext.TenantId,
+                branchId,
+                includeResolved.GetValueOrDefault(),
+                cancellationToken);
+
+            return Results.Ok(calls);
+        }
+        catch (Exception ex)
+        when (ex is PostgresException)
+        {
+            var postgresException = (PostgresException)ex;
+            loggerFactory.CreateLogger(nameof(WaiterCallEndpoints)).LogWarning(postgresException, "Database failed while listing waiter calls for branch {BranchId}.", branchId);
+            return SqlProblemMapper.ToProblem(postgresException);
+        }
+    }
+
+    private static async Task<IResult> UpdateStatusAsync(
+        Guid branchId,
+        Guid waiterCallId,
+        UpdateWaiterCallStatusRequest request,
+        ITenantContext tenantContext,
+        IWaiterCallService service,
+        IAdminNotificationService notificationService,
+        IAdminOrderRealtimeNotifier realtimeNotifier,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await service.UpdateStatusAsync(tenantContext.TenantId, branchId, waiterCallId, request, cancellationToken);
+            if (!result.IsSuccess)
+            {
+                return ApiProblemResponses.Validation(result.Errors);
+            }
+
+            if (result.Value!.StatusCode is "Acknowledged" or "Resolved")
+            {
+                try
+                {
+                    await notificationService.CreateAsync(
+                        tenantContext.TenantId,
+                        new CreateAdminNotificationRequest(
+                            branchId,
+                            "waiter-call-status-updated",
+                            "Waiter call updated",
+                            $"{result.Value.TableName} call is now {result.Value.StatusCode.ToLowerInvariant()}.",
+                            "/admin/orders"),
+                        cancellationToken);
+                }
+                catch (Exception notificationException)
+                {
+                    loggerFactory.CreateLogger(nameof(WaiterCallEndpoints)).LogWarning(notificationException, "Waiter call {WaiterCallId} status was updated, but its admin notification could not be stored.", waiterCallId);
+                }
+            }
+
+            await realtimeNotifier.WaiterCallStatusUpdatedAsync(result.Value!, cancellationToken);
+            return Results.Ok(result.Value);
+        }
+        catch (Exception ex)
+        when (ex is PostgresException)
+        {
+            var postgresException = (PostgresException)ex;
+            loggerFactory.CreateLogger(nameof(WaiterCallEndpoints)).LogWarning(postgresException, "Database rejected waiter call status update for {WaiterCallId}.", waiterCallId);
+            return SqlProblemMapper.ToProblem(postgresException);
+        }
+        catch (Exception ex)
+        {
+            loggerFactory.CreateLogger(nameof(WaiterCallEndpoints)).LogError(ex, "Failed to update waiter call {WaiterCallId}.", waiterCallId);
+            return ApiProblemResponses.ServerError("Waiter call status could not be updated.");
+        }
+    }
+}

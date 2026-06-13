@@ -1,0 +1,143 @@
+using System.Data;
+using Npgsql;
+using QRApp.Application.Auth;
+using QRApp.Infrastructure.Data;
+
+namespace QRApp.Infrastructure.Auth;
+
+public sealed class SqlAuthRepository(INpgsqlConnectionFactory connectionFactory) : IAuthRepository
+{
+    public async Task<AuthenticatedSessionResponse> RegisterTenantOwnerAsync(
+        Guid tenantId,
+        Guid userId,
+        Guid tenantUserId,
+        RegisterTenantOwnerRequest request,
+        string passwordHash,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = (NpgsqlConnection)connectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand(StoredProcedures.AuthRegisterTenantOwner, connection)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+
+        command.AddGuid("@TenantId", tenantId);
+        command.AddGuid("@UserId", userId);
+        command.AddGuid("@TenantUserId", tenantUserId);
+        command.AddString("@TenantName", request.TenantName, 160);
+        command.AddString("@TenantSlug", request.TenantSlug, 120);
+        command.AddString("@OwnerEmail", request.OwnerEmail, 256);
+        command.AddString("@OwnerDisplayName", request.OwnerDisplayName, 160);
+        command.AddString("@PasswordHash", passwordHash, 512);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (await reader.ReadAsync(cancellationToken))
+        {
+            return ReadSession(reader);
+        }
+
+        throw new DataException("Auth_RegisterTenantOwner did not return a session row.");
+    }
+
+    public async Task<LoginUserRecord?> GetUserByEmailAsync(string email, CancellationToken cancellationToken)
+    {
+        await using var connection = (NpgsqlConnection)connectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand(StoredProcedures.AuthGetUserByEmail, connection)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+
+        command.AddString("@Email", email, 256);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken)
+            ? new LoginUserRecord(
+                reader.GetGuid(reader.GetOrdinal("UserId")),
+                reader.GetString(reader.GetOrdinal("Email")),
+                reader.GetString(reader.GetOrdinal("DisplayName")),
+                reader.GetString(reader.GetOrdinal("PasswordHash")),
+                reader.GetGuid(reader.GetOrdinal("TenantId")),
+                reader.GetString(reader.GetOrdinal("TenantName")),
+                reader.GetString(reader.GetOrdinal("TenantSlug")),
+                reader.GetString(reader.GetOrdinal("RoleCode")),
+                GetNullableGuid(reader, "BranchId"),
+                ReadStringOrDefault(reader, "PlanCode", "trial"),
+                ReadNullableDateTime(reader, "TrialStartAtUtc"),
+                ReadNullableDateTime(reader, "TrialEndAtUtc"),
+                ReadStringOrDefault(reader, "SubscriptionStatusCode", "Trialing"),
+                ReadStringOrDefault(reader, "AccountStatusCode", "Active"),
+                !HasColumn(reader, "IsTenantActive") || reader.GetBoolean(reader.GetOrdinal("IsTenantActive")))
+            : null;
+    }
+
+    private static AuthenticatedSessionResponse ReadSession(NpgsqlDataReader reader)
+    {
+        var tenantId = reader.GetGuid(reader.GetOrdinal("TenantId"));
+        var accessStatus = QRApp.Application.Tenants.TenantAccessRules.CreateStatus(
+            tenantId,
+            ReadStringOrDefault(reader, "PlanCode", "trial"),
+            ReadNullableDateTime(reader, "TrialStartAtUtc"),
+            ReadNullableDateTime(reader, "TrialEndAtUtc"),
+            ReadStringOrDefault(reader, "SubscriptionStatusCode", "Trialing"),
+            ReadStringOrDefault(reader, "AccountStatusCode", "Active"),
+            !HasColumn(reader, "IsTenantActive") || reader.GetBoolean(reader.GetOrdinal("IsTenantActive")),
+            DateTime.UtcNow);
+
+        return new AuthenticatedSessionResponse(
+            new AuthenticatedUserResponse(
+                reader.GetGuid(reader.GetOrdinal("UserId")),
+                reader.GetString(reader.GetOrdinal("Email")),
+                reader.GetString(reader.GetOrdinal("DisplayName")),
+                tenantId,
+                reader.GetString(reader.GetOrdinal("RoleCode")),
+                HasColumn(reader, "BranchId") ? GetNullableGuid(reader, "BranchId") : null),
+            new AuthenticatedTenantResponse(
+                tenantId,
+                reader.GetString(reader.GetOrdinal("TenantName")),
+                reader.GetString(reader.GetOrdinal("TenantSlug")),
+                accessStatus));
+    }
+
+    private static Guid? GetNullableGuid(NpgsqlDataReader reader, string name)
+    {
+        var ordinal = reader.GetOrdinal(name);
+        return reader.IsDBNull(ordinal) ? null : reader.GetGuid(ordinal);
+    }
+
+    private static DateTime? ReadNullableDateTime(NpgsqlDataReader reader, string name)
+    {
+        if (!HasColumn(reader, name))
+        {
+            return null;
+        }
+
+        var ordinal = reader.GetOrdinal(name);
+        return reader.IsDBNull(ordinal) ? null : reader.GetDateTime(ordinal);
+    }
+
+    private static string ReadStringOrDefault(NpgsqlDataReader reader, string name, string fallback)
+    {
+        if (!HasColumn(reader, name))
+        {
+            return fallback;
+        }
+
+        var ordinal = reader.GetOrdinal(name);
+        return reader.IsDBNull(ordinal) ? fallback : reader.GetString(ordinal);
+    }
+
+    private static bool HasColumn(NpgsqlDataReader reader, string name)
+    {
+        for (var index = 0; index < reader.FieldCount; index++)
+        {
+            if (string.Equals(reader.GetName(index), name, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}

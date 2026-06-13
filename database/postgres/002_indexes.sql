@@ -1,0 +1,14 @@
+CREATE INDEX IF NOT EXISTS "IX_Users_Email_IsActive" ON "Users" ("Email", "IsActive") INCLUDE ("UserId", "DisplayName");
+CREATE INDEX IF NOT EXISTS "IX_TenantUsers_UserId_IsActive" ON "TenantUsers" ("UserId", "IsActive") INCLUDE ("TenantId", "RoleCode", "BranchId");
+CREATE INDEX IF NOT EXISTS "IX_Branches_TenantId_IsActive" ON "Branches" ("TenantId", "IsActive") INCLUDE ("BranchId", "Name", "City", "CreatedAtUtc");
+CREATE INDEX IF NOT EXISTS "IX_MenuCategories_TenantId_BranchId_IsActive_DisplayOrder" ON "MenuCategories" ("TenantId", "BranchId", "IsActive", "DisplayOrder") INCLUDE ("MenuCategoryId", "Name");
+CREATE INDEX IF NOT EXISTS "IX_MenuItems_TenantId_BranchId_IsActive_IsAvailable_DisplayOrder" ON "MenuItems" ("TenantId", "BranchId", "IsActive", "IsAvailable", "DisplayOrder") INCLUDE ("MenuItemId", "MenuCategoryId", "Name", "Price");
+CREATE INDEX IF NOT EXISTS "IX_MenuItemVariants_MenuItemId_IsAvailable_DisplayOrder" ON "MenuItemVariants" ("MenuItemId", "IsAvailable", "DisplayOrder");
+CREATE INDEX IF NOT EXISTS "IX_BranchOffers_BranchId_IsActive_DisplayOrder" ON "BranchOffers" ("BranchId", "IsActive", "DisplayOrder");
+CREATE INDEX IF NOT EXISTS "IX_BranchTables_QrToken_IsActive" ON "BranchTables" ("QrToken", "IsActive") INCLUDE ("TableId", "TenantId", "BranchId", "Name");
+CREATE INDEX IF NOT EXISTS "IX_Orders_TenantId_BranchId_CreatedAtUtc" ON "Orders" ("TenantId", "BranchId", "CreatedAtUtc" DESC) INCLUDE ("TableId", "OrderStatusCode", "TotalAmount");
+CREATE INDEX IF NOT EXISTS "IX_OrderItems_OrderId" ON "OrderItems" ("OrderId") INCLUDE ("MenuItemId", "Quantity", "LineTotal");
+CREATE INDEX IF NOT EXISTS "IX_OrderStatusHistory_OrderId_CreatedAtUtc" ON "OrderStatusHistory" ("OrderId", "CreatedAtUtc" DESC);
+CREATE INDEX IF NOT EXISTS "IX_WaiterCalls_BranchId_Status_CreatedAtUtc" ON "WaiterCalls" ("BranchId", "StatusCode", "CreatedAtUtc" DESC);
+CREATE INDEX IF NOT EXISTS "IX_Customers_TenantId_BranchId_LastVisitAtUtc" ON "Customers" ("TenantId", "BranchId", "LastVisitAtUtc" DESC);
+CREATE INDEX IF NOT EXISTS "IX_AdminNotifications_TenantId_BranchId_IsRead_CreatedAtUtc" ON "AdminNotifications" ("TenantId", "BranchId", "IsRead", "CreatedAtUtc" DESC);

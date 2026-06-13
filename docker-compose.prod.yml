@@ -1,0 +1,65 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: src/backend/QRApp.Api/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Pooling=true;Timeout=15;Command Timeout=30;Timezone=Asia/Kolkata
+      Redis__ConnectionString: redis:6379
+      Jwt__SigningKey: ${JWT_SIGNING_KEY}
+      Cors__AllowedOrigins__0: ${FRONTEND_PUBLIC_URL}
+      Cloudinary__CloudName: ${CLOUDINARY_CLOUD_NAME}
+      Cloudinary__ApiKey: ${CLOUDINARY_API_KEY}
+      Cloudinary__ApiSecret: ${CLOUDINARY_API_SECRET}
+      Cloudinary__UploadFolder: ${CLOUDINARY_UPLOAD_FOLDER:-qrave}
+      Cloudinary__UploadPreset: ${CLOUDINARY_UPLOAD_PRESET}
+    restart: unless-stopped
+    ports:
+      - "5000:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  frontend:
+    build:
+      context: .
+      dockerfile: src/frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${API_PUBLIC_URL}
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${API_PUBLIC_URL}
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: Asia/Kolkata
+      PGTZ: Asia/Kolkata
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

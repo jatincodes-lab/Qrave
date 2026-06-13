@@ -1,0 +1,37 @@
+using Npgsql;
+using QRApp.Api.Errors;
+using QRApp.Application.Tables;
+
+namespace QRApp.Api.Endpoints;
+
+public static class PublicQrEndpoints
+{
+    public static IEndpointRouteBuilder MapPublicQrEndpoints(this IEndpointRouteBuilder app)
+    {
+        var group = app.MapGroup("/api/v1/public");
+
+        group.MapGet("/qr/{qrToken}", GetPublicQrMenuAsync).AllowAnonymous();
+
+        return app;
+    }
+
+    private static async Task<IResult> GetPublicQrMenuAsync(
+        string qrToken,
+        IBranchTableService branchTableService,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var menu = await branchTableService.GetPublicMenuByQrTokenAsync(qrToken, cancellationToken);
+            return menu is null ? ApiProblemResponses.NotFound("QR menu was not found. Check that the QR code is active and belongs to an active table.") : Results.Ok(menu);
+        }
+        catch (Exception ex)
+        when (ex is PostgresException)
+        {
+            var postgresException = (PostgresException)ex;
+            loggerFactory.CreateLogger(nameof(PublicQrEndpoints)).LogWarning(postgresException, "Database failed while reading public menu for QR token.");
+            return SqlProblemMapper.ToProblem(postgresException);
+        }
+    }
+}
