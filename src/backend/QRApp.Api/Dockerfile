@@ -7,7 +7,7 @@ COPY src/backend/QRApp.Application/QRApp.Application.csproj src/backend/QRApp.Ap
 COPY src/backend/QRApp.Domain/QRApp.Domain.csproj src/backend/QRApp.Domain/
 COPY src/backend/QRApp.Infrastructure/QRApp.Infrastructure.csproj src/backend/QRApp.Infrastructure/
 COPY src/backend/QRApp.Shared/QRApp.Shared.csproj src/backend/QRApp.Shared/
-RUN dotnet restore QRApp.sln
+RUN dotnet restore src/backend/QRApp.Api/QRApp.Api.csproj
 
 COPY . .
 RUN dotnet publish src/backend/QRApp.Api/QRApp.Api.csproj -c Release -o /app/publish --no-restore
