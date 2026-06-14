@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Net.Http.Headers;
@@ -47,9 +48,26 @@ public sealed class CloudinaryImageUploadService(HttpClient httpClient, IOptions
         using var fileContent = new StreamContent(stream);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
 
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        var signedParameters = new SortedDictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["folder"] = folder,
+            ["timestamp"] = timestamp
+        };
+
+        if (!string.IsNullOrWhiteSpace(uploadPreset))
+        {
+            signedParameters["upload_preset"] = uploadPreset;
+        }
+
+        var signature = CreateSignature(signedParameters, options.ApiSecret);
+
         using var content = new MultipartFormDataContent
         {
-            { new StringContent(folder), "folder" }
+            { new StringContent(folder), "folder" },
+            { new StringContent(timestamp), "timestamp" },
+            { new StringContent(options.ApiKey), "api_key" },
+            { new StringContent(signature), "signature" }
         };
 
         if (!string.IsNullOrWhiteSpace(uploadPreset))
@@ -63,9 +81,6 @@ public sealed class CloudinaryImageUploadService(HttpClient httpClient, IOptions
         {
             Content = content
         };
-        request.Headers.Authorization = new AuthenticationHeaderValue(
-            "Basic",
-            Convert.ToBase64String(Encoding.ASCII.GetBytes($"{options.ApiKey}:{options.ApiSecret}")));
 
         using var response = await httpClient.SendAsync(request, cancellationToken);
         var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -106,6 +121,13 @@ public sealed class CloudinaryImageUploadService(HttpClient httpClient, IOptions
         }
 
         return null;
+    }
+
+    private static string CreateSignature(SortedDictionary<string, string> parameters, string apiSecret)
+    {
+        var payload = string.Join("&", parameters.Select(parameter => $"{parameter.Key}={parameter.Value}")) + apiSecret;
+        var hash = SHA1.HashData(Encoding.UTF8.GetBytes(payload));
+        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
     private static string CleanPurpose(string purpose)
