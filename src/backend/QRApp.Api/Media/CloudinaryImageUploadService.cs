@@ -19,9 +19,13 @@ public sealed class CloudinaryImageUploadService(HttpClient httpClient, IOptions
 
     public async Task<MediaUploadResult> UploadAsync(IFormFile file, string purpose, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(options.CloudName) ||
-            string.IsNullOrWhiteSpace(options.ApiKey) ||
-            string.IsNullOrWhiteSpace(options.ApiSecret))
+        var cloudName = options.CloudName.Trim();
+        var apiKey = options.ApiKey.Trim();
+        var apiSecret = options.ApiSecret.Trim();
+
+        if (string.IsNullOrWhiteSpace(cloudName) ||
+            string.IsNullOrWhiteSpace(apiKey) ||
+            string.IsNullOrWhiteSpace(apiSecret))
         {
             return new MediaUploadResult(false, null, null, "Cloudinary is not configured.");
         }
@@ -60,24 +64,22 @@ public sealed class CloudinaryImageUploadService(HttpClient httpClient, IOptions
             signedParameters["upload_preset"] = uploadPreset;
         }
 
-        var signature = CreateSignature(signedParameters, options.ApiSecret);
+        var signature = CreateSignature(signedParameters, apiSecret);
 
-        using var content = new MultipartFormDataContent
-        {
-            { new StringContent(folder), "folder" },
-            { new StringContent(timestamp), "timestamp" },
-            { new StringContent(options.ApiKey), "api_key" },
-            { new StringContent(signature), "signature" }
-        };
+        using var content = new MultipartFormDataContent();
+        content.Add(new StringContent(folder, Encoding.UTF8), "folder");
+        content.Add(new StringContent(timestamp, Encoding.UTF8), "timestamp");
+        content.Add(new StringContent(apiKey, Encoding.UTF8), "api_key");
+        content.Add(new StringContent(signature, Encoding.UTF8), "signature");
 
         if (!string.IsNullOrWhiteSpace(uploadPreset))
         {
-            content.Add(new StringContent(uploadPreset), "upload_preset");
+            content.Add(new StringContent(uploadPreset, Encoding.UTF8), "upload_preset");
         }
 
         content.Add(fileContent, "file", file.FileName);
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, $"https://api.cloudinary.com/v1_1/{options.CloudName}/image/upload")
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"https://api.cloudinary.com/v1_1/{cloudName}/image/upload")
         {
             Content = content
         };
