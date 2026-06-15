@@ -324,8 +324,9 @@ DECLARE
     ctx record;
     customer_id uuid;
     subtotal numeric;
-    offer record;
     billing record;
+    offer_id uuid;
+    offer_title varchar;
     discount numeric := 0;
     taxable numeric := 0;
     tax numeric := 0;
@@ -369,42 +370,43 @@ BEGIN
     LEFT JOIN "BranchBillingSettings" bs ON bs."TenantId"=b."TenantId" AND bs."BranchId"=b."BranchId"
     WHERE b."TenantId"=ctx."TenantId" AND b."BranchId"=ctx."BranchId";
 
-    SELECT bo.*,
-           round(LEAST(
-               subtotal,
-               GREATEST(
-                   0,
-                   CASE
-                       WHEN bo."MaxDiscountAmount" IS NOT NULL THEN LEAST(
-                           CASE bo."DiscountTypeCode"
+    SELECT selected_offer."BranchOfferId", selected_offer."Title", selected_offer.computed_discount
+    INTO offer_id, offer_title, discount
+    FROM (
+        SELECT bo.*,
+               round(LEAST(
+                   subtotal,
+                   GREATEST(
+                       0,
+                       CASE
+                           WHEN bo."MaxDiscountAmount" IS NOT NULL THEN LEAST(
+                               CASE bo."DiscountTypeCode"
+                                   WHEN 'Percentage' THEN round(subtotal * bo."DiscountValue" / 100,2)
+                                   ELSE round(bo."DiscountValue",2)
+                               END,
+                               bo."MaxDiscountAmount"
+                           )
+                           ELSE CASE bo."DiscountTypeCode"
                                WHEN 'Percentage' THEN round(subtotal * bo."DiscountValue" / 100,2)
                                ELSE round(bo."DiscountValue",2)
-                           END,
-                           bo."MaxDiscountAmount"
-                       )
-                       ELSE CASE bo."DiscountTypeCode"
-                           WHEN 'Percentage' THEN round(subtotal * bo."DiscountValue" / 100,2)
-                           ELSE round(bo."DiscountValue",2)
+                           END
                        END
-                   END
-               )
-           ),2) AS computed_discount
-    INTO offer
-    FROM "BranchOffers" bo
-    WHERE bo."TenantId"=ctx."TenantId"
-      AND bo."BranchId"=ctx."BranchId"
-      AND bo."IsActive"
-      AND bo."AutoApply"
-      AND bo."DiscountTypeCode" <> 'DisplayOnly'
-      AND bo."DiscountValue" > 0
-      AND subtotal >= bo."MinimumOrderAmount"
-      AND (bo."StartsAtUtc" IS NULL OR bo."StartsAtUtc" <= public.app_now())
-      AND (bo."EndsAtUtc" IS NULL OR bo."EndsAtUtc" >= public.app_now())
-    ORDER BY computed_discount DESC, bo."DisplayOrder", bo."Title"
-    LIMIT 1;
-    IF offer."BranchOfferId" IS NOT NULL THEN
-        discount := offer.computed_discount;
-    END IF;
+                   )
+               ),2) AS computed_discount
+        FROM "BranchOffers" bo
+        WHERE bo."TenantId"=ctx."TenantId"
+          AND bo."BranchId"=ctx."BranchId"
+          AND bo."IsActive"
+          AND bo."AutoApply"
+          AND bo."DiscountTypeCode" <> 'DisplayOnly'
+          AND bo."DiscountValue" > 0
+          AND subtotal >= bo."MinimumOrderAmount"
+          AND (bo."StartsAtUtc" IS NULL OR bo."StartsAtUtc" <= public.app_now())
+          AND (bo."EndsAtUtc" IS NULL OR bo."EndsAtUtc" >= public.app_now())
+        ORDER BY computed_discount DESC, bo."DisplayOrder", bo."Title"
+        LIMIT 1
+    ) selected_offer;
+    discount := COALESCE(discount,0);
 
     taxable := round(GREATEST(subtotal - discount,0),2);
     IF billing."TaxEnabled" AND billing."TaxRate" > 0 THEN
@@ -421,7 +423,7 @@ BEGIN
     payable_total := round(total_before_rounding + rounding_amount,2);
 
     INSERT INTO "Orders" ("OrderId","TenantId","BranchId","TableId","CustomerId","CustomerName","CustomerWhatsApp","Notes","SubtotalAmount","AppliedBranchOfferId","AppliedOfferTitle","AppliedOfferDiscountAmount","TotalAmount")
-    VALUES (p_orderid,ctx."TenantId",ctx."BranchId",ctx."TableId",customer_id,p_customername,p_customerwhatsapp,p_notes,subtotal,offer."BranchOfferId",offer."Title",discount,payable_total);
+    VALUES (p_orderid,ctx."TenantId",ctx."BranchId",ctx."TableId",customer_id,p_customername,p_customerwhatsapp,p_notes,subtotal,offer_id,offer_title,discount,payable_total);
     INSERT INTO "OrderItems" ("OrderItemId","TenantId","BranchId","OrderId","MenuItemId","MenuItemVariantId","MenuItemName","VariantName","ItemNote","UnitPrice","Quantity","LineTotal")
     SELECT "OrderItemId",ctx."TenantId",ctx."BranchId",p_orderid,"MenuItemId","MenuItemVariantId","MenuItemName","VariantName","ItemNote","UnitPrice","Quantity","UnitPrice"*"Quantity" FROM tmp_order_items;
     INSERT INTO "OrderStatusHistory" ("OrderStatusHistoryId","TenantId","BranchId","OrderId","StatusCode") VALUES (gen_random_uuid(),ctx."TenantId",ctx."BranchId",p_orderid,'Placed');

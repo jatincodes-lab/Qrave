@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using QRApp.Api.Auth;
+using QRApp.Api.Database;
 using QRApp.Api.Endpoints;
 using QRApp.Api.Errors;
 using QRApp.Api.Hubs;
@@ -116,6 +117,8 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+
+await app.ApplyDatabaseStartupPatchesAsync();
 
 app.Use(async (context, next) =>
 {
