@@ -29,7 +29,7 @@ public static class AdminMediaEndpoints
             hasApiSecret = !string.IsNullOrWhiteSpace(value.ApiSecret),
             uploadFolder = value.UploadFolder,
             uploadPreset = value.UploadPreset,
-            signedUploadVersion = "2026-06-15.2"
+            signedUploadVersion = "2026-06-15.3"
         });
     }
 

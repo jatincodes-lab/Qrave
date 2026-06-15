@@ -67,17 +67,17 @@ public sealed class CloudinaryImageUploadService(HttpClient httpClient, IOptions
         var signature = CreateSignature(signedParameters, apiSecret);
 
         using var content = new MultipartFormDataContent();
-        content.Add(new StringContent(folder, Encoding.UTF8), "folder");
-        content.Add(new StringContent(timestamp, Encoding.UTF8), "timestamp");
-        content.Add(new StringContent(apiKey, Encoding.UTF8), "api_key");
-        content.Add(new StringContent(signature, Encoding.UTF8), "signature");
+        AddFormField(content, "folder", folder);
+        AddFormField(content, "timestamp", timestamp);
+        AddFormField(content, "api_key", apiKey);
+        AddFormField(content, "signature", signature);
 
         if (!string.IsNullOrWhiteSpace(uploadPreset))
         {
-            content.Add(new StringContent(uploadPreset, Encoding.UTF8), "upload_preset");
+            AddFormField(content, "upload_preset", uploadPreset);
         }
 
-        content.Add(fileContent, "file", file.FileName);
+        AddFile(content, fileContent, "file", file.FileName);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, $"https://api.cloudinary.com/v1_1/{cloudName}/image/upload")
         {
@@ -131,6 +131,28 @@ public sealed class CloudinaryImageUploadService(HttpClient httpClient, IOptions
         var hash = SHA1.HashData(Encoding.UTF8.GetBytes(payload));
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
+
+    private static void AddFormField(MultipartFormDataContent content, string name, string value)
+    {
+        var field = new StringContent(value, Encoding.UTF8);
+        field.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data")
+        {
+            Name = Quote(name)
+        };
+        content.Add(field);
+    }
+
+    private static void AddFile(MultipartFormDataContent content, HttpContent fileContent, string name, string fileName)
+    {
+        fileContent.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data")
+        {
+            Name = Quote(name),
+            FileName = Quote(fileName)
+        };
+        content.Add(fileContent);
+    }
+
+    private static string Quote(string value) => $"\"{value.Replace("\"", "\\\"")}\"";
 
     private static string CleanPurpose(string purpose)
     {
