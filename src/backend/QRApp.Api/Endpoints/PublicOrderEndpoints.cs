@@ -63,7 +63,7 @@ public static class PublicOrderEndpoints
             loggerFactory.CreateLogger(nameof(PublicOrderEndpoints)).LogWarning(postgresException, "Database rejected public QR order creation.");
             return Results.Problem(
                 title: "Database diagnostic",
-                detail: $"{postgresException.SqlState}: {postgresException.MessageText}",
+                detail: $"{postgresException.SqlState}: {postgresException.MessageText}; where={postgresException.Where}; routine={postgresException.Routine}",
                 statusCode: StatusCodes.Status500InternalServerError);
         }
         catch (Exception ex)
