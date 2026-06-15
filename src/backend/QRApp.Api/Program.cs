@@ -188,6 +188,7 @@ app.MapGet("/health", () =>
     {
         //status = "Healthy",
         service = "QRApp.Api",
+        apiVersion = "2026-06-15.order-fix.1",
         utc = DateTimeOffset.UtcNow
     });
 });
