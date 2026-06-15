@@ -28,7 +28,8 @@ public static class AdminMediaEndpoints
             apiKeySuffix = value.ApiKey.Length >= 4 ? value.ApiKey[^4..] : value.ApiKey,
             hasApiSecret = !string.IsNullOrWhiteSpace(value.ApiSecret),
             uploadFolder = value.UploadFolder,
-            uploadPreset = value.UploadPreset
+            uploadPreset = value.UploadPreset,
+            signedUploadVersion = "2026-06-15.1"
         });
     }
 
