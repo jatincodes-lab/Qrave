@@ -311,11 +311,11 @@ CREATE OR REPLACE FUNCTION public.publicoffers_getbyqrtoken(p_qrtoken text) RETU
 -- Orders
 CREATE OR REPLACE FUNCTION public.publicorder_select(p_orderid uuid)
 RETURNS TABLE("OrderId" uuid,"TenantId" uuid,"BranchId" uuid,"TableId" uuid,"OrderStatusCode" varchar,"CustomerName" varchar,"CustomerWhatsApp" varchar,"Notes" varchar,"SubtotalAmount" numeric,"TotalAmount" numeric,"AppliedBranchOfferId" uuid,"AppliedOfferTitle" varchar,"AppliedOfferDiscountAmount" numeric,"CreatedAtUtc" timestamptz,"UpdatedAtUtc" timestamptz)
-LANGUAGE sql STABLE AS $$ SELECT "OrderId","TenantId","BranchId","TableId","OrderStatusCode","CustomerName","CustomerWhatsApp","Notes","SubtotalAmount","TotalAmount","AppliedBranchOfferId","AppliedOfferTitle","AppliedOfferDiscountAmount","CreatedAtUtc","UpdatedAtUtc" FROM "Orders" WHERE "OrderId"=p_orderid; $$;
+LANGUAGE sql STABLE AS $$ SELECT o."OrderId",o."TenantId",o."BranchId",o."TableId",o."OrderStatusCode",o."CustomerName",o."CustomerWhatsApp",o."Notes",o."SubtotalAmount",o."TotalAmount",o."AppliedBranchOfferId",o."AppliedOfferTitle",o."AppliedOfferDiscountAmount",o."CreatedAtUtc",o."UpdatedAtUtc" FROM "Orders" o WHERE o."OrderId"=p_orderid; $$;
 
 CREATE OR REPLACE FUNCTION public.publicorder_getitemsbyorder(p_orderid uuid)
 RETURNS TABLE("OrderItemId" uuid,"OrderId" uuid,"MenuItemId" uuid,"MenuItemVariantId" uuid,"MenuItemName" varchar,"VariantName" varchar,"ItemNote" varchar,"UnitPrice" numeric,"Quantity" integer,"LineTotal" numeric)
-LANGUAGE sql STABLE AS $$ SELECT "OrderItemId","OrderId","MenuItemId","MenuItemVariantId","MenuItemName","VariantName","ItemNote","UnitPrice","Quantity","LineTotal" FROM "OrderItems" WHERE "OrderId"=p_orderid ORDER BY "RowId"; $$;
+LANGUAGE sql STABLE AS $$ SELECT oi."OrderItemId",oi."OrderId",oi."MenuItemId",oi."MenuItemVariantId",oi."MenuItemName",oi."VariantName",oi."ItemNote",oi."UnitPrice",oi."Quantity",oi."LineTotal" FROM "OrderItems" oi WHERE oi."OrderId"=p_orderid ORDER BY oi."RowId"; $$;
 
 CREATE OR REPLACE FUNCTION public.publicorder_createfromqrtoken(p_qrtoken text,p_orderid uuid,p_customername text,p_customerwhatsapp text,p_notes text,p_itemsjson text,p_marketingconsent boolean,p_marketingconsentsource text)
 RETURNS TABLE("OrderId" uuid,"TenantId" uuid,"BranchId" uuid,"TableId" uuid,"OrderStatusCode" varchar,"CustomerName" varchar,"CustomerWhatsApp" varchar,"Notes" varchar,"SubtotalAmount" numeric,"TotalAmount" numeric,"AppliedBranchOfferId" uuid,"AppliedOfferTitle" varchar,"AppliedOfferDiscountAmount" numeric,"CreatedAtUtc" timestamptz,"UpdatedAtUtc" timestamptz)

@@ -22,13 +22,21 @@ public static class DatabaseStartupPatches
         await using var connection = new NpgsqlConnection(builder.ConnectionString);
         await connection.OpenAsync();
 
-        await using var command = new NpgsqlCommand(PublicOrderCreateFromQrTokenSql, connection);
+        await using var command = new NpgsqlCommand(PublicOrderSql, connection);
         await command.ExecuteNonQueryAsync();
 
         logger.LogInformation("Applied database startup patches.");
     }
 
-    private const string PublicOrderCreateFromQrTokenSql = """
+    private const string PublicOrderSql = """
+CREATE OR REPLACE FUNCTION public.publicorder_select(p_orderid uuid)
+RETURNS TABLE("OrderId" uuid,"TenantId" uuid,"BranchId" uuid,"TableId" uuid,"OrderStatusCode" varchar,"CustomerName" varchar,"CustomerWhatsApp" varchar,"Notes" varchar,"SubtotalAmount" numeric,"TotalAmount" numeric,"AppliedBranchOfferId" uuid,"AppliedOfferTitle" varchar,"AppliedOfferDiscountAmount" numeric,"CreatedAtUtc" timestamptz,"UpdatedAtUtc" timestamptz)
+LANGUAGE sql STABLE AS $$ SELECT o."OrderId",o."TenantId",o."BranchId",o."TableId",o."OrderStatusCode",o."CustomerName",o."CustomerWhatsApp",o."Notes",o."SubtotalAmount",o."TotalAmount",o."AppliedBranchOfferId",o."AppliedOfferTitle",o."AppliedOfferDiscountAmount",o."CreatedAtUtc",o."UpdatedAtUtc" FROM "Orders" o WHERE o."OrderId"=p_orderid; $$;
+
+CREATE OR REPLACE FUNCTION public.publicorder_getitemsbyorder(p_orderid uuid)
+RETURNS TABLE("OrderItemId" uuid,"OrderId" uuid,"MenuItemId" uuid,"MenuItemVariantId" uuid,"MenuItemName" varchar,"VariantName" varchar,"ItemNote" varchar,"UnitPrice" numeric,"Quantity" integer,"LineTotal" numeric)
+LANGUAGE sql STABLE AS $$ SELECT oi."OrderItemId",oi."OrderId",oi."MenuItemId",oi."MenuItemVariantId",oi."MenuItemName",oi."VariantName",oi."ItemNote",oi."UnitPrice",oi."Quantity",oi."LineTotal" FROM "OrderItems" oi WHERE oi."OrderId"=p_orderid ORDER BY oi."RowId"; $$;
+
 CREATE OR REPLACE FUNCTION public.publicorder_createfromqrtoken(p_qrtoken text,p_orderid uuid,p_customername text,p_customerwhatsapp text,p_notes text,p_itemsjson text,p_marketingconsent boolean,p_marketingconsentsource text)
 RETURNS TABLE("OrderId" uuid,"TenantId" uuid,"BranchId" uuid,"TableId" uuid,"OrderStatusCode" varchar,"CustomerName" varchar,"CustomerWhatsApp" varchar,"Notes" varchar,"SubtotalAmount" numeric,"TotalAmount" numeric,"AppliedBranchOfferId" uuid,"AppliedOfferTitle" varchar,"AppliedOfferDiscountAmount" numeric,"CreatedAtUtc" timestamptz,"UpdatedAtUtc" timestamptz)
 LANGUAGE plpgsql AS $$
