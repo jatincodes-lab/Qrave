@@ -659,7 +659,7 @@ function BillDialog({
 
   return (
     <Dialog>
-      <DialogContent className="max-h-[calc(100vh-1rem)] max-w-5xl overflow-hidden bg-surface-container-lowest p-0 sm:max-h-[92vh]">
+      <DialogContent className="flex max-h-[calc(100vh-1rem)] max-w-5xl flex-col overflow-hidden bg-surface-container-lowest p-0 sm:max-h-[92vh]">
         <div className="flex items-start justify-between gap-4 border-b border-outline-variant/50 bg-white px-4 py-4 sm:px-5">
           <DialogHeader className="min-w-0">
             <DialogTitle className="flex items-center gap-2 text-primary">
@@ -680,8 +680,8 @@ function BillDialog({
             <PageLoading />
           </div>
         ) : (
-          <div>
-            <div className="grid max-h-[72vh] gap-0 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_24rem]">
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="scrollbar-hidden grid min-h-0 flex-1 gap-0 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_24rem]">
               <section className="space-y-4 p-4 sm:p-5">
                 <div className="grid gap-3 sm:grid-cols-3">
                   <BillMetric label="Subtotal" value={formatMoney(state.order.subtotalAmount)} />
@@ -840,7 +840,7 @@ function BillDialog({
               </aside>
             </div>
 
-            <div className="grid gap-2 border-t border-outline-variant/50 bg-white px-4 py-4 sm:flex sm:flex-row sm:items-center sm:justify-end sm:px-5">
+            <div className="grid shrink-0 gap-2 border-t border-outline-variant/50 bg-white px-4 py-4 sm:flex sm:flex-row sm:items-center sm:justify-end sm:px-5">
               <Button type="button" variant="outline" onClick={onClose} className="w-full sm:w-auto">
                 Close
               </Button>
