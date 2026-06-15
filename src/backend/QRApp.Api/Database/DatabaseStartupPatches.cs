@@ -74,7 +74,7 @@ BEGIN
     IF NULLIF(btrim(p_customerwhatsapp),'') IS NOT NULL THEN
         INSERT INTO "Customers" ("CustomerId","TenantId","BranchId","Name","WhatsAppNumber","VisitCount","LastVisitAtUtc","MarketingConsent","MarketingConsentSource","MarketingConsentAtUtc")
         VALUES (gen_random_uuid(),ctx."TenantId",ctx."BranchId",COALESCE(NULLIF(p_customername,''),'Guest'),p_customerwhatsapp,1,public.app_now(),p_marketingconsent,p_marketingconsentsource,CASE WHEN p_marketingconsent THEN public.app_now() END)
-        ON CONFLICT ("TenantId","BranchId","WhatsAppNumber") DO UPDATE SET "Name"=COALESCE(NULLIF(EXCLUDED."Name",''),"Customers"."Name"),"VisitCount"="Customers"."VisitCount"+1,"LastVisitAtUtc"=public.app_now(),"MarketingConsent"=("Customers"."MarketingConsent" OR EXCLUDED."MarketingConsent"),"UpdatedAtUtc"=public.app_now()
+        ON CONFLICT ON CONSTRAINT "UQ_Customers_TenantId_BranchId_WhatsAppNumber" DO UPDATE SET "Name"=COALESCE(NULLIF(EXCLUDED."Name",''),"Customers"."Name"),"VisitCount"="Customers"."VisitCount"+1,"LastVisitAtUtc"=public.app_now(),"MarketingConsent"=("Customers"."MarketingConsent" OR EXCLUDED."MarketingConsent"),"UpdatedAtUtc"=public.app_now()
         RETURNING "CustomerId" INTO customer_id;
     END IF;
 
