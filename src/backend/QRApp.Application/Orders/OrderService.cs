@@ -12,11 +12,12 @@ public sealed class OrderService(IOrderRepository repository) : IOrderService
 
     public async Task<OperationResult<PublicOrderResponse>> CreateFromQrTokenAsync(
         string qrToken,
+        Guid qrSessionId,
         CreatePublicQrOrderRequest request,
         CancellationToken cancellationToken)
     {
         var cleanToken = TextRules.CleanRequired(qrToken);
-        var errors = Validate(cleanToken, request);
+        var errors = Validate(cleanToken, qrSessionId, request);
         if (errors.Count > 0)
         {
             return OperationResult<PublicOrderResponse>.Failed(errors.ToArray());
@@ -33,7 +34,7 @@ public sealed class OrderService(IOrderRepository repository) : IOrderService
                 .ToArray(),
             request.MarketingConsent);
 
-        var order = await repository.CreateFromQrTokenAsync(cleanToken, Guid.NewGuid(), cleaned, cancellationToken);
+        var order = await repository.CreateFromQrTokenAsync(cleanToken, qrSessionId, Guid.NewGuid(), cleaned, cancellationToken);
         return OperationResult<PublicOrderResponse>.Success(order);
     }
 
@@ -64,13 +65,18 @@ public sealed class OrderService(IOrderRepository repository) : IOrderService
         return OperationResult<PublicOrderResponse>.Success(order);
     }
 
-    private static List<ValidationFailure> Validate(string qrToken, CreatePublicQrOrderRequest request)
+    private static List<ValidationFailure> Validate(string qrToken, Guid qrSessionId, CreatePublicQrOrderRequest request)
     {
         var errors = new List<ValidationFailure>();
 
         if (qrToken.Length is < MinQrTokenLength or > MaxQrTokenLength)
         {
             errors.Add(new ValidationFailure("QrToken", "QR token is invalid."));
+        }
+
+        if (qrSessionId == Guid.Empty)
+        {
+            errors.Add(new ValidationFailure("QrSessionId", "Scan the table QR code again before placing an order."));
         }
 
         if (CleanOptional(request.CustomerName)?.Length > 120)

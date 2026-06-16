@@ -295,6 +295,15 @@ export type PublicQrMenu = {
   offers: PublicQrMenuOffer[];
 };
 
+export type PublicQrSession = {
+  qrSessionId: string;
+  branchId: string;
+  tableId: string;
+  startedAtUtc: string;
+  expiresAtUtc: string;
+  isExpired: boolean;
+};
+
 export type CreatePublicQrOrderItemInput = {
   menuItemId: string;
   menuItemVariantId: string | null;
@@ -803,10 +812,20 @@ export async function getPublicQrMenu(qrToken: string): Promise<PublicQrMenu> {
   });
 }
 
-export async function createPublicQrOrder(qrToken: string, input: CreatePublicQrOrderInput): Promise<PublicQrOrder> {
+export async function createPublicQrSession(qrToken: string): Promise<PublicQrSession> {
+  return request<PublicQrSession>(`/api/v1/public/qr/${encodeURIComponent(qrToken)}/sessions`, {
+    method: "POST",
+    requireAuth: false
+  });
+}
+
+export async function createPublicQrOrder(qrToken: string, qrSessionId: string, input: CreatePublicQrOrderInput): Promise<PublicQrOrder> {
   return request<PublicQrOrder>(`/api/v1/public/qr/${encodeURIComponent(qrToken)}/orders`, {
     method: "POST",
     body: input,
+    headers: {
+      "X-QR-Session-Id": qrSessionId
+    },
     requireAuth: false
   });
 }
@@ -842,10 +861,13 @@ export async function lookupPublicCustomer(qrToken: string, whatsapp: string): P
   return customer ?? null;
 }
 
-export async function createWaiterCall(qrToken: string, input: CreateWaiterCallInput): Promise<WaiterCall> {
+export async function createWaiterCall(qrToken: string, qrSessionId: string, input: CreateWaiterCallInput): Promise<WaiterCall> {
   return request<WaiterCall>(`/api/v1/public/qr/${encodeURIComponent(qrToken)}/waiter-calls`, {
     method: "POST",
     body: input,
+    headers: {
+      "X-QR-Session-Id": qrSessionId
+    },
     requireAuth: false
   });
 }
@@ -1348,6 +1370,7 @@ async function request<T>(
   options: {
     method: "GET" | "POST" | "PUT" | "DELETE";
     body?: unknown;
+    headers?: Record<string, string>;
     requireAuth: boolean;
   }
 ): Promise<T> {
@@ -1357,6 +1380,10 @@ async function request<T>(
   if (options.body !== undefined) {
     headers.set("Content-Type", "application/json");
   }
+
+  Object.entries(options.headers ?? {}).forEach(([key, value]) => {
+    headers.set(key, value);
+  });
 
   if (options.requireAuth) {
     const token = getAccessToken();

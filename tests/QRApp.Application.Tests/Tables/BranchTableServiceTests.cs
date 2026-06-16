@@ -143,6 +143,16 @@ public sealed class BranchTableServiceTests
             return Task.FromResult(new BranchTableResponse(tableId, tenantId, branchId, "Table 1", 0, qrToken, true, DateTime.UtcNow, null));
         }
 
+        public Task<PublicQrSessionResponse?> CreatePublicQrSessionAsync(
+            string qrToken,
+            Guid qrSessionId,
+            int ttlMinutes,
+            CancellationToken cancellationToken)
+        {
+            PublicQrToken = qrToken;
+            return Task.FromResult<PublicQrSessionResponse?>(new PublicQrSessionResponse(qrSessionId, Guid.NewGuid(), Guid.NewGuid(), DateTime.UtcNow, DateTime.UtcNow.AddMinutes(ttlMinutes), false));
+        }
+
         public Task<IReadOnlyCollection<PublicQrMenuRecord>> GetPublicMenuByQrTokenAsync(
             string qrToken,
             CancellationToken cancellationToken)

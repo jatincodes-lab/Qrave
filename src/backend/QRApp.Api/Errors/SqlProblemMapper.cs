@@ -66,6 +66,7 @@ internal static class SqlProblemMapper
             51802 => Conflict("Waiter call is disabled for this branch."),
             51803 => ApiProblemResponses.BadRequest("Waiter call status is invalid."),
             51804 => ApiProblemResponses.NotFound("Waiter call was not found for this tenant and branch."),
+            52001 => Conflict("This table session has expired. Please scan the QR code at your table again."),
             51901 => ApiProblemResponses.BadRequest("Plan code is invalid."),
             51902 => ApiProblemResponses.BadRequest("Subscription status is invalid."),
             51903 => ApiProblemResponses.BadRequest("Account status is invalid."),

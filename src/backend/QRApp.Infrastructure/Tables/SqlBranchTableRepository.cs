@@ -139,6 +139,27 @@ public sealed class SqlBranchTableRepository(INpgsqlConnectionFactory connection
         throw new DataException("BranchTable_RegenerateQrToken did not return a table row.");
     }
 
+    public async Task<PublicQrSessionResponse?> CreatePublicQrSessionAsync(
+        string qrToken,
+        Guid qrSessionId,
+        int ttlMinutes,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = (NpgsqlConnection)connectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand(StoredProcedures.QrVisitSessionCreate, connection)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+
+        command.AddString("@QrToken", qrToken, 80);
+        command.AddGuid("@QrSessionId", qrSessionId);
+        command.Parameters.AddWithValue("@TtlMinutes", ttlMinutes);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken) ? ReadPublicQrSession(reader) : null;
+    }
+
     public async Task<IReadOnlyCollection<PublicQrMenuRecord>> GetPublicMenuByQrTokenAsync(
         string qrToken,
         CancellationToken cancellationToken)
@@ -209,6 +230,17 @@ public sealed class SqlBranchTableRepository(INpgsqlConnectionFactory connection
             GetNullableString(reader, "ImageUrl"),
             GetNullableString(reader, "ImageAltText"),
             GetNullableString(reader, "VariantsJson"));
+    }
+
+    private static PublicQrSessionResponse ReadPublicQrSession(NpgsqlDataReader reader)
+    {
+        return new PublicQrSessionResponse(
+            reader.GetGuid(reader.GetOrdinal("QrSessionId")),
+            reader.GetGuid(reader.GetOrdinal("BranchId")),
+            reader.GetGuid(reader.GetOrdinal("TableId")),
+            reader.GetDateTime(reader.GetOrdinal("StartedAtUtc")),
+            reader.GetDateTime(reader.GetOrdinal("ExpiresAtUtc")),
+            reader.GetBoolean(reader.GetOrdinal("IsExpired")));
     }
 
     private static Guid? GetNullableGuid(NpgsqlDataReader reader, string name)

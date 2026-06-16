@@ -13,6 +13,7 @@ public sealed class OrderServiceTests
 
         var result = await service.CreateFromQrTokenAsync(
             " token-123456789012 ",
+            Guid.NewGuid(),
             new CreatePublicQrOrderRequest(
                 " Priya ",
                 " 9876543210 ",
@@ -40,6 +41,7 @@ public sealed class OrderServiceTests
 
         var result = await service.CreateFromQrTokenAsync(
             "short",
+            Guid.NewGuid(),
             new CreatePublicQrOrderRequest(null, null, null, [new CreatePublicQrOrderItemRequest(Guid.NewGuid(), 1)]),
             CancellationToken.None);
 
@@ -54,6 +56,7 @@ public sealed class OrderServiceTests
 
         var result = await service.CreateFromQrTokenAsync(
             "token-123456789012",
+            Guid.NewGuid(),
             new CreatePublicQrOrderRequest(null, null, null, []),
             CancellationToken.None);
 
@@ -68,6 +71,7 @@ public sealed class OrderServiceTests
 
         var result = await service.CreateFromQrTokenAsync(
             "token-123456789012",
+            Guid.NewGuid(),
             new CreatePublicQrOrderRequest(null, null, null, [new CreatePublicQrOrderItemRequest(Guid.NewGuid(), 100)]),
             CancellationToken.None);
 
@@ -104,15 +108,18 @@ public sealed class OrderServiceTests
     private sealed class FakeOrderRepository : IOrderRepository
     {
         public string? QrToken { get; private set; }
+        public Guid QrSessionId { get; private set; }
         public CreatePublicQrOrderRequest? Request { get; private set; }
 
         public Task<PublicOrderResponse> CreateFromQrTokenAsync(
             string qrToken,
+            Guid qrSessionId,
             Guid orderId,
             CreatePublicQrOrderRequest request,
             CancellationToken cancellationToken)
         {
             QrToken = qrToken;
+            QrSessionId = qrSessionId;
             Request = request;
 
             return Task.FromResult(new PublicOrderResponse(

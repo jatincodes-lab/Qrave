@@ -44,6 +44,7 @@ internal static class StoredProcedures
     public const string BranchTableGetListByBranch = "public.branchtable_getlistbybranch";
     public const string BranchTableDeactivate = "public.branchtable_deactivate";
     public const string BranchTableRegenerateQrToken = "public.branchtable_regenerateqrtoken";
+    public const string QrVisitSessionCreate = "public.qrvisitsession_create";
     public const string PublicMenuGetByQrToken = "public.publicmenu_getbyqrtoken";
 
     public const string PublicOrderCreateFromQrToken = "public.publicorder_createfromqrtoken";

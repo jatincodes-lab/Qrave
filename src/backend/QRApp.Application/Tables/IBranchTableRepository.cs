@@ -32,6 +32,12 @@ public interface IBranchTableRepository
         string qrToken,
         CancellationToken cancellationToken);
 
+    Task<PublicQrSessionResponse?> CreatePublicQrSessionAsync(
+        string qrToken,
+        Guid qrSessionId,
+        int ttlMinutes,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyCollection<PublicQrMenuRecord>> GetPublicMenuByQrTokenAsync(
         string qrToken,
         CancellationToken cancellationToken);

@@ -11,6 +11,7 @@ public sealed class BranchTableService(IBranchTableRepository repository, IBranc
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private const int MinQrTokenLength = 8;
     private const int MaxQrTokenLength = 80;
+    private const int QrSessionTtlMinutes = 240;
 
     public async Task<OperationResult<BranchTableResponse>> CreateAsync(
         Guid tenantId,
@@ -82,6 +83,14 @@ public sealed class BranchTableService(IBranchTableRepository repository, IBranc
         CancellationToken cancellationToken)
     {
         return repository.RegenerateQrTokenAsync(tenantId, branchId, tableId, CreateQrToken(), cancellationToken);
+    }
+
+    public Task<PublicQrSessionResponse?> CreatePublicQrSessionAsync(string qrToken, CancellationToken cancellationToken)
+    {
+        var cleanToken = TextRules.CleanRequired(qrToken);
+        return cleanToken.Length is < MinQrTokenLength or > MaxQrTokenLength
+            ? Task.FromResult<PublicQrSessionResponse?>(null)
+            : repository.CreatePublicQrSessionAsync(cleanToken, Guid.NewGuid(), QrSessionTtlMinutes, cancellationToken);
     }
 
     public async Task<PublicQrMenuResponse?> GetPublicMenuByQrTokenAsync(string qrToken, CancellationToken cancellationToken)

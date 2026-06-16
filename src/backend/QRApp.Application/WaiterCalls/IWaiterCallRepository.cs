@@ -4,6 +4,7 @@ public interface IWaiterCallRepository
 {
     Task<WaiterCallResponse> CreateFromQrTokenAsync(
         string qrToken,
+        Guid qrSessionId,
         Guid waiterCallId,
         CreateWaiterCallRequest request,
         CancellationToken cancellationToken);

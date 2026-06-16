@@ -24,6 +24,7 @@ import { useToast } from "../../../components/ui/toast";
 import {
   ApiError,
   createWaiterCall,
+  createPublicQrSession,
   createPublicQrOrder,
   getPublicQrMenu,
   lookupPublicCustomer,
@@ -35,7 +36,8 @@ import {
   type PublicQrMenuCategory,
   type PublicQrMenuItem,
   type PublicQrMenuOffer,
-  type PublicQrOrder
+  type PublicQrOrder,
+  type PublicQrSession
 } from "../../../lib/api";
 import { firstInvalid, validateOptionalText, validatePhone, validateRequired } from "../../../lib/validation";
 
@@ -64,6 +66,23 @@ type StoredCartLine = {
   itemNote: string;
   quantity: number;
 };
+
+type QrSessionState =
+  | {
+      kind: "loading";
+    }
+  | {
+      kind: "active";
+      session: PublicQrSession;
+    }
+  | {
+      kind: "expired";
+      expiresAtUtc: string | null;
+    }
+  | {
+      kind: "unavailable";
+      message: string;
+    };
 
 type CartEstimate = {
   subtotalAmount: number;
@@ -130,6 +149,8 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
   const [isCustomerLookupLoading, setIsCustomerLookupLoading] = useState(false);
   const [lastLookupWhatsApp, setLastLookupWhatsApp] = useState("");
   const [notes, setNotes] = useState("");
+  const [qrSessionState, setQrSessionState] = useState<QrSessionState>({ kind: "loading" });
+  const [sessionTick, setSessionTick] = useState(0);
   const [isDraftRestored, setIsDraftRestored] = useState(false);
   const [activeView, setActiveView] = useState<ActiveView>("menu");
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
@@ -145,8 +166,10 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
   const cartCount = cartLines.reduce((total, line) => total + line.quantity, 0);
   const cartTotal = cartLines.reduce((total, line) => total + getCartLinePrice(line) * line.quantity, 0);
   const cartEstimate = useMemo(() => calculateCartEstimate(cartTotal, currentMenu.billingSettings, currentMenu.offers ?? []), [cartTotal, currentMenu.billingSettings, currentMenu.offers]);
-  const canOrder = currentMenu.orderSettings.enableDirectQrOrdering;
-  const canCallWaiter = currentMenu.orderSettings.waiterCallEnabled;
+  const activeQrSession = qrSessionState.kind === "active" && isQrSessionActive(qrSessionState.session, sessionTick) ? qrSessionState.session : null;
+  const hasExpiredQrSession = qrSessionState.kind === "expired" || (qrSessionState.kind === "active" && !activeQrSession);
+  const canOrder = currentMenu.orderSettings.enableDirectQrOrdering && Boolean(activeQrSession);
+  const canCallWaiter = currentMenu.orderSettings.waiterCallEnabled && Boolean(activeQrSession);
   const itemCount = categories.reduce((total, category) => total + category.items.length, 0);
   const menuItemById = useMemo(() => {
     const lookup = new Map<string, PublicQrMenuItem>();
@@ -179,6 +202,60 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
 
     return () => window.clearInterval(timer);
   }, [currentMenu.qrToken]);
+
+  useEffect(() => {
+    const storedSession = readQrVisitSession(currentMenu.qrToken);
+    if (storedSession) {
+      if (isQrSessionActive(storedSession, 0)) {
+        setQrSessionState({ kind: "active", session: storedSession });
+        return;
+      }
+
+      setQrSessionState({ kind: "expired", expiresAtUtc: storedSession.expiresAtUtc });
+      return;
+    }
+
+    let isActive = true;
+    setQrSessionState({ kind: "loading" });
+
+    createPublicQrSession(currentMenu.qrToken)
+      .then((session) => {
+        if (!isActive) {
+          return;
+        }
+
+        writeQrVisitSession(currentMenu.qrToken, session);
+        setQrSessionState(isQrSessionActive(session, 0) ? { kind: "active", session } : { kind: "expired", expiresAtUtc: session.expiresAtUtc });
+      })
+      .catch((caught) => {
+        if (!isActive) {
+          return;
+        }
+
+        setQrSessionState({
+          kind: "unavailable",
+          message: caught instanceof ApiError ? caught.message : "Table session could not be started. Please scan the QR code again."
+        });
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [currentMenu.qrToken]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setSessionTick((current) => current + 1);
+    }, 30_000);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (qrSessionState.kind === "active" && !isQrSessionActive(qrSessionState.session, sessionTick)) {
+      setQrSessionState({ kind: "expired", expiresAtUtc: qrSessionState.session.expiresAtUtc });
+    }
+  }, [qrSessionState, sessionTick]);
 
   useEffect(() => {
     if (isDraftRestored) {
@@ -399,7 +476,11 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
   }
 
   async function submitOrder() {
-    if (!canOrder || cartLines.length === 0 || submitState.kind === "submitting") {
+    const qrSession = activeQrSession;
+    if (!canOrder || !qrSession || cartLines.length === 0 || submitState.kind === "submitting") {
+      if (!activeQrSession && currentMenu.orderSettings.enableDirectQrOrdering) {
+        toastError("This table session has expired. Please scan the QR code at your table again to order.");
+      }
       return;
     }
 
@@ -433,7 +514,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
     setSubmitState({ kind: "submitting" });
 
     try {
-      const order = await createPublicQrOrder(currentMenu.qrToken, input);
+      const order = await createPublicQrOrder(currentMenu.qrToken, qrSession.qrSessionId, input);
       clearQrMenuDraft(currentMenu.qrToken);
       setCart({});
       setNotes("");
@@ -469,7 +550,11 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
   }
 
   async function submitWaiterCall() {
-    if (!canCallWaiter || waiterCallState.kind === "submitting") {
+    const qrSession = activeQrSession;
+    if (!canCallWaiter || !qrSession || waiterCallState.kind === "submitting") {
+      if (!activeQrSession && currentMenu.orderSettings.waiterCallEnabled) {
+        toastError("This table session has expired. Please scan the QR code at your table again to call waiter.");
+      }
       return;
     }
 
@@ -482,7 +567,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
     setWaiterCallState({ kind: "submitting" });
 
     try {
-      await createWaiterCall(currentMenu.qrToken, {
+      await createWaiterCall(currentMenu.qrToken, qrSession.qrSessionId, {
         customerName: valueOrNull(customerName),
         note: valueOrNull(waiterCallNote)
       });
@@ -547,7 +632,9 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
       ) : (
         <>
           {flyingItem ? <FlyingCartItem key={flyingItem.key} item={flyingItem.item} /> : null}
-          {!canOrder ? <OrderingUnavailableNotice /> : null}
+          {hasExpiredQrSession ? <QrSessionExpiredNotice /> : null}
+          {qrSessionState.kind === "unavailable" ? <QrSessionUnavailableNotice message={qrSessionState.message} /> : null}
+          {!currentMenu.orderSettings.enableDirectQrOrdering ? <OrderingUnavailableNotice /> : null}
 
           <MenuHero
             categories={categories}
@@ -625,6 +712,22 @@ function OrderingUnavailableNotice() {
   return (
     <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold leading-5 text-amber-950">
       Ordering is paused for this table. You can still browse the menu.
+    </div>
+  );
+}
+
+function QrSessionExpiredNotice() {
+  return (
+    <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold leading-5 text-amber-950">
+      This table session has expired. Please scan the QR code at your table again before ordering or calling waiter.
+    </div>
+  );
+}
+
+function QrSessionUnavailableNotice({ message }: { message: string }) {
+  return (
+    <div className="border-b border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold leading-5 text-red-950">
+      {message}
     </div>
   );
 }
@@ -1865,6 +1968,77 @@ function roundMoney(value: number): number {
 
 function getQrMenuDraftKey(qrToken: string): string {
   return `qrave:qr-menu-draft:${qrToken}`;
+}
+
+function getQrVisitSessionKey(qrToken: string): string {
+  return `qrave:qr-visit-session:${qrToken}`;
+}
+
+function readQrVisitSession(qrToken: string): PublicQrSession | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const storageKey = getQrVisitSessionKey(qrToken);
+
+  try {
+    const rawSession = window.localStorage.getItem(storageKey);
+    if (!rawSession) {
+      return null;
+    }
+
+    const parsed: unknown = JSON.parse(rawSession);
+    if (!isStoredQrVisitSession(parsed)) {
+      window.localStorage.removeItem(storageKey);
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    try {
+      window.localStorage.removeItem(storageKey);
+    } catch {
+      // Ignore local storage failures in restricted browsers.
+    }
+    return null;
+  }
+}
+
+function writeQrVisitSession(qrToken: string, session: PublicQrSession) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(getQrVisitSessionKey(qrToken), JSON.stringify(session));
+  } catch {
+    // Ordering will still be blocked by the backend if the session cannot be persisted.
+  }
+}
+
+function isStoredQrVisitSession(value: unknown): value is PublicQrSession {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const session = value as Partial<PublicQrSession>;
+  return (
+    typeof session.qrSessionId === "string" &&
+    typeof session.branchId === "string" &&
+    typeof session.tableId === "string" &&
+    typeof session.startedAtUtc === "string" &&
+    typeof session.expiresAtUtc === "string" &&
+    typeof session.isExpired === "boolean"
+  );
+}
+
+function isQrSessionActive(session: PublicQrSession, _tick: number): boolean {
+  if (session.isExpired) {
+    return false;
+  }
+
+  const expiresAt = Date.parse(session.expiresAtUtc);
+  return Number.isFinite(expiresAt) && expiresAt > Date.now();
 }
 
 function readQrMenuDraft(qrToken: string): StoredQrMenuDraft | null {

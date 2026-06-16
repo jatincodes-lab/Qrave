@@ -4,6 +4,7 @@ public interface IOrderRepository
 {
     Task<PublicOrderResponse> CreateFromQrTokenAsync(
         string qrToken,
+        Guid qrSessionId,
         Guid orderId,
         CreatePublicQrOrderRequest request,
         CancellationToken cancellationToken);

@@ -11,6 +11,7 @@ public static class PublicQrEndpoints
         var group = app.MapGroup("/api/v1/public");
 
         group.MapGet("/qr/{qrToken}", GetPublicQrMenuAsync).AllowAnonymous();
+        group.MapPost("/qr/{qrToken}/sessions", CreatePublicQrSessionAsync).AllowAnonymous();
 
         return app;
     }
@@ -31,6 +32,28 @@ public static class PublicQrEndpoints
         {
             var postgresException = (PostgresException)ex;
             loggerFactory.CreateLogger(nameof(PublicQrEndpoints)).LogWarning(postgresException, "Database failed while reading public menu for QR token.");
+            return SqlProblemMapper.ToProblem(postgresException);
+        }
+    }
+
+    private static async Task<IResult> CreatePublicQrSessionAsync(
+        string qrToken,
+        IBranchTableService branchTableService,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var session = await branchTableService.CreatePublicQrSessionAsync(qrToken, cancellationToken);
+            return session is null
+                ? ApiProblemResponses.NotFound("QR menu was not found. Check that the QR code is active and belongs to an active table.")
+                : Results.Created($"/api/v1/public/qr/{qrToken}/sessions/{session.QrSessionId}", session);
+        }
+        catch (Exception ex)
+        when (ex is PostgresException)
+        {
+            var postgresException = (PostgresException)ex;
+            loggerFactory.CreateLogger(nameof(PublicQrEndpoints)).LogWarning(postgresException, "Database failed while creating public QR session.");
             return SqlProblemMapper.ToProblem(postgresException);
         }
     }

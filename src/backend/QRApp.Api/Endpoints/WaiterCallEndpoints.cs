@@ -24,6 +24,7 @@ public static class WaiterCallEndpoints
     private static async Task<IResult> CreateAsync(
         string qrToken,
         CreateWaiterCallRequest request,
+        HttpContext httpContext,
         IWaiterCallService service,
         IAdminNotificationService notificationService,
         IAdminOrderRealtimeNotifier realtimeNotifier,
@@ -32,7 +33,7 @@ public static class WaiterCallEndpoints
     {
         try
         {
-            var result = await service.CreateFromQrTokenAsync(qrToken, request, cancellationToken);
+            var result = await service.CreateFromQrTokenAsync(qrToken, ReadQrSessionId(httpContext), request, cancellationToken);
             if (!result.IsSuccess)
             {
                 return ApiProblemResponses.Validation(result.Errors);
@@ -71,6 +72,13 @@ public static class WaiterCallEndpoints
             loggerFactory.CreateLogger(nameof(WaiterCallEndpoints)).LogError(ex, "Failed to create waiter call.");
             return ApiProblemResponses.ServerError("Waiter call could not be created.");
         }
+    }
+
+    private static Guid ReadQrSessionId(HttpContext httpContext)
+    {
+        return Guid.TryParse(httpContext.Request.Headers["X-QR-Session-Id"].FirstOrDefault(), out var qrSessionId)
+            ? qrSessionId
+            : Guid.Empty;
     }
 
     private static async Task<IResult> GetListAsync(

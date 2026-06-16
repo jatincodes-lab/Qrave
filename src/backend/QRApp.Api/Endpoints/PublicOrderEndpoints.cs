@@ -21,6 +21,7 @@ public static class PublicOrderEndpoints
     private static async Task<IResult> CreateOrderAsync(
         string qrToken,
         CreatePublicQrOrderRequest request,
+        HttpContext httpContext,
         IOrderService orderService,
         IAdminNotificationService notificationService,
         IAdminOrderRealtimeNotifier realtimeNotifier,
@@ -29,7 +30,7 @@ public static class PublicOrderEndpoints
     {
         try
         {
-            var result = await orderService.CreateFromQrTokenAsync(qrToken, request, cancellationToken);
+            var result = await orderService.CreateFromQrTokenAsync(qrToken, ReadQrSessionId(httpContext), request, cancellationToken);
             if (!result.IsSuccess)
             {
                 return ApiProblemResponses.Validation(result.Errors);
@@ -101,5 +102,12 @@ public static class PublicOrderEndpoints
     private static string ShortId(Guid id)
     {
         return id.ToString("N")[^6..].ToUpperInvariant();
+    }
+
+    private static Guid ReadQrSessionId(HttpContext httpContext)
+    {
+        return Guid.TryParse(httpContext.Request.Headers["X-QR-Session-Id"].FirstOrDefault(), out var qrSessionId)
+            ? qrSessionId
+            : Guid.Empty;
     }
 }

@@ -12,6 +12,7 @@ public sealed class WaiterCallServiceTests
 
         var result = await service.CreateFromQrTokenAsync(
             " demo-table-1 ",
+            Guid.NewGuid(),
             new CreateWaiterCallRequest(" Priya ", " Need water "),
             CancellationToken.None);
 
@@ -29,6 +30,7 @@ public sealed class WaiterCallServiceTests
 
         var result = await service.CreateFromQrTokenAsync(
             "short",
+            Guid.NewGuid(),
             new CreateWaiterCallRequest(null, null),
             CancellationToken.None);
 
@@ -43,6 +45,7 @@ public sealed class WaiterCallServiceTests
 
         var result = await service.CreateFromQrTokenAsync(
             "demo-table-1",
+            Guid.NewGuid(),
             new CreateWaiterCallRequest(null, new string('x', 501)),
             CancellationToken.None);
 
@@ -87,16 +90,19 @@ public sealed class WaiterCallServiceTests
     private sealed class FakeWaiterCallRepository : IWaiterCallRepository
     {
         public string? QrToken { get; private set; }
+        public Guid QrSessionId { get; private set; }
         public CreateWaiterCallRequest? CreateRequest { get; private set; }
         public string? StatusCode { get; private set; }
 
         public Task<WaiterCallResponse> CreateFromQrTokenAsync(
             string qrToken,
+            Guid qrSessionId,
             Guid waiterCallId,
             CreateWaiterCallRequest request,
             CancellationToken cancellationToken)
         {
             QrToken = qrToken;
+            QrSessionId = qrSessionId;
             CreateRequest = request;
 
             return Task.FromResult(NewResponse(waiterCallId, "Open", request.CustomerName, request.Note));

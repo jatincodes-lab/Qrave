@@ -12,6 +12,7 @@ public sealed class SqlOrderRepository(INpgsqlConnectionFactory connectionFactor
 
     public async Task<PublicOrderResponse> CreateFromQrTokenAsync(
         string qrToken,
+        Guid qrSessionId,
         Guid orderId,
         CreatePublicQrOrderRequest request,
         CancellationToken cancellationToken)
@@ -24,6 +25,7 @@ public sealed class SqlOrderRepository(INpgsqlConnectionFactory connectionFactor
         };
 
         command.AddString("@QrToken", qrToken, 80);
+        command.AddGuid("@QrSessionId", qrSessionId);
         command.AddGuid("@OrderId", orderId);
         command.AddString("@CustomerName", request.CustomerName, 120);
         command.AddString("@CustomerWhatsApp", request.CustomerWhatsApp, 32);

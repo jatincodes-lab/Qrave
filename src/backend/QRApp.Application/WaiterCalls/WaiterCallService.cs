@@ -18,11 +18,12 @@ public sealed class WaiterCallService(IWaiterCallRepository repository) : IWaite
 
     public async Task<OperationResult<WaiterCallResponse>> CreateFromQrTokenAsync(
         string qrToken,
+        Guid qrSessionId,
         CreateWaiterCallRequest request,
         CancellationToken cancellationToken)
     {
         var cleanToken = TextRules.CleanRequired(qrToken);
-        var errors = ValidateCreate(cleanToken, request);
+        var errors = ValidateCreate(cleanToken, qrSessionId, request);
         if (errors.Count > 0)
         {
             return OperationResult<WaiterCallResponse>.Failed(errors.ToArray());
@@ -32,7 +33,7 @@ public sealed class WaiterCallService(IWaiterCallRepository repository) : IWaite
             CleanOptional(request.CustomerName),
             CleanOptional(request.Note));
 
-        var call = await repository.CreateFromQrTokenAsync(cleanToken, Guid.NewGuid(), cleaned, cancellationToken);
+        var call = await repository.CreateFromQrTokenAsync(cleanToken, qrSessionId, Guid.NewGuid(), cleaned, cancellationToken);
         return OperationResult<WaiterCallResponse>.Success(call);
     }
 
@@ -64,13 +65,18 @@ public sealed class WaiterCallService(IWaiterCallRepository repository) : IWaite
         return OperationResult<WaiterCallResponse>.Success(call);
     }
 
-    private static List<ValidationFailure> ValidateCreate(string qrToken, CreateWaiterCallRequest request)
+    private static List<ValidationFailure> ValidateCreate(string qrToken, Guid qrSessionId, CreateWaiterCallRequest request)
     {
         var errors = new List<ValidationFailure>();
 
         if (qrToken.Length is < MinQrTokenLength or > MaxQrTokenLength)
         {
             errors.Add(new ValidationFailure("QrToken", "QR token is invalid."));
+        }
+
+        if (qrSessionId == Guid.Empty)
+        {
+            errors.Add(new ValidationFailure("QrSessionId", "Scan the table QR code again before calling waiter."));
         }
 
         if (CleanOptional(request.CustomerName)?.Length > 120)

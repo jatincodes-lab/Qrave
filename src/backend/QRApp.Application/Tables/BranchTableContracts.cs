@@ -17,6 +17,14 @@ public sealed record BranchTableResponse(
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc);
 
+public sealed record PublicQrSessionResponse(
+    Guid QrSessionId,
+    Guid BranchId,
+    Guid TableId,
+    DateTime StartedAtUtc,
+    DateTime ExpiresAtUtc,
+    bool IsExpired);
+
 public sealed record PublicQrOrderSettingsResponse(
     bool EnableDirectQrOrdering,
     bool RequireCustomerName,

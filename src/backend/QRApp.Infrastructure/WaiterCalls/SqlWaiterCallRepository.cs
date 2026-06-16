@@ -9,6 +9,7 @@ public sealed class SqlWaiterCallRepository(INpgsqlConnectionFactory connectionF
 {
     public async Task<WaiterCallResponse> CreateFromQrTokenAsync(
         string qrToken,
+        Guid qrSessionId,
         Guid waiterCallId,
         CreateWaiterCallRequest request,
         CancellationToken cancellationToken)
@@ -21,6 +22,7 @@ public sealed class SqlWaiterCallRepository(INpgsqlConnectionFactory connectionF
         };
 
         command.AddString("@QrToken", qrToken, 80);
+        command.AddGuid("@QrSessionId", qrSessionId);
         command.AddGuid("@WaiterCallId", waiterCallId);
         command.AddString("@CustomerName", request.CustomerName, 120);
         command.AddString("@Note", request.Note, 500);

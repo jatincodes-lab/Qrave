@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { ScrollToTop } from "../components/scroll-to-top";
 import { ToastProvider } from "../components/ui/toast";
 import "./globals.css";
 
@@ -27,6 +29,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
+        <Suspense fallback={null}>
+          <ScrollToTop />
+        </Suspense>
         <ToastProvider>{children}</ToastProvider>
       </body>
     </html>

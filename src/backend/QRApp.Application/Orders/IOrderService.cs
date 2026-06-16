@@ -6,6 +6,7 @@ public interface IOrderService
 {
     Task<OperationResult<PublicOrderResponse>> CreateFromQrTokenAsync(
         string qrToken,
+        Guid qrSessionId,
         CreatePublicQrOrderRequest request,
         CancellationToken cancellationToken);
 

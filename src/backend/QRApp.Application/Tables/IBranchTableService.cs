@@ -31,5 +31,7 @@ public interface IBranchTableService
         Guid tableId,
         CancellationToken cancellationToken);
 
+    Task<PublicQrSessionResponse?> CreatePublicQrSessionAsync(string qrToken, CancellationToken cancellationToken);
+
     Task<PublicQrMenuResponse?> GetPublicMenuByQrTokenAsync(string qrToken, CancellationToken cancellationToken);
 }
