@@ -61,6 +61,8 @@ type CartEstimate = {
 };
 
 type ActiveView = "menu" | "cart" | "customerOrders";
+type DietQuickFilter = "all" | "veg" | "nonveg";
+type MenuSortCode = "recommended" | "priceAsc" | "priceDesc" | "nameAsc" | "imageFirst";
 
 type SubmitState =
   | {
@@ -97,9 +99,11 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
   const { toastError, toastSuccess } = useToast();
   const [currentMenu, setCurrentMenu] = useState(menu);
   const [search, setSearch] = useState("");
+  const [dietFilter, setDietFilter] = useState<DietQuickFilter>("all");
+  const [sortBy, setSortBy] = useState<MenuSortCode>("recommended");
   const categories = useMemo(
-    () => filterCategories(currentMenu.categories, search),
-    [currentMenu.categories, search]
+    () => filterCategories(currentMenu.categories, search, dietFilter, sortBy),
+    [currentMenu.categories, dietFilter, search, sortBy]
   );
   const [cart, setCart] = useState<Record<string, CartLine>>({});
   const [customerName, setCustomerName] = useState("");
@@ -482,12 +486,16 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
           <MenuHero
             cartCount={cartCount}
             categories={categories}
+            dietFilter={dietFilter}
             itemCount={itemCount}
             menu={currentMenu}
             search={search}
+            sortBy={sortBy}
             onCartOpen={() => setActiveView("cart")}
             onCategoryOpen={() => setIsCategoryOpen(true)}
+            onDietFilterChange={setDietFilter}
             onSearchChange={setSearch}
+            onSortChange={setSortBy}
           />
 
           {canCallWaiter ? (
@@ -643,21 +651,29 @@ function MenuEmptyState({ canOrder, search }: { canOrder: boolean; search?: stri
 function MenuHero({
   cartCount,
   categories,
+  dietFilter,
   itemCount,
   menu,
   onCartOpen,
   onCategoryOpen,
+  onDietFilterChange,
   onSearchChange,
-  search
+  onSortChange,
+  search,
+  sortBy
 }: {
   cartCount: number;
   categories: PublicQrMenuCategory[];
+  dietFilter: DietQuickFilter;
   itemCount: number;
   menu: PublicQrMenu;
   onCartOpen: () => void;
   onCategoryOpen: () => void;
+  onDietFilterChange: (value: DietQuickFilter) => void;
   onSearchChange: (value: string) => void;
+  onSortChange: (value: MenuSortCode) => void;
   search: string;
+  sortBy: MenuSortCode;
 }) {
   const availableCategories = categories.filter((category) => category.items.length > 0);
   const featured = availableCategories.map((category) => ({ category, item: category.items[0] })).slice(0, 3);
@@ -739,6 +755,47 @@ function MenuHero({
         )}
       </div>
 
+      <div className="mb-5 grid grid-cols-[minmax(0,0.85fr)_minmax(0,1.65fr)] gap-2">
+        <div className="grid grid-cols-2 overflow-hidden rounded-full border border-[#d9e4df] bg-white p-1 shadow-sm">
+          <button
+            type="button"
+            onClick={() => onDietFilterChange(dietFilter === "veg" ? "all" : "veg")}
+            className={`h-10 rounded-full px-2 text-xs font-black uppercase tracking-normal transition-colors ${
+              dietFilter === "veg" ? "bg-[#83fba5] text-[#00210c]" : "text-[#466155]"
+            }`}
+            aria-pressed={dietFilter === "veg"}
+          >
+            Veg
+          </button>
+          <button
+            type="button"
+            onClick={() => onDietFilterChange(dietFilter === "nonveg" ? "all" : "nonveg")}
+            className={`h-10 rounded-full px-2 text-xs font-black uppercase tracking-normal transition-colors ${
+              dietFilter === "nonveg" ? "bg-[#ffd9b5] text-[#4d2500]" : "text-[#466155]"
+            }`}
+            aria-pressed={dietFilter === "nonveg"}
+          >
+            Non-veg
+          </button>
+        </div>
+
+        <label className="flex h-12 min-w-0 items-center gap-2 rounded-full border border-[#d9e4df] bg-white px-3 shadow-sm">
+          <SlidersHorizontal className="h-4 w-4 shrink-0 text-[#466155]" aria-hidden="true" />
+          <select
+            value={sortBy}
+            onChange={(event) => onSortChange(event.target.value as MenuSortCode)}
+            className="min-w-0 flex-1 bg-transparent text-sm font-black text-[#001c11] outline-none"
+            aria-label="Sort menu"
+          >
+            <option value="recommended">Recommended</option>
+            <option value="priceAsc">Price: low to high</option>
+            <option value="priceDesc">Price: high to low</option>
+            <option value="nameAsc">Name: A to Z</option>
+            <option value="imageFirst">Photos first</option>
+          </select>
+        </label>
+      </div>
+
       <div
         className="relative min-h-[320px] overflow-hidden rounded-[28px] bg-[#0f3224] text-white shadow-soft-saas"
         onTouchStart={(event) => setTouchStartX(event.touches[0]?.clientX ?? null)}
@@ -778,25 +835,24 @@ function MenuHero({
         ) : null}
       </div>
 
-      <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-        {availableCategories.map((category, index) => (
-          <a
-            key={category.menuCategoryId}
-            href={`#category-${category.menuCategoryId}`}
-            className={`shrink-0 rounded-full border px-5 py-2.5 text-sm font-bold ${
-              index === 0 ? "border-[#66dd8b] bg-[#83fba5] text-[#00210c]" : "border-[#d9e4df] bg-white text-[#414844]"
-            }`}
-          >
-            {category.name}
-          </a>
-        ))}
-      </div>
-
       {featured.length > 0 ? (
         <div className="mt-7">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-2xl font-black text-[#001c11]">Explore Menu</h3>
             <button type="button" onClick={onCategoryOpen} className="text-sm font-black text-[#006d36]">Full Gallery</button>
+          </div>
+          <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+            {availableCategories.map((category, index) => (
+              <a
+                key={category.menuCategoryId}
+                href={`#category-${category.menuCategoryId}`}
+                className={`shrink-0 rounded-full border px-5 py-2.5 text-sm font-bold ${
+                  index === 0 ? "border-[#66dd8b] bg-[#83fba5] text-[#00210c]" : "border-[#d9e4df] bg-white text-[#414844]"
+                }`}
+              >
+                {category.name}
+              </a>
+            ))}
           </div>
           <div className="grid grid-cols-2 gap-3">
             {featured.map(({ category, item }) => (
@@ -1724,29 +1780,66 @@ function formatOrderItemName(itemName: string, variantName: string | null): stri
   return variantName ? `${itemName} - ${variantName}` : itemName;
 }
 
-function filterCategories(categories: PublicQrMenuCategory[], search: string): PublicQrMenuCategory[] {
+function filterCategories(categories: PublicQrMenuCategory[], search: string, dietFilter: DietQuickFilter, sortBy: MenuSortCode): PublicQrMenuCategory[] {
   const sorted = [...categories].sort((left, right) => left.displayOrder - right.displayOrder);
   const query = search.trim().toLowerCase();
-
-  if (!query) {
-    return sorted.map((category) => ({
-      ...category,
-      items: [...category.items].sort((left, right) => left.displayOrder - right.displayOrder)
-    }));
-  }
 
   return sorted
     .map((category) => ({
       ...category,
       items: [...category.items]
-        .filter((item) =>
-          [item.name, item.description, category.name]
-            .filter(Boolean)
-            .some((value) => value!.toLowerCase().includes(query))
-        )
-        .sort((left, right) => left.displayOrder - right.displayOrder)
+        .filter((item) => matchesSearch(item, category.name, query))
+        .filter((item) => matchesDietFilter(item.dietTypeCode, dietFilter))
+        .sort((left, right) => compareMenuItems(left, right, sortBy))
     }))
     .filter((category) => category.items.length > 0);
+}
+
+function matchesSearch(item: PublicQrMenuItem, categoryName: string, query: string): boolean {
+  if (!query) {
+    return true;
+  }
+
+  return [item.name, item.description, categoryName]
+    .filter(Boolean)
+    .some((value) => value!.toLowerCase().includes(query));
+}
+
+function matchesDietFilter(dietTypeCode: DietTypeCode, filter: DietQuickFilter): boolean {
+  if (filter === "all") {
+    return true;
+  }
+
+  if (filter === "veg") {
+    return dietTypeCode === "Veg" || dietTypeCode === "Vegan" || dietTypeCode === "Jain";
+  }
+
+  return dietTypeCode === "NonVeg" || dietTypeCode === "Egg";
+}
+
+function compareMenuItems(left: PublicQrMenuItem, right: PublicQrMenuItem, sortBy: MenuSortCode): number {
+  if (sortBy === "priceAsc") {
+    return getMenuItemDisplayPrice(left) - getMenuItemDisplayPrice(right) || left.displayOrder - right.displayOrder || left.name.localeCompare(right.name);
+  }
+
+  if (sortBy === "priceDesc") {
+    return getMenuItemDisplayPrice(right) - getMenuItemDisplayPrice(left) || left.displayOrder - right.displayOrder || left.name.localeCompare(right.name);
+  }
+
+  if (sortBy === "nameAsc") {
+    return left.name.localeCompare(right.name) || left.displayOrder - right.displayOrder;
+  }
+
+  if (sortBy === "imageFirst") {
+    return Number(Boolean(right.imageUrl)) - Number(Boolean(left.imageUrl)) || left.displayOrder - right.displayOrder || left.name.localeCompare(right.name);
+  }
+
+  return left.displayOrder - right.displayOrder || left.name.localeCompare(right.name);
+}
+
+function getMenuItemDisplayPrice(item: PublicQrMenuItem): number {
+  const variants = item.variants ?? [];
+  return variants.length > 0 ? Math.min(...variants.map((variant) => variant.price)) : item.price;
 }
 
 function shortOrderCode(orderId: string): string {

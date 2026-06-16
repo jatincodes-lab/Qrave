@@ -120,8 +120,7 @@ export default function AdminDashboardPage() {
           <EmptyBranchState />
         ) : (
           <>
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <MetricCard icon={<Store size={20} />} label="Active branches" value={workspace.activeBranches.length.toString()} note="Tenant workspace" />
+            <section className="grid gap-4 md:grid-cols-3">
               <MetricCard icon={<ChefHat size={20} />} label="Menu items" value={isLoadingStats ? "..." : String(stats?.menuItems ?? 0)} note="Selected branch" />
               <MetricCard icon={<ClipboardList size={20} />} label="Open orders" value={isLoadingStats ? "..." : String(stats?.openOrders ?? 0)} note="Kitchen queue" />
               <MetricCard icon={<Users size={20} />} label="Waiter calls" value={isLoadingStats ? "..." : String(stats?.waiterCalls ?? 0)} note="Active requests" />

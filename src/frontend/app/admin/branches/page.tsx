@@ -3,7 +3,6 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
-  Building2,
   ChefHat,
   ClipboardList,
   MapPin,
@@ -198,12 +197,6 @@ export default function AdminBranchesPage() {
             </div>
           </header>
 
-          <section className="grid gap-4 md:grid-cols-3">
-            <Metric icon={<Building2 size={20} />} label="Active branches" value={activeBranches.length.toString()} />
-            <Metric icon={<Store size={20} />} label="Setup status" value={activeBranches.length > 0 ? "Ready" : "Pending"} />
-            <Metric icon={<ChefHat size={20} />} label="Next step" value="Menu setup" />
-          </section>
-
           <Card className="overflow-hidden border-outline-variant/30 bg-surface-container-lowest shadow-soft-saas">
             <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
               <div>
@@ -311,24 +304,6 @@ export default function AdminBranchesPage() {
         />
       ) : null}
     </AdminShell>
-  );
-}
-
-function Metric({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
-  return (
-    <Card className="rounded-xl border border-outline-variant/40 bg-white shadow-none">
-      <CardContent className="p-0">
-        <div className="flex min-h-[72px] items-center gap-4 px-5 py-4">
-          <div className="grid h-9 w-9 shrink-0 place-items-center text-primary">
-            {icon}
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-[11px] font-bold uppercase tracking-[0.08em] text-on-surface-variant">{label}</p>
-            <p className="mt-0.5 truncate text-[22px] font-semibold leading-none text-on-surface">{value}</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 
