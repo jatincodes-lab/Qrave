@@ -17,7 +17,10 @@ internal static class SqlProblemMapper
             PostgresErrorCodes.ForeignKeyViolation => ApiProblemResponses.BadRequest("The request violates a database relationship constraint."),
             PostgresErrorCodes.NotNullViolation => ApiProblemResponses.BadRequest("A required database value was missing."),
             PostgresErrorCodes.QueryCanceled => ServiceUnavailable("Database operation timed out."),
-            PostgresErrorCodes.UndefinedTable or PostgresErrorCodes.UndefinedFunction => ServiceUnavailable("Database schema is not up to date. Apply the latest database scripts and try again."),
+            PostgresErrorCodes.UndefinedTable
+                or PostgresErrorCodes.UndefinedColumn
+                or PostgresErrorCodes.UndefinedFunction
+                or "42P13" => ServiceUnavailable("Database schema is not up to date. Apply the latest database scripts and try again."),
             _ when exception.SqlState.StartsWith("08", StringComparison.Ordinal) => ServiceUnavailable("Database is not available or not configured correctly."),
             _ => ApiProblemResponses.ServerError("A database error occurred.")
         };
@@ -46,6 +49,7 @@ internal static class SqlProblemMapper
             51403 => ApiProblemResponses.NotFound("Menu category was not found for this tenant and branch."),
             51501 => ApiProblemResponses.NotFound("Active menu category was not found for this tenant and branch."),
             51503 => ApiProblemResponses.NotFound("Menu item was not found for this tenant and branch."),
+            51504 => ApiProblemResponses.BadRequest("Food type is invalid."),
             51601 => ApiProblemResponses.NotFound("Active branch was not found for this tenant."),
             51603 => ApiProblemResponses.NotFound("Table was not found for this tenant and branch."),
             51701 => ApiProblemResponses.NotFound("Active QR table was not found."),

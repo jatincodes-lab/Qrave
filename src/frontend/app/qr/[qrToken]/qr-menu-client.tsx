@@ -852,60 +852,64 @@ function MenuCategorySection({
           const displayPrice = hasVariants ? Math.min(...variants.map((variant) => variant.price)) : item.price;
 
           return (
-            <article key={item.menuItemId} className="grid min-h-[176px] grid-cols-[1fr_8.25rem] gap-4 rounded-xl border border-[#cfd8d3] bg-white p-4 shadow-sm">
+            <article key={item.menuItemId} className="grid min-h-[184px] grid-cols-[minmax(0,1fr)_7.75rem] gap-3 rounded-xl border border-[#d9e4df] bg-white p-3 shadow-sm">
               <div className="flex min-w-0 flex-col">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="line-clamp-2 break-words text-xl font-black leading-6 text-[#001c11]">{item.name}</h3>
-                  <DietTypePill dietTypeCode={item.dietTypeCode} />
+                <div className="min-w-0">
+                  <DietTypePill dietTypeCode={item.dietTypeCode} compact />
+                  <h3 className="mt-1 line-clamp-2 break-words text-[17px] font-black leading-6 text-[#001c11]">{item.name}</h3>
+                  <p className="mt-1 line-clamp-2 break-words text-[13px] font-semibold leading-5 text-[#5a625e]">{item.description || "Freshly prepared by the kitchen."}</p>
                 </div>
-                <p className="mt-2 line-clamp-3 break-words text-sm font-medium leading-5 text-[#5a625e]">{item.description || "Freshly prepared by the kitchen."}</p>
-                <p className="mt-3 whitespace-nowrap text-lg font-black text-[#006d36]">{hasVariants ? `From ${formatPrice(displayPrice)}` : formatPrice(displayPrice)}</p>
 
-                {canOrder ? (
-                  hasVariants ? (
-                    <button
-                      type="button"
-                      className="mt-auto inline-flex h-10 w-fit items-center justify-center gap-2 rounded-lg bg-[#83fba5] px-4 text-sm font-black uppercase tracking-normal text-[#00210c]"
-                      onClick={() => onChooseVariant(item, category.name)}
-                      aria-label={`Choose variant for ${item.name}`}
-                    >
-                      {quantity > 0 ? `${quantity} Added` : "Choose"}
-                    </button>
-                  ) : singleQuantity > 0 ? (
-                    <div className="mt-auto flex h-10 w-32 items-center justify-between overflow-hidden rounded-lg border border-[#cfe1d8] bg-[#f8f9fa]">
+                <div className="mt-auto flex min-h-12 items-end justify-between gap-3 pt-3">
+                  <p className="min-w-0 whitespace-nowrap text-base font-black text-[#006d36]">{hasVariants ? `From ${formatPrice(displayPrice)}` : formatPrice(displayPrice)}</p>
+                  {canOrder ? (
+                    hasVariants ? (
                       <button
                         type="button"
-                        className="grid h-10 w-10 place-items-center text-[#006d36]"
-                        onClick={() => onDecrement(singleCartLineId)}
-                        aria-label={`Remove one ${item.name}`}
+                        className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg bg-[#83fba5] px-3 text-xs font-black uppercase tracking-normal text-[#00210c]"
+                        onClick={() => onChooseVariant(item, category.name)}
+                        aria-label={`Choose variant for ${item.name}`}
                       >
-                        <Minus className="h-4 w-4" aria-hidden="true" />
+                        {quantity > 0 ? `${quantity} Added` : "Choose"}
                       </button>
-                      <span className="grid h-10 w-10 place-items-center text-sm font-black text-[#001c11]">{singleQuantity}</span>
+                    ) : singleQuantity > 0 ? (
+                      <div className="flex h-10 w-[7.25rem] shrink-0 items-center justify-between overflow-hidden rounded-lg border border-[#cfe1d8] bg-[#f8f9fa]">
+                        <button
+                          type="button"
+                          className="grid h-10 w-9 place-items-center text-[#006d36]"
+                          onClick={() => onDecrement(singleCartLineId)}
+                          aria-label={`Remove one ${item.name}`}
+                        >
+                          <Minus className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                        <span className="grid h-10 min-w-8 place-items-center text-sm font-black text-[#001c11]">{singleQuantity}</span>
+                        <button
+                          type="button"
+                          className="grid h-10 w-9 place-items-center text-[#006d36]"
+                          onClick={() => onAdd(item, category.name, null)}
+                          aria-label={`Add one ${item.name}`}
+                        >
+                          <Plus className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      </div>
+                    ) : (
                       <button
                         type="button"
-                        className="grid h-10 w-10 place-items-center text-[#006d36]"
+                        className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#83fba5] px-3 text-xs font-black uppercase tracking-normal text-[#00210c]"
                         onClick={() => onAdd(item, category.name, null)}
-                        aria-label={`Add one ${item.name}`}
+                        aria-label={`Add ${item.name}`}
                       >
                         <Plus className="h-4 w-4" aria-hidden="true" />
+                        Add
                       </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      className="mt-auto inline-flex h-10 w-fit items-center justify-center gap-2 rounded-lg bg-[#83fba5] px-4 text-sm font-black uppercase tracking-normal text-[#00210c]"
-                      onClick={() => onAdd(item, category.name, null)}
-                      aria-label={`Add ${item.name}`}
-                    >
-                      <Plus className="h-4 w-4" aria-hidden="true" />
-                      Add
-                    </button>
-                  )
-                ) : null}
+                    )
+                  ) : null}
+                </div>
               </div>
 
-              <FoodThumb imageAltText={item.imageAltText} imageUrl={item.imageUrl} name={item.name} />
+              <div className="h-full min-h-[160px]">
+                <FoodThumb imageAltText={item.imageAltText} imageUrl={item.imageUrl} name={item.name} />
+              </div>
             </article>
           );
         })}
