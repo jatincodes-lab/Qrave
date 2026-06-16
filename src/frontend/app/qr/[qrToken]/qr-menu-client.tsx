@@ -676,12 +676,12 @@ function MenuHero({
   sortBy: MenuSortCode;
 }) {
   const availableCategories = categories.filter((category) => category.items.length > 0);
-  const featured = availableCategories.map((category) => ({ category, item: category.items[0] })).slice(0, 3);
+  const categoryCards = availableCategories.map((category) => ({ category, item: category.items[0] }));
   const offers = (menu.offers ?? []).sort((left, right) => left.displayOrder - right.displayOrder);
   const [activeOfferIndex, setActiveOfferIndex] = useState(0);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const activeOffer = offers[activeOfferIndex] ?? null;
-  const fallbackFeature = featured[0]?.item ?? null;
+  const fallbackFeature = categoryCards[0]?.item ?? null;
   const heroImageUrl = activeOffer?.imageUrl ?? fallbackFeature?.imageUrl ?? null;
   const heroImageAlt = activeOffer?.imageAltText ?? activeOffer?.title ?? fallbackFeature?.imageAltText ?? fallbackFeature?.name ?? menu.branchName;
 
@@ -835,28 +835,15 @@ function MenuHero({
         ) : null}
       </div>
 
-      {featured.length > 0 ? (
+      {categoryCards.length > 0 ? (
         <div className="mt-7">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-2xl font-black text-[#001c11]">Explore Menu</h3>
             <button type="button" onClick={onCategoryOpen} className="text-sm font-black text-[#006d36]">Full Gallery</button>
           </div>
-          <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-            {availableCategories.map((category, index) => (
-              <a
-                key={category.menuCategoryId}
-                href={`#category-${category.menuCategoryId}`}
-                className={`shrink-0 rounded-full border px-5 py-2.5 text-sm font-bold ${
-                  index === 0 ? "border-[#66dd8b] bg-[#83fba5] text-[#00210c]" : "border-[#d9e4df] bg-white text-[#414844]"
-                }`}
-              >
-                {category.name}
-              </a>
-            ))}
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {featured.map(({ category, item }) => (
-              <a key={category.menuCategoryId} href={`#category-${category.menuCategoryId}`} className="relative min-h-[142px] overflow-hidden rounded-[26px] bg-[#0f3224] p-4 text-white shadow-sm">
+          <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2">
+            {categoryCards.map(({ category, item }) => (
+              <a key={category.menuCategoryId} href={`#category-${category.menuCategoryId}`} className="relative min-h-[142px] w-[10.5rem] shrink-0 snap-start overflow-hidden rounded-[24px] bg-[#0f3224] p-4 text-white shadow-sm">
                 {item.imageUrl ? <img src={item.imageUrl} alt={item.imageAltText ?? item.name} className="absolute inset-0 h-full w-full object-cover" /> : <FoodPosterFallback name={category.name} />}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                 <div className="relative flex h-full min-h-[110px] flex-col justify-end">
