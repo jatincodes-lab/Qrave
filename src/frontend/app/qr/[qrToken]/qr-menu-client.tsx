@@ -512,7 +512,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
             />
           ) : null}
 
-          <div className="flex-1 space-y-6 bg-[#f8f9fa] px-4 pb-28">
+          <div className="flex-1 space-y-8 bg-[#f4f7f6] px-4 pb-28">
             {itemCount > 0 ? (
               categories.map((category) => (
                 <MenuCategorySection
@@ -713,7 +713,7 @@ function MenuHero({
   }
 
   return (
-    <section className="bg-[#f8f9fa] px-4 pb-5 pt-5">
+    <section className="bg-[#f4f7f6] px-4 pb-5 pt-5">
       <div className="mb-5 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl bg-[#e7f8ee] text-[#006d36]">
@@ -754,7 +754,7 @@ function MenuHero({
         )}
       </div>
 
-      <div className="mb-5 grid grid-cols-[minmax(0,0.85fr)_minmax(0,1.65fr)] gap-2">
+      <div className="mb-5 grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.3fr)] gap-2">
         <div className="grid grid-cols-2 overflow-hidden rounded-full border border-[#d9e4df] bg-white p-1 shadow-sm">
           <button
             type="button"
@@ -787,7 +787,7 @@ function MenuHero({
           <select
             value={sortBy}
             onChange={(event) => onSortChange(event.target.value as MenuSortCode)}
-            className="min-w-0 flex-1 bg-transparent text-sm font-black text-[#001c11] outline-none"
+            className="min-w-0 flex-1 bg-transparent text-xs font-bold text-[#001c11] outline-none"
             aria-label="Sort menu"
           >
             <option value="recommended">Recommended</option>
@@ -890,8 +890,8 @@ function MenuCategorySection({
   return (
     <section id={`category-${category.menuCategoryId}`} className="scroll-mt-28">
       <div className="flex items-center justify-between pt-1">
-        <h2 className="text-2xl font-black text-[#001c11]">{category.name}</h2>
-        <p className="text-sm font-black text-[#006d36]">{items.length} items</p>
+        <h2 className="text-[24px] font-bold leading-[1.3] text-[#00261a]">{category.name}</h2>
+        <p className="text-xs font-bold uppercase tracking-normal text-[#0f3d2e]">{items.length} items</p>
       </div>
 
       <div className="mt-3 grid gap-4">
@@ -906,21 +906,23 @@ function MenuCategorySection({
           const displayPrice = hasVariants ? Math.min(...variants.map((variant) => variant.price)) : item.price;
 
           return (
-            <article key={item.menuItemId} className="grid min-h-[184px] grid-cols-[minmax(0,1fr)_7.75rem] gap-3 rounded-xl border border-[#d9e4df] bg-white p-3 shadow-sm">
+            <article key={item.menuItemId} className="grid min-h-[178px] grid-cols-[minmax(0,1fr)_7.25rem] gap-4 rounded-3xl border border-[#c0c8c3]/45 bg-white p-4 shadow-sm">
               <div className="flex min-w-0 flex-col">
                 <div className="min-w-0">
-                  <DietTypePill dietTypeCode={item.dietTypeCode} compact />
-                  <h3 className="mt-1 line-clamp-2 break-words text-[17px] font-black leading-6 text-[#001c11]">{item.name}</h3>
-                  <p className="mt-1 line-clamp-2 break-words text-[13px] font-semibold leading-5 text-[#5a625e]">{item.description || "Freshly prepared by the kitchen."}</p>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <MenuItemDietIcon dietTypeCode={item.dietTypeCode} />
+                    <h3 className="line-clamp-2 min-w-0 break-words text-[18px] font-bold leading-[1.35] text-[#1c1b1b]">{item.name}</h3>
+                  </div>
+                  <p className="mt-2 line-clamp-2 break-words text-sm font-normal leading-5 text-[#414944]">{item.description || "Freshly prepared by the kitchen."}</p>
                 </div>
 
                 <div className="mt-auto flex min-h-12 items-end justify-between gap-3 pt-3">
-                  <p className="min-w-0 whitespace-nowrap text-base font-black text-[#006d36]">{hasVariants ? `From ${formatPrice(displayPrice)}` : formatPrice(displayPrice)}</p>
+                  <p className="min-w-0 whitespace-nowrap text-[18px] font-bold leading-6 text-[#234f3f]">{hasVariants ? `From ${formatPrice(displayPrice)}` : formatPrice(displayPrice)}</p>
                   {canOrder ? (
                     hasVariants ? (
                       <button
                         type="button"
-                        className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg bg-[#83fba5] px-3 text-xs font-black uppercase tracking-normal text-[#00210c]"
+                        className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-[#beedd7] px-3 text-xs font-bold uppercase tracking-normal text-[#002116]"
                         onClick={() => onChooseVariant(item, category.name)}
                         aria-label={`Choose variant for ${item.name}`}
                       >
@@ -949,7 +951,7 @@ function MenuCategorySection({
                     ) : (
                       <button
                         type="button"
-                        className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#83fba5] px-3 text-xs font-black uppercase tracking-normal text-[#00210c]"
+                        className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#beedd7] px-3 text-xs font-bold uppercase tracking-normal text-[#002116]"
                         onClick={() => onAdd(item, category.name, null)}
                         aria-label={`Add ${item.name}`}
                       >
@@ -961,7 +963,7 @@ function MenuCategorySection({
                 </div>
               </div>
 
-              <div className="h-full min-h-[160px]">
+              <div className="h-full min-h-[146px]">
                 <FoodThumb imageAltText={item.imageAltText} imageUrl={item.imageUrl} name={item.name} />
               </div>
             </article>
@@ -1622,6 +1624,23 @@ function DietSymbol({ type }: { type: "veg" | "nonveg" }) {
   return (
     <span className="grid h-4 w-4 shrink-0 place-items-center rounded-[3px] border border-[#c94e20] bg-white" aria-hidden="true">
       <span className="h-0 w-0 border-x-[4px] border-b-[7px] border-x-transparent border-b-[#c94e20]" />
+    </span>
+  );
+}
+
+function MenuItemDietIcon({ dietTypeCode }: { dietTypeCode: DietTypeCode }) {
+  if (dietTypeCode === "Unspecified") {
+    return null;
+  }
+
+  const type = dietTypeCode === "NonVeg" || dietTypeCode === "Egg" ? "nonveg" : "veg";
+
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1" title={formatDietType(dietTypeCode)}>
+      <DietSymbol type={type} />
+      <span className={`text-[10px] font-bold uppercase tracking-normal ${type === "veg" ? "text-[#0f7a3f]" : "text-[#c94e20]"}`}>
+        {dietTypeCode === "NonVeg" ? "Non-veg" : formatDietType(dietTypeCode)}
+      </span>
     </span>
   );
 }
