@@ -217,7 +217,7 @@ BEGIN
     INSERT INTO "MenuItems" ("MenuItemId","TenantId","BranchId","MenuCategoryId","Name","Description","Price","DietTypeCode","IsAvailable","DisplayOrder","ImageUrl","ImageAltText")
     VALUES (p_menuitemid,p_tenantid,p_branchid,p_menucategoryid,p_name,p_description,p_price,COALESCE(NULLIF(p_diettypecode,''),'Unspecified'),p_isavailable,p_displayorder,p_imageurl,p_imagealttext);
     PERFORM public.menuitem_upsert_variants(p_tenantid,p_branchid,p_menuitemid,p_variantsjson);
-    RETURN QUERY SELECT * FROM public.menuitem_select(p_tenantid,p_branchid,p_menuitemid,true);
+    RETURN QUERY SELECT selected.* FROM public.menuitem_select(p_tenantid,p_branchid,p_menuitemid,true) selected;
 EXCEPTION WHEN unique_violation THEN PERFORM public.raise_app_error(51502);
 END;
 $$;
@@ -227,8 +227,9 @@ RETURNS TABLE("MenuItemId" uuid,"TenantId" uuid,"BranchId" uuid,"MenuCategoryId"
 LANGUAGE plpgsql AS $$
 BEGIN
     IF COALESCE(NULLIF(p_diettypecode,''),'Unspecified') NOT IN ('Unspecified','Veg','NonVeg','Vegan','Egg','Jain') THEN PERFORM public.raise_app_error(51504); END IF;
-    UPDATE "MenuItems" SET "MenuCategoryId"=p_menucategoryid,"Name"=p_name,"Description"=p_description,"Price"=p_price,"DietTypeCode"=COALESCE(NULLIF(p_diettypecode,''),'Unspecified'),"IsAvailable"=p_isavailable,"IsActive"=p_isactive,"DisplayOrder"=p_displayorder,"ImageUrl"=p_imageurl,"ImageAltText"=p_imagealttext,"UpdatedAtUtc"=public.app_now()
-    WHERE "TenantId"=p_tenantid AND "BranchId"=p_branchid AND "MenuItemId"=p_menuitemid;
+    IF NOT EXISTS (SELECT 1 FROM "MenuCategories" mc WHERE mc."TenantId"=p_tenantid AND mc."BranchId"=p_branchid AND mc."MenuCategoryId"=p_menucategoryid AND mc."IsActive") THEN PERFORM public.raise_app_error(51501); END IF;
+    UPDATE "MenuItems" mi SET "MenuCategoryId"=p_menucategoryid,"Name"=p_name,"Description"=p_description,"Price"=p_price,"DietTypeCode"=COALESCE(NULLIF(p_diettypecode,''),'Unspecified'),"IsAvailable"=p_isavailable,"IsActive"=p_isactive,"DisplayOrder"=p_displayorder,"ImageUrl"=p_imageurl,"ImageAltText"=p_imagealttext,"UpdatedAtUtc"=public.app_now()
+    WHERE mi."TenantId"=p_tenantid AND mi."BranchId"=p_branchid AND mi."MenuItemId"=p_menuitemid;
     IF NOT FOUND THEN PERFORM public.raise_app_error(51503); END IF;
     PERFORM public.menuitem_upsert_variants(p_tenantid,p_branchid,p_menuitemid,p_variantsjson);
     RETURN QUERY SELECT * FROM public.menuitem_select(p_tenantid,p_branchid,p_menuitemid,true);

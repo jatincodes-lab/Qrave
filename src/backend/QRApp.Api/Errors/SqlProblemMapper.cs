@@ -20,6 +20,7 @@ internal static class SqlProblemMapper
             PostgresErrorCodes.UndefinedTable
                 or PostgresErrorCodes.UndefinedColumn
                 or PostgresErrorCodes.UndefinedFunction
+                or "42702"
                 or "42P13" => ServiceUnavailable("Database schema is not up to date. Apply the latest database scripts and try again."),
             _ when exception.SqlState.StartsWith("08", StringComparison.Ordinal) => ServiceUnavailable("Database is not available or not configured correctly."),
             _ => ApiProblemResponses.ServerError("A database error occurred.")
