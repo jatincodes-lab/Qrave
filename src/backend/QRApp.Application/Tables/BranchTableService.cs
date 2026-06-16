@@ -117,6 +117,7 @@ public sealed class BranchTableService(IBranchTableRepository repository, IBranc
                     row.ItemName!,
                     row.Description,
                     row.Price!.Value,
+                    row.DietTypeCode ?? "Unspecified",
                     row.ItemDisplayOrder!.Value,
                     row.ImageUrl,
                     row.ImageAltText,

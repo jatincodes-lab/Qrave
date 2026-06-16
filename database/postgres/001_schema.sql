@@ -118,6 +118,7 @@ CREATE TABLE IF NOT EXISTS "MenuItems" (
     "Name" varchar(160) NOT NULL,
     "Description" varchar(1000) NULL,
     "Price" numeric(10,2) NOT NULL CHECK ("Price" >= 0),
+    "DietTypeCode" varchar(32) NOT NULL DEFAULT 'Unspecified',
     "IsAvailable" boolean NOT NULL DEFAULT true,
     "IsActive" boolean NOT NULL DEFAULT true,
     "DisplayOrder" integer NOT NULL DEFAULT 0 CHECK ("DisplayOrder" >= 0),
@@ -126,7 +127,8 @@ CREATE TABLE IF NOT EXISTS "MenuItems" (
     "CreatedAtUtc" timestamptz NOT NULL DEFAULT (public.app_now()),
     "UpdatedAtUtc" timestamptz NULL,
     "RowVersion" bytea NOT NULL DEFAULT gen_random_bytes(8),
-    CONSTRAINT "UQ_MenuItems_TenantId_BranchId_MenuCategoryId_Name" UNIQUE ("TenantId", "BranchId", "MenuCategoryId", "Name")
+    CONSTRAINT "UQ_MenuItems_TenantId_BranchId_MenuCategoryId_Name" UNIQUE ("TenantId", "BranchId", "MenuCategoryId", "Name"),
+    CONSTRAINT "CK_MenuItems_DietTypeCode" CHECK ("DietTypeCode" IN ('Unspecified', 'Veg', 'NonVeg', 'Vegan', 'Egg', 'Jain'))
 );
 
 CREATE TABLE IF NOT EXISTS "MenuItemVariants" (
@@ -236,11 +238,13 @@ CREATE TABLE IF NOT EXISTS "OrderItems" (
     "MenuItemName" varchar(160) NOT NULL,
     "VariantName" varchar(80) NULL,
     "ItemNote" varchar(200) NULL,
+    "DietTypeCode" varchar(32) NOT NULL DEFAULT 'Unspecified',
     "UnitPrice" numeric(10,2) NOT NULL CHECK ("UnitPrice" >= 0),
     "Quantity" integer NOT NULL CHECK ("Quantity" > 0),
     "LineTotal" numeric(10,2) NOT NULL CHECK ("LineTotal" >= 0),
     "CreatedAtUtc" timestamptz NOT NULL DEFAULT (public.app_now()),
-    "RowVersion" bytea NOT NULL DEFAULT gen_random_bytes(8)
+    "RowVersion" bytea NOT NULL DEFAULT gen_random_bytes(8),
+    CONSTRAINT "CK_OrderItems_DietTypeCode" CHECK ("DietTypeCode" IN ('Unspecified', 'Veg', 'NonVeg', 'Vegan', 'Egg', 'Jain'))
 );
 
 CREATE TABLE IF NOT EXISTS "OrderStatusHistory" (

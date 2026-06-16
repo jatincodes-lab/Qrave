@@ -118,6 +118,7 @@ export default function AdminSetupPage() {
         name: form.itemName.trim(),
         description: null,
         price: Number(form.itemPrice),
+        dietTypeCode: "Unspecified",
         isAvailable: true,
         displayOrder: 1,
         imageUrl: null,

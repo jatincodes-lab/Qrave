@@ -17,6 +17,7 @@ public sealed record PublicOrderItemResponse(
     string MenuItemName,
     string? VariantName,
     string? ItemNote,
+    string DietTypeCode,
     decimal UnitPrice,
     int Quantity,
     decimal LineTotal);

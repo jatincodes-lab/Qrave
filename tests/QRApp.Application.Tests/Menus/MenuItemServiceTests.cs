@@ -14,13 +14,14 @@ public sealed class MenuItemServiceTests
         var result = await service.CreateAsync(
             Guid.NewGuid(),
             Guid.NewGuid(),
-            new CreateMenuItemRequest(categoryId, " Masala Dosa ", "  Crispy dosa  ", 120.50m, true, 5),
+            new CreateMenuItemRequest(categoryId, " Masala Dosa ", "  Crispy dosa  ", 120.50m, "Veg", true, 5),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal("Masala Dosa", repository.CreatedRequest!.Name);
         Assert.Equal("Crispy dosa", repository.CreatedRequest.Description);
         Assert.Equal(120.50m, repository.CreatedRequest.Price);
+        Assert.Equal("Veg", repository.CreatedRequest.DietTypeCode);
     }
 
     [Fact]
@@ -31,7 +32,7 @@ public sealed class MenuItemServiceTests
         var result = await service.CreateAsync(
             Guid.NewGuid(),
             Guid.NewGuid(),
-            new CreateMenuItemRequest(Guid.NewGuid(), "Masala Dosa", null, -1m, true, 0),
+            new CreateMenuItemRequest(Guid.NewGuid(), "Masala Dosa", null, -1m, "Veg", true, 0),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -50,7 +51,7 @@ public sealed class MenuItemServiceTests
             CancellationToken cancellationToken)
         {
             CreatedRequest = request;
-            return Task.FromResult(new MenuItemResponse(menuItemId, tenantId, branchId, request.MenuCategoryId, "Starters", request.Name, request.Description, request.Price, request.IsAvailable, true, request.DisplayOrder, DateTime.UtcNow, null));
+            return Task.FromResult(new MenuItemResponse(menuItemId, tenantId, branchId, request.MenuCategoryId, "Starters", request.Name, request.Description, request.Price, request.DietTypeCode, request.IsAvailable, true, request.DisplayOrder, DateTime.UtcNow, null));
         }
 
         public Task<MenuItemResponse> UpdateAsync(
@@ -60,7 +61,7 @@ public sealed class MenuItemServiceTests
             UpdateMenuItemRequest request,
             CancellationToken cancellationToken)
         {
-            return Task.FromResult(new MenuItemResponse(menuItemId, tenantId, branchId, request.MenuCategoryId, "Starters", request.Name, request.Description, request.Price, request.IsAvailable, request.IsActive, request.DisplayOrder, DateTime.UtcNow, null));
+            return Task.FromResult(new MenuItemResponse(menuItemId, tenantId, branchId, request.MenuCategoryId, "Starters", request.Name, request.Description, request.Price, request.DietTypeCode, request.IsAvailable, request.IsActive, request.DisplayOrder, DateTime.UtcNow, null));
         }
 
         public Task<IReadOnlyCollection<MenuItemResponse>> GetListByBranchAsync(

@@ -128,6 +128,7 @@ public sealed class SqlOrderRepository(INpgsqlConnectionFactory connectionFactor
             reader.GetString(reader.GetOrdinal("MenuItemName")),
             GetNullableString(reader, "VariantName"),
             GetNullableString(reader, "ItemNote"),
+            reader.GetString(reader.GetOrdinal("DietTypeCode")),
             reader.GetDecimal(reader.GetOrdinal("UnitPrice")),
             reader.GetInt32(reader.GetOrdinal("Quantity")),
             reader.GetDecimal(reader.GetOrdinal("LineTotal")));

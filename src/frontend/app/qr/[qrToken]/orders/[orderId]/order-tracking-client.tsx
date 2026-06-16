@@ -4,7 +4,7 @@ import { AlertCircle, ArrowLeft, CheckCircle2, Clock3, Loader2, RefreshCw, Recei
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "../../../../../components/ui/toast";
-import { ApiError, createPublicOrderFeedback, getPublicOrderFeedback, getPublicQrOrder, type OrderFeedback, type PublicQrMenu, type PublicQrOrder } from "../../../../../lib/api";
+import { ApiError, createPublicOrderFeedback, getPublicOrderFeedback, getPublicQrOrder, type DietTypeCode, type OrderFeedback, type PublicQrMenu, type PublicQrOrder } from "../../../../../lib/api";
 
 const StatusSteps = ["Placed", "Accepted", "Preparing", "Ready", "Served"] as const;
 
@@ -161,6 +161,7 @@ export function OrderTrackingClient({
               </div>
               <div className="min-w-0">
                 <p className="break-words text-sm font-black text-[#001c11]">{formatOrderItemName(item.menuItemName, item.variantName)}</p>
+                <DietTypePill dietTypeCode={item.dietTypeCode} />
                 <p className="mt-1 text-xs text-on-surface-variant">
                   {item.quantity} x {formatPrice(item.unitPrice)}
                 </p>
@@ -268,6 +269,23 @@ function statusHelp(status: (typeof StatusSteps)[number]): string {
 
 function formatOrderItemName(name: string, variantName: string | null): string {
   return variantName ? `${name} - ${variantName}` : name;
+}
+
+function DietTypePill({ dietTypeCode }: { dietTypeCode: DietTypeCode }) {
+  if (dietTypeCode === "Unspecified") {
+    return null;
+  }
+
+  const tone =
+    dietTypeCode === "Veg" || dietTypeCode === "Vegan" || dietTypeCode === "Jain"
+      ? "border-[#bfe6cf] bg-[#f1fbf5] text-[#006d36]"
+      : "border-[#ffd9b5] bg-[#fff5ec] text-[#9a4b00]";
+
+  return (
+    <span className={`mt-1 inline-flex w-fit rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-normal ${tone}`}>
+      {dietTypeCode === "NonVeg" ? "Non-veg" : dietTypeCode}
+    </span>
+  );
 }
 
 function shortOrderCode(orderId: string): string {

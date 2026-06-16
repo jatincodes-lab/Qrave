@@ -8,6 +8,7 @@ public sealed record AdminOrderItemResponse(
     string MenuItemName,
     string? VariantName,
     string? ItemNote,
+    string DietTypeCode,
     decimal UnitPrice,
     int Quantity,
     decimal LineTotal);

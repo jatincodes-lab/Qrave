@@ -21,6 +21,7 @@ import {
   getMenuItems,
   updateMenuCategory,
   updateMenuItem,
+  type DietTypeCode,
   type MenuCategory,
   type MenuItem
 } from "../../../lib/api";
@@ -31,6 +32,7 @@ type ItemForm = {
   menuCategoryId: string;
   name: string;
   description: string;
+  dietTypeCode: DietTypeCode;
   imageUrl: string;
   imageAltText: string;
   price: string;
@@ -56,6 +58,7 @@ const EmptyItemForm: ItemForm = {
   menuCategoryId: "",
   name: "",
   description: "",
+  dietTypeCode: "Unspecified",
   imageUrl: "",
   imageAltText: "",
   price: "",
@@ -68,6 +71,15 @@ const EmptyCategoryForm: CategoryForm = {
   name: "",
   displayOrder: "1"
 };
+
+const DietTypeOptions: { value: DietTypeCode; label: string }[] = [
+  { value: "Unspecified", label: "Unspecified" },
+  { value: "Veg", label: "Veg" },
+  { value: "NonVeg", label: "Non-veg" },
+  { value: "Vegan", label: "Vegan" },
+  { value: "Egg", label: "Egg" },
+  { value: "Jain", label: "Jain" }
+];
 
 export default function AdminMenuPage() {
   const workspace = useAdminWorkspace();
@@ -193,6 +205,7 @@ export default function AdminMenuPage() {
         name: itemForm.name.trim(),
         description: optional(itemForm.description),
         price: getItemFormPrice(itemForm),
+        dietTypeCode: itemForm.dietTypeCode,
         isAvailable: itemForm.isAvailable,
         displayOrder: toPositiveNumber(itemForm.displayOrder),
         imageUrl: optional(itemForm.imageUrl),
@@ -311,6 +324,7 @@ export default function AdminMenuPage() {
       imageUrl: item.imageUrl ?? "",
       imageAltText: item.imageAltText ?? "",
       price: String(item.price),
+      dietTypeCode: item.dietTypeCode,
       displayOrder: String(item.displayOrder),
       isAvailable: item.isAvailable,
       variants: (item.variants ?? []).map((variant) => ({
@@ -347,6 +361,7 @@ export default function AdminMenuPage() {
         name: editingItemForm.name.trim(),
         description: optional(editingItemForm.description),
         price: getItemFormPrice(editingItemForm),
+        dietTypeCode: editingItemForm.dietTypeCode,
         isAvailable: editingItemForm.isAvailable,
         isActive: item.isActive,
         displayOrder: toPositiveNumber(editingItemForm.displayOrder),
@@ -535,7 +550,10 @@ export default function AdminMenuPage() {
                                     <div className="flex items-center gap-3">
                                       <MenuItemImage imageAltText={item.imageAltText} imageUrl={item.imageUrl} name={item.name} />
                                       <div className="min-w-0">
-                                        <p className="font-bold text-on-surface">{item.name}</p>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <p className="font-bold text-on-surface">{item.name}</p>
+                                          <DietTypeBadge dietTypeCode={item.dietTypeCode} />
+                                        </div>
                                         <p className="mt-1 line-clamp-1 text-xs text-on-surface-variant">{item.description || "No description"}</p>
                                       </div>
                                     </div>
@@ -695,6 +713,24 @@ export default function AdminMenuPage() {
                               required
                             />
                           </Field>
+                          <Field label="Food type">
+                            <select
+                              value={activeItemForm.dietTypeCode}
+                              onChange={(event) =>
+                                isEditingItem
+                                  ? setEditingItemForm({ ...editingItemForm, dietTypeCode: event.target.value as DietTypeCode })
+                                  : setItemForm({ ...itemForm, dietTypeCode: event.target.value as DietTypeCode })
+                              }
+                              className="h-11 w-full rounded-lg border border-input bg-white px-3 text-sm font-semibold text-on-surface outline-none transition-colors focus:border-primary/30 focus:ring-2 focus:ring-ring/20"
+                              required
+                            >
+                              {DietTypeOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </Field>
                         </div>
                         <Field label="Description">
                           <textarea
@@ -808,6 +844,18 @@ function Field({ children, label }: { children: ReactNode; label: string }) {
   );
 }
 
+function DietTypeBadge({ dietTypeCode }: { dietTypeCode: DietTypeCode }) {
+  if (dietTypeCode === "Unspecified") {
+    return <Badge variant="outline">Food type not set</Badge>;
+  }
+
+  return <Badge variant={dietTypeCode === "Veg" || dietTypeCode === "Vegan" || dietTypeCode === "Jain" ? "success" : "secondary"}>{formatDietType(dietTypeCode)}</Badge>;
+}
+
+function formatDietType(dietTypeCode: DietTypeCode): string {
+  return DietTypeOptions.find((option) => option.value === dietTypeCode)?.label ?? "Unspecified";
+}
+
 function ItemVariantsEditor({ form, onChange }: { form: ItemForm; onChange: (form: ItemForm) => void }) {
   function updateVariant(index: number, patch: Partial<ItemVariantForm>) {
     onChange({
@@ -909,6 +957,7 @@ function MenuItemMobileCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="min-w-0 flex-1 break-words text-sm font-extrabold text-on-surface">{item.name}</p>
+            <DietTypeBadge dietTypeCode={item.dietTypeCode} />
             <Badge variant={item.isAvailable ? "success" : "outline"}>{item.isAvailable ? "Available" : "Hidden"}</Badge>
           </div>
           <p className="mt-1 text-xs font-semibold text-on-surface-variant">{item.categoryName}</p>

@@ -121,6 +121,7 @@ public sealed class SqlCustomerRepository(INpgsqlConnectionFactory connectionFac
             reader.GetString(reader.GetOrdinal("MenuItemName")),
             GetNullableString(reader, "VariantName"),
             GetNullableString(reader, "ItemNote"),
+            reader.GetString(reader.GetOrdinal("DietTypeCode")),
             reader.GetInt32(reader.GetOrdinal("Quantity")));
     }
 

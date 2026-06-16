@@ -7,13 +7,22 @@ namespace QRApp.Application.Menus;
 public sealed class MenuItemService(IMenuItemRepository repository) : IMenuItemService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly HashSet<string> ValidDietTypeCodes = new(StringComparer.Ordinal)
+    {
+        "Unspecified",
+        "Veg",
+        "NonVeg",
+        "Vegan",
+        "Egg",
+        "Jain"
+    };
     public async Task<OperationResult<MenuItemResponse>> CreateAsync(
         Guid tenantId,
         Guid branchId,
         CreateMenuItemRequest request,
         CancellationToken cancellationToken)
     {
-        var errors = Validate(request.MenuCategoryId, request.Name, request.Description, request.Price, request.DisplayOrder, request.ImageUrl, request.ImageAltText, request.Variants);
+        var errors = Validate(request.MenuCategoryId, request.Name, request.Description, request.Price, request.DietTypeCode, request.DisplayOrder, request.ImageUrl, request.ImageAltText, request.Variants);
         if (errors.Count > 0)
         {
             return OperationResult<MenuItemResponse>.Failed(errors.ToArray());
@@ -24,6 +33,7 @@ public sealed class MenuItemService(IMenuItemRepository repository) : IMenuItemS
             TextRules.CleanRequired(request.Name),
             TextRules.CleanOptional(request.Description),
             request.Price,
+            NormalizeDietTypeCode(request.DietTypeCode),
             request.IsAvailable,
             request.DisplayOrder,
             TextRules.CleanOptional(request.ImageUrl),
@@ -41,7 +51,7 @@ public sealed class MenuItemService(IMenuItemRepository repository) : IMenuItemS
         UpdateMenuItemRequest request,
         CancellationToken cancellationToken)
     {
-        var errors = Validate(request.MenuCategoryId, request.Name, request.Description, request.Price, request.DisplayOrder, request.ImageUrl, request.ImageAltText, request.Variants);
+        var errors = Validate(request.MenuCategoryId, request.Name, request.Description, request.Price, request.DietTypeCode, request.DisplayOrder, request.ImageUrl, request.ImageAltText, request.Variants);
         if (errors.Count > 0)
         {
             return OperationResult<MenuItemResponse>.Failed(errors.ToArray());
@@ -52,6 +62,7 @@ public sealed class MenuItemService(IMenuItemRepository repository) : IMenuItemS
             TextRules.CleanRequired(request.Name),
             TextRules.CleanOptional(request.Description),
             request.Price,
+            NormalizeDietTypeCode(request.DietTypeCode),
             request.IsAvailable,
             request.IsActive,
             request.DisplayOrder,
@@ -97,6 +108,7 @@ public sealed class MenuItemService(IMenuItemRepository repository) : IMenuItemS
                     row.ItemName,
                     row.Description,
                     row.Price,
+                    row.DietTypeCode,
                     row.ItemDisplayOrder,
                     row.ImageUrl,
                     row.ImageAltText,
@@ -111,6 +123,7 @@ public sealed class MenuItemService(IMenuItemRepository repository) : IMenuItemS
         string name,
         string? description,
         decimal price,
+        string? dietTypeCode,
         int displayOrder,
         string? imageUrl,
         string? imageAltText,
@@ -148,6 +161,11 @@ public sealed class MenuItemService(IMenuItemRepository repository) : IMenuItemS
         if (price is < 0 or > 99999999.99m)
         {
             errors.Add(new ValidationFailure(nameof(CreateMenuItemRequest.Price), "Menu item price must be between 0 and 99999999.99."));
+        }
+
+        if (!ValidDietTypeCodes.Contains(NormalizeDietTypeCode(dietTypeCode)))
+        {
+            errors.Add(new ValidationFailure(nameof(CreateMenuItemRequest.DietTypeCode), "Food type is invalid."));
         }
 
         if (displayOrder < 0)
@@ -195,6 +213,11 @@ public sealed class MenuItemService(IMenuItemRepository repository) : IMenuItemS
                 variant.IsAvailable,
                 variant.DisplayOrder))
             .ToArray() ?? Array.Empty<MenuItemVariantRequest>();
+    }
+
+    private static string NormalizeDietTypeCode(string? dietTypeCode)
+    {
+        return string.IsNullOrWhiteSpace(dietTypeCode) ? "Unspecified" : dietTypeCode.Trim();
     }
 
     private static IReadOnlyCollection<PublicMenuItemVariantResponse> ReadPublicVariants(string? variantsJson)

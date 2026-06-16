@@ -24,6 +24,7 @@ import {
   type AdminOrder,
   type BranchBillingSettings,
   type BranchListItem,
+  type DietTypeCode,
   type OrderBill,
   type OrderStatusCode,
   type PaymentStatusCode,
@@ -607,7 +608,7 @@ function OrderCard({
       <div className="mt-3 rounded-lg bg-surface-container-low p-3 text-xs leading-5 text-on-surface-variant">
         {order.items.map((item) => (
           <div key={item.orderItemId}>
-            <span>{item.quantity}x {formatAdminOrderItemName(item.menuItemName, item.variantName)}</span>
+            <span>{item.quantity}x {formatAdminOrderItemName(item.menuItemName, item.variantName)}{formatDietTypeSuffix(item.dietTypeCode)}</span>
             {item.itemNote ? <span className="ml-2 font-bold text-primary">Note: {item.itemNote}</span> : null}
           </div>
         ))}
@@ -703,6 +704,7 @@ function BillDialog({
                       <div key={item.orderItemId} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3">
                         <div className="min-w-0">
                           <p className="break-words text-sm font-bold text-on-surface">{formatAdminOrderItemName(item.menuItemName, item.variantName)}</p>
+                          <DietTypeBadge dietTypeCode={item.dietTypeCode} />
                           {item.itemNote ? <p className="mt-1 break-words text-xs font-semibold text-primary">Note: {item.itemNote}</p> : null}
                           <p className="mt-1 text-xs text-on-surface-variant">{item.quantity} x {formatMoney(item.unitPrice)}</p>
                         </div>
@@ -1009,6 +1011,22 @@ function formatAdminOrderItemName(name: string, variantName: string | null): str
   return variantName ? `${name} - ${variantName}` : name;
 }
 
+function DietTypeBadge({ dietTypeCode }: { dietTypeCode: DietTypeCode }) {
+  if (dietTypeCode === "Unspecified") {
+    return null;
+  }
+
+  return <Badge variant={dietTypeCode === "Veg" || dietTypeCode === "Vegan" || dietTypeCode === "Jain" ? "success" : "secondary"}>{formatDietType(dietTypeCode)}</Badge>;
+}
+
+function formatDietType(dietTypeCode: DietTypeCode): string {
+  return dietTypeCode === "NonVeg" ? "Non-veg" : dietTypeCode;
+}
+
+function formatDietTypeSuffix(dietTypeCode: DietTypeCode): string {
+  return dietTypeCode === "Unspecified" ? "" : ` (${formatDietType(dietTypeCode)})`;
+}
+
 function shortOrderCode(orderId: string): string {
   return orderId.replaceAll("-", "").slice(0, 8).toUpperCase();
 }
@@ -1039,7 +1057,7 @@ function buildBillPrintHtml(branch: BranchListItem, order: AdminOrder, bill: Ord
     .map(
       (item) => `<tr>
         <td>
-          <strong>${escapeHtml(formatAdminOrderItemName(item.menuItemName, item.variantName))}</strong>
+          <strong>${escapeHtml(`${formatAdminOrderItemName(item.menuItemName, item.variantName)}${formatDietTypeSuffix(item.dietTypeCode)}`)}</strong>
           ${item.itemNote ? `<span>Note: ${escapeHtml(item.itemNote)}</span>` : ""}
         </td>
         <td>${item.quantity}</td>

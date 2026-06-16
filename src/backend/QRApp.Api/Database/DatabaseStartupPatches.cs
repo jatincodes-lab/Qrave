@@ -29,13 +29,21 @@ public static class DatabaseStartupPatches
     }
 
     private const string PublicOrderSql = """
+ALTER TABLE "MenuItems"
+ADD COLUMN IF NOT EXISTS "DietTypeCode" varchar(32) NOT NULL DEFAULT 'Unspecified';
+
+ALTER TABLE "OrderItems"
+ADD COLUMN IF NOT EXISTS "DietTypeCode" varchar(32) NOT NULL DEFAULT 'Unspecified';
+
+DROP FUNCTION IF EXISTS public.publicorder_getitemsbyorder(uuid);
+
 CREATE OR REPLACE FUNCTION public.publicorder_select(p_orderid uuid)
 RETURNS TABLE("OrderId" uuid,"TenantId" uuid,"BranchId" uuid,"TableId" uuid,"OrderStatusCode" varchar,"CustomerName" varchar,"CustomerWhatsApp" varchar,"Notes" varchar,"SubtotalAmount" numeric,"TotalAmount" numeric,"AppliedBranchOfferId" uuid,"AppliedOfferTitle" varchar,"AppliedOfferDiscountAmount" numeric,"CreatedAtUtc" timestamptz,"UpdatedAtUtc" timestamptz)
 LANGUAGE sql STABLE AS $$ SELECT o."OrderId",o."TenantId",o."BranchId",o."TableId",o."OrderStatusCode",o."CustomerName",o."CustomerWhatsApp",o."Notes",o."SubtotalAmount",o."TotalAmount",o."AppliedBranchOfferId",o."AppliedOfferTitle",o."AppliedOfferDiscountAmount",o."CreatedAtUtc",o."UpdatedAtUtc" FROM "Orders" o WHERE o."OrderId"=p_orderid; $$;
 
 CREATE OR REPLACE FUNCTION public.publicorder_getitemsbyorder(p_orderid uuid)
-RETURNS TABLE("OrderItemId" uuid,"OrderId" uuid,"MenuItemId" uuid,"MenuItemVariantId" uuid,"MenuItemName" varchar,"VariantName" varchar,"ItemNote" varchar,"UnitPrice" numeric,"Quantity" integer,"LineTotal" numeric)
-LANGUAGE sql STABLE AS $$ SELECT oi."OrderItemId",oi."OrderId",oi."MenuItemId",oi."MenuItemVariantId",oi."MenuItemName",oi."VariantName",oi."ItemNote",oi."UnitPrice",oi."Quantity",oi."LineTotal" FROM "OrderItems" oi WHERE oi."OrderId"=p_orderid ORDER BY oi."RowId"; $$;
+RETURNS TABLE("OrderItemId" uuid,"OrderId" uuid,"MenuItemId" uuid,"MenuItemVariantId" uuid,"MenuItemName" varchar,"VariantName" varchar,"ItemNote" varchar,"DietTypeCode" varchar,"UnitPrice" numeric,"Quantity" integer,"LineTotal" numeric)
+LANGUAGE sql STABLE AS $$ SELECT oi."OrderItemId",oi."OrderId",oi."MenuItemId",oi."MenuItemVariantId",oi."MenuItemName",oi."VariantName",oi."ItemNote",oi."DietTypeCode",oi."UnitPrice",oi."Quantity",oi."LineTotal" FROM "OrderItems" oi WHERE oi."OrderId"=p_orderid ORDER BY oi."RowId"; $$;
 
 CREATE OR REPLACE FUNCTION public.publicorder_createfromqrtoken(p_qrtoken text,p_orderid uuid,p_customername text,p_customerwhatsapp text,p_notes text,p_itemsjson text,p_marketingconsent boolean,p_marketingconsentsource text)
 RETURNS TABLE("OrderId" uuid,"TenantId" uuid,"BranchId" uuid,"TableId" uuid,"OrderStatusCode" varchar,"CustomerName" varchar,"CustomerWhatsApp" varchar,"Notes" varchar,"SubtotalAmount" numeric,"TotalAmount" numeric,"AppliedBranchOfferId" uuid,"AppliedOfferTitle" varchar,"AppliedOfferDiscountAmount" numeric,"CreatedAtUtc" timestamptz,"UpdatedAtUtc" timestamptz)
@@ -63,7 +71,7 @@ BEGIN
     IF ctx.req_whatsapp AND NULLIF(btrim(p_customerwhatsapp),'') IS NULL THEN PERFORM public.raise_app_error(51704); END IF;
 
     CREATE TEMP TABLE tmp_order_items ON COMMIT DROP AS
-    SELECT gen_random_uuid() "OrderItemId", mi."MenuItemId", v."MenuItemVariantId", mi."Name" "MenuItemName", v."Name" "VariantName", NULLIF(x->>'itemNote','') "ItemNote", COALESCE(v."Price",mi."Price") "UnitPrice", GREATEST(COALESCE((x->>'quantity')::integer,0),0) "Quantity"
+    SELECT gen_random_uuid() "OrderItemId", mi."MenuItemId", v."MenuItemVariantId", mi."Name" "MenuItemName", v."Name" "VariantName", NULLIF(x->>'itemNote','') "ItemNote", mi."DietTypeCode", COALESCE(v."Price",mi."Price") "UnitPrice", GREATEST(COALESCE((x->>'quantity')::integer,0),0) "Quantity"
     FROM jsonb_array_elements(COALESCE(NULLIF(p_itemsjson,'')::jsonb,'[]'::jsonb)) x
     JOIN "MenuItems" mi ON mi."MenuItemId"=(x->>'menuItemId')::uuid AND mi."TenantId"=ctx."TenantId" AND mi."BranchId"=ctx."BranchId" AND mi."IsActive" AND mi."IsAvailable"
     LEFT JOIN "MenuItemVariants" v ON v."MenuItemVariantId"=NULLIF(x->>'menuItemVariantId','')::uuid AND v."MenuItemId"=mi."MenuItemId" AND v."IsAvailable";
@@ -144,8 +152,8 @@ BEGIN
 
     INSERT INTO "Orders" ("OrderId","TenantId","BranchId","TableId","CustomerId","CustomerName","CustomerWhatsApp","Notes","SubtotalAmount","AppliedBranchOfferId","AppliedOfferTitle","AppliedOfferDiscountAmount","TotalAmount")
     VALUES (p_orderid,ctx."TenantId",ctx."BranchId",ctx."TableId",customer_id,p_customername,p_customerwhatsapp,p_notes,subtotal,offer_id,offer_title,discount,payable_total);
-    INSERT INTO "OrderItems" ("OrderItemId","TenantId","BranchId","OrderId","MenuItemId","MenuItemVariantId","MenuItemName","VariantName","ItemNote","UnitPrice","Quantity","LineTotal")
-    SELECT "OrderItemId",ctx."TenantId",ctx."BranchId",p_orderid,"MenuItemId","MenuItemVariantId","MenuItemName","VariantName","ItemNote","UnitPrice","Quantity","UnitPrice"*"Quantity" FROM tmp_order_items;
+    INSERT INTO "OrderItems" ("OrderItemId","TenantId","BranchId","OrderId","MenuItemId","MenuItemVariantId","MenuItemName","VariantName","ItemNote","DietTypeCode","UnitPrice","Quantity","LineTotal")
+    SELECT "OrderItemId",ctx."TenantId",ctx."BranchId",p_orderid,"MenuItemId","MenuItemVariantId","MenuItemName","VariantName","ItemNote","DietTypeCode","UnitPrice","Quantity","UnitPrice"*"Quantity" FROM tmp_order_items;
     INSERT INTO "OrderStatusHistory" ("OrderStatusHistoryId","TenantId","BranchId","OrderId","StatusCode") VALUES (gen_random_uuid(),ctx."TenantId",ctx."BranchId",p_orderid,'Placed');
     RETURN QUERY SELECT * FROM public.publicorder_select(p_orderid);
 END;

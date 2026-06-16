@@ -24,4 +24,5 @@ public sealed record PublicCustomerRecentOrderItemResponse(
     string MenuItemName,
     string? VariantName,
     string? ItemNote,
+    string DietTypeCode,
     int Quantity);

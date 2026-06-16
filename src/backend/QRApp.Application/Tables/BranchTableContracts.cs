@@ -73,6 +73,7 @@ public sealed record PublicQrMenuRecord(
     string? ItemName,
     string? Description,
     decimal? Price,
+    string? DietTypeCode,
     int? ItemDisplayOrder,
     string? ImageUrl = null,
     string? ImageAltText = null,

@@ -7,7 +7,7 @@ import { AdminShell } from "../../../components/admin-shell";
 import { EmptyBranchState, MetricCard, PageError, PageLoading } from "../../../components/admin-page-common";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
-import { getAdminOrders, updateAdminOrderStatus, type AdminOrder, type BranchListItem, type OrderStatusCode } from "../../../lib/api";
+import { getAdminOrders, updateAdminOrderStatus, type AdminOrder, type BranchListItem, type DietTypeCode, type OrderStatusCode } from "../../../lib/api";
 import { useAdminWorkspace } from "../../../lib/admin-workspace";
 import { createAdminOrderConnection, stopConnection, type AdminOrderRealtimeEvent } from "../../../lib/realtime";
 
@@ -346,6 +346,7 @@ function KitchenTicket({
             <p className="text-sm font-extrabold text-on-surface">
               {item.quantity}x {formatKitchenItemName(item.menuItemName, item.variantName)}
             </p>
+            <DietTypeBadge dietTypeCode={item.dietTypeCode} />
             {item.itemNote ? <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-950">Note: {item.itemNote}</p> : null}
           </div>
         ))}
@@ -370,6 +371,22 @@ function KitchenTicket({
 
 function formatKitchenItemName(name: string, variantName: string | null): string {
   return variantName ? `${name} - ${variantName}` : name;
+}
+
+function DietTypeBadge({ dietTypeCode }: { dietTypeCode: DietTypeCode }) {
+  if (dietTypeCode === "Unspecified") {
+    return null;
+  }
+
+  return <Badge variant={dietTypeCode === "Veg" || dietTypeCode === "Vegan" || dietTypeCode === "Jain" ? "success" : "secondary"}>{formatDietType(dietTypeCode)}</Badge>;
+}
+
+function formatDietType(dietTypeCode: DietTypeCode): string {
+  return dietTypeCode === "NonVeg" ? "Non-veg" : dietTypeCode;
+}
+
+function formatDietTypeSuffix(dietTypeCode: DietTypeCode): string {
+  return dietTypeCode === "Unspecified" ? "" : ` (${formatDietType(dietTypeCode)})`;
 }
 
 function shortOrderCode(orderId: string): string {
@@ -406,7 +423,7 @@ function buildKotPrintHtml(branch: BranchListItem, order: AdminOrder): string {
           (item) => `<div class="item">
             <div class="qty">${item.quantity}x</div>
             <div class="details">
-              <p>${escapeHtml(formatKitchenItemName(item.menuItemName, item.variantName))}</p>
+              <p>${escapeHtml(`${formatKitchenItemName(item.menuItemName, item.variantName)}${formatDietTypeSuffix(item.dietTypeCode)}`)}</p>
               ${item.itemNote ? `<strong>NOTE: ${escapeHtml(item.itemNote)}</strong>` : ""}
             </div>
           </div>`

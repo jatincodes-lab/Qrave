@@ -56,6 +56,7 @@ public sealed class SqlMenuItemRepository(INpgsqlConnectionFactory connectionFac
         command.AddString("@Name", request.Name, 160);
         command.AddString("@Description", request.Description, 1000);
         command.AddDecimal("@Price", request.Price, 10, 2);
+        command.AddString("@DietTypeCode", request.DietTypeCode, 32);
         command.AddBool("@IsAvailable", request.IsAvailable);
         command.AddBool("@IsActive", request.IsActive);
         command.AddInt("@DisplayOrder", request.DisplayOrder);
@@ -143,6 +144,7 @@ public sealed class SqlMenuItemRepository(INpgsqlConnectionFactory connectionFac
                 reader.GetString(reader.GetOrdinal("ItemName")),
                 reader.IsDBNull(reader.GetOrdinal("Description")) ? null : reader.GetString(reader.GetOrdinal("Description")),
                 reader.GetDecimal(reader.GetOrdinal("Price")),
+                reader.GetString(reader.GetOrdinal("DietTypeCode")),
                 reader.GetInt32(reader.GetOrdinal("ItemDisplayOrder")),
                 reader.IsDBNull(reader.GetOrdinal("ImageUrl")) ? null : reader.GetString(reader.GetOrdinal("ImageUrl")),
                 reader.IsDBNull(reader.GetOrdinal("ImageAltText")) ? null : reader.GetString(reader.GetOrdinal("ImageAltText")),
@@ -160,6 +162,7 @@ public sealed class SqlMenuItemRepository(INpgsqlConnectionFactory connectionFac
         command.AddString("@Name", request.Name, 160);
         command.AddString("@Description", request.Description, 1000);
         command.AddDecimal("@Price", request.Price, 10, 2);
+        command.AddString("@DietTypeCode", request.DietTypeCode, 32);
         command.AddBool("@IsAvailable", request.IsAvailable);
         command.AddInt("@DisplayOrder", request.DisplayOrder);
         command.AddString("@ImageUrl", request.ImageUrl, 1000);
@@ -178,6 +181,7 @@ public sealed class SqlMenuItemRepository(INpgsqlConnectionFactory connectionFac
             reader.GetString(reader.GetOrdinal("Name")),
             reader.IsDBNull(reader.GetOrdinal("Description")) ? null : reader.GetString(reader.GetOrdinal("Description")),
             reader.GetDecimal(reader.GetOrdinal("Price")),
+            reader.GetString(reader.GetOrdinal("DietTypeCode")),
             reader.GetBoolean(reader.GetOrdinal("IsAvailable")),
             reader.GetBoolean(reader.GetOrdinal("IsActive")),
             reader.GetInt32(reader.GetOrdinal("DisplayOrder")),

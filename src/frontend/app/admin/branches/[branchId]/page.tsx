@@ -79,6 +79,7 @@ import {
   updateMenuItem,
   updateWaiterCallStatus,
   updateBranchOrderSettings,
+  type DietTypeCode,
   type OrderStatusCode,
   type WaiterCallStatusCode
 } from "../../../../lib/api";
@@ -103,6 +104,7 @@ type ItemForm = {
   menuCategoryId: string;
   name: string;
   description: string;
+  dietTypeCode: DietTypeCode;
   imageUrl: string;
   imageAltText: string;
   price: string;
@@ -164,6 +166,7 @@ const EmptyItemForm: ItemForm = {
   menuCategoryId: "",
   name: "",
   description: "",
+  dietTypeCode: "Unspecified",
   imageUrl: "",
   imageAltText: "",
   price: "",
@@ -191,6 +194,15 @@ const EmptyBranchProfileForm: BranchProfileForm = {
   logoUrl: "",
   logoPublicId: ""
 };
+
+const DietTypeOptions: { value: DietTypeCode; label: string }[] = [
+  { value: "Unspecified", label: "Unspecified" },
+  { value: "Veg", label: "Veg" },
+  { value: "NonVeg", label: "Non-veg" },
+  { value: "Vegan", label: "Vegan" },
+  { value: "Egg", label: "Egg" },
+  { value: "Jain", label: "Jain" }
+];
 const DefaultSettingsForm: SettingsForm = {
   enableDirectQrOrdering: false,
   requireCustomerName: true,
@@ -593,6 +605,7 @@ export default function AdminBranchDetailPage() {
         name: itemForm.name.trim(),
         description: optional(itemForm.description),
         price: Number(itemForm.price),
+        dietTypeCode: itemForm.dietTypeCode,
         isAvailable: itemForm.isAvailable,
         displayOrder: toPositiveNumber(itemForm.displayOrder),
         imageUrl: optional(itemForm.imageUrl),
@@ -784,6 +797,7 @@ export default function AdminBranchDetailPage() {
       imageUrl: item.imageUrl ?? "",
       imageAltText: item.imageAltText ?? "",
       price: String(item.price),
+      dietTypeCode: item.dietTypeCode,
       displayOrder: String(item.displayOrder),
       isAvailable: item.isAvailable
     });
@@ -802,6 +816,7 @@ export default function AdminBranchDetailPage() {
         name: editingItemForm.name.trim(),
         description: optional(editingItemForm.description),
         price: Number(editingItemForm.price),
+        dietTypeCode: editingItemForm.dietTypeCode,
         isAvailable: editingItemForm.isAvailable,
         isActive: item.isActive,
         displayOrder: toPositiveNumber(editingItemForm.displayOrder),
@@ -1187,6 +1202,20 @@ function MenuPanel({
           <Field label="Item name">
             <Input value={itemForm.name} onChange={(event) => onItemFormChange({ ...itemForm, name: event.target.value })} required />
           </Field>
+          <Field label="Food type">
+            <select
+              value={itemForm.dietTypeCode}
+              onChange={(event) => onItemFormChange({ ...itemForm, dietTypeCode: event.target.value as DietTypeCode })}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              required
+            >
+              {DietTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field label="Description">
             <Input value={itemForm.description} onChange={(event) => onItemFormChange({ ...itemForm, description: event.target.value })} />
           </Field>
@@ -1380,6 +1409,20 @@ function MenuPanel({
                           <Field label="Item name">
                             <Input value={editingItemForm.name} onChange={(event) => onEditingItemFormChange({ ...editingItemForm, name: event.target.value })} required />
                           </Field>
+                          <Field label="Food type">
+                            <select
+                              value={editingItemForm.dietTypeCode}
+                              onChange={(event) => onEditingItemFormChange({ ...editingItemForm, dietTypeCode: event.target.value as DietTypeCode })}
+                              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                              required
+                            >
+                              {DietTypeOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </Field>
                           <Field label="Description">
                             <Input value={editingItemForm.description} onChange={(event) => onEditingItemFormChange({ ...editingItemForm, description: event.target.value })} />
                           </Field>
@@ -1438,7 +1481,10 @@ function MenuPanel({
                           <div className="flex items-center gap-3">
                             <AdminItemThumb imageAltText={item.imageAltText} imageUrl={item.imageUrl} name={item.name} />
                             <div className="min-w-0">
-                              <p className="font-semibold text-on-surface">{item.name}</p>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="font-semibold text-on-surface">{item.name}</p>
+                                <DietTypeBadge dietTypeCode={item.dietTypeCode} />
+                              </div>
                               <p className="mt-1 max-w-sm truncate text-xs text-on-surface-variant">{item.description || "No description"}</p>
                             </div>
                           </div>
@@ -2494,6 +2540,18 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       {children}
     </div>
   );
+}
+
+function DietTypeBadge({ dietTypeCode }: { dietTypeCode: DietTypeCode }) {
+  if (dietTypeCode === "Unspecified") {
+    return <Badge variant="outline">Food type not set</Badge>;
+  }
+
+  return <Badge variant={dietTypeCode === "Veg" || dietTypeCode === "Vegan" || dietTypeCode === "Jain" ? "success" : "secondary"}>{formatDietType(dietTypeCode)}</Badge>;
+}
+
+function formatDietType(dietTypeCode: DietTypeCode): string {
+  return DietTypeOptions.find((option) => option.value === dietTypeCode)?.label ?? "Unspecified";
 }
 
 function AdminItemThumb({ imageAltText, imageUrl, name }: { imageAltText: string | null; imageUrl: string | null; name: string }) {

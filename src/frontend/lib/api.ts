@@ -128,6 +128,7 @@ export type MenuItem = {
   name: string;
   description: string | null;
   price: number;
+  dietTypeCode: DietTypeCode;
   isAvailable: boolean;
   isActive: boolean;
   displayOrder: number;
@@ -202,6 +203,8 @@ export type PaymentStatusCode = "Unpaid" | "Paid" | "PartiallyPaid" | "Voided";
 
 export type RefundStatusCode = "NotRefunded" | "PartiallyRefunded" | "Refunded";
 
+export type DietTypeCode = "Unspecified" | "Veg" | "NonVeg" | "Vegan" | "Egg" | "Jain";
+
 export type BranchBillingSettings = {
   branchBillingSettingsId: string;
   tenantId: string;
@@ -243,6 +246,7 @@ export type PublicQrMenuItem = {
   name: string;
   description: string | null;
   price: number;
+  dietTypeCode: DietTypeCode;
   displayOrder: number;
   imageUrl: string | null;
   imageAltText: string | null;
@@ -314,6 +318,7 @@ export type PublicQrOrderItem = {
   menuItemName: string;
   variantName: string | null;
   itemNote: string | null;
+  dietTypeCode: DietTypeCode;
   unitPrice: number;
   quantity: number;
   lineTotal: number;
@@ -377,6 +382,7 @@ export type PublicCustomerRecentOrderItem = {
   menuItemName: string;
   variantName: string | null;
   itemNote: string | null;
+  dietTypeCode: DietTypeCode;
   quantity: number;
 };
 
@@ -407,6 +413,7 @@ export type AdminOrderItem = {
   menuItemName: string;
   variantName: string | null;
   itemNote: string | null;
+  dietTypeCode: DietTypeCode;
   unitPrice: number;
   quantity: number;
   lineTotal: number;
@@ -622,6 +629,7 @@ export type CreateMenuItemInput = {
   name: string;
   description: string | null;
   price: number;
+  dietTypeCode: DietTypeCode;
   isAvailable: boolean;
   displayOrder: number;
   imageUrl: string | null;

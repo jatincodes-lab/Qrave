@@ -29,6 +29,7 @@ import {
   getPublicQrMenu,
   lookupPublicCustomer,
   type CreatePublicQrOrderInput,
+  type DietTypeCode,
   type PublicCustomerLookup,
   type PublicCustomerRecentOrder,
   type PublicQrMenu,
@@ -853,7 +854,10 @@ function MenuCategorySection({
           return (
             <article key={item.menuItemId} className="grid min-h-[176px] grid-cols-[1fr_8.25rem] gap-4 rounded-xl border border-[#cfd8d3] bg-white p-4 shadow-sm">
               <div className="flex min-w-0 flex-col">
-                <h3 className="line-clamp-2 break-words text-xl font-black leading-6 text-[#001c11]">{item.name}</h3>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="line-clamp-2 break-words text-xl font-black leading-6 text-[#001c11]">{item.name}</h3>
+                  <DietTypePill dietTypeCode={item.dietTypeCode} />
+                </div>
                 <p className="mt-2 line-clamp-3 break-words text-sm font-medium leading-5 text-[#5a625e]">{item.description || "Freshly prepared by the kitchen."}</p>
                 <p className="mt-3 whitespace-nowrap text-lg font-black text-[#006d36]">{hasVariants ? `From ${formatPrice(displayPrice)}` : formatPrice(displayPrice)}</p>
 
@@ -1043,6 +1047,7 @@ function CartPage({
                   <FoodThumb imageAltText={line.item.imageAltText} imageUrl={line.item.imageUrl} name={line.item.name} compact />
                   <div className="min-w-0">
                     <p className="line-clamp-2 break-words text-sm font-black text-[#001c11]">{formatCartItemName(line)}</p>
+                    <DietTypePill dietTypeCode={line.item.dietTypeCode} compact />
                     <p className="mt-1 text-xs font-semibold text-[#5a625e]">{line.categoryName}</p>
                     <p className="mt-2 text-sm font-black text-[#006d36]">{formatPrice(getCartLinePrice(line))}</p>
                   </div>
@@ -1270,6 +1275,7 @@ function OrderPlacedView({
               <OrderItemThumb item={menuItemById.get(item.menuItemId)} name={item.menuItemName} />
               <div className="min-w-0">
                 <p className="break-words text-sm font-black text-[#001c11]">{formatOrderItemName(item.menuItemName, item.variantName)}</p>
+                <DietTypePill dietTypeCode={item.dietTypeCode} compact />
                 <p className="mt-1 text-xs text-on-surface-variant">
                   {item.quantity} x {formatPrice(item.unitPrice)}
                 </p>
@@ -1375,6 +1381,7 @@ function CustomerPreviousOrdersPage({
                     <OrderItemThumb item={menuItemById.get(item.menuItemId)} name={item.menuItemName} />
                     <div className="min-w-0">
                       <p className="break-words text-sm font-black text-[#001c11]">{formatOrderItemName(item.menuItemName, item.variantName)}</p>
+                      <DietTypePill dietTypeCode={item.dietTypeCode} compact />
                       {item.itemNote ? <p className="mt-1 rounded-lg bg-[#f8f9fa] px-2 py-1 text-xs font-semibold text-[#5a625e]">{item.itemNote}</p> : null}
                     </div>
                     <p className="text-sm font-black text-[#001c11]">x{item.quantity}</p>
@@ -1456,7 +1463,10 @@ function VariantPickerSheet({
             <FoodThumb imageAltText={item.imageAltText} imageUrl={item.imageUrl} name={item.name} compact />
             <div className="min-w-0 flex-1">
               <p className="text-xs font-black uppercase tracking-[0.14em] text-[#006d36]">{categoryName}</p>
-              <h3 className="mt-1 text-lg font-black text-[#001c11]">{item.name}</h3>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <h3 className="text-lg font-black text-[#001c11]">{item.name}</h3>
+                <DietTypePill dietTypeCode={item.dietTypeCode} />
+              </div>
               <p className="mt-1 text-sm font-medium text-[#5a625e]">Choose a portion or size.</p>
             </div>
             <button type="button" className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#d9e4df] text-[#414844]" onClick={onClose} aria-label="Close variants">
@@ -1523,6 +1533,34 @@ function CategorySheet({
       </div>
     </aside>
   );
+}
+
+function DietTypePill({ compact = false, dietTypeCode }: { compact?: boolean; dietTypeCode: DietTypeCode }) {
+  if (dietTypeCode === "Unspecified") {
+    return null;
+  }
+
+  const tone =
+    dietTypeCode === "Veg" || dietTypeCode === "Vegan" || dietTypeCode === "Jain"
+      ? "border-[#bfe6cf] bg-[#f1fbf5] text-[#006d36]"
+      : "border-[#ffd9b5] bg-[#fff5ec] text-[#9a4b00]";
+
+  return (
+    <span className={`inline-flex shrink-0 items-center rounded-full border font-black uppercase tracking-normal ${tone} ${compact ? "mt-1 px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-[11px]"}`}>
+      {formatDietType(dietTypeCode)}
+    </span>
+  );
+}
+
+function formatDietType(dietTypeCode: DietTypeCode): string {
+  switch (dietTypeCode) {
+    case "NonVeg":
+      return "Non-veg";
+    case "Unspecified":
+      return "Food type not set";
+    default:
+      return dietTypeCode;
+  }
 }
 
 function FoodThumb({ compact = false, imageAltText, imageUrl, name }: { compact?: boolean; imageAltText?: string | null; imageUrl?: string | null; name: string }) {

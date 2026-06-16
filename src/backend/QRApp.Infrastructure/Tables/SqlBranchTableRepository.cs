@@ -204,6 +204,7 @@ public sealed class SqlBranchTableRepository(INpgsqlConnectionFactory connection
             GetNullableString(reader, "ItemName"),
             GetNullableString(reader, "Description"),
             GetNullableDecimal(reader, "Price"),
+            GetNullableString(reader, "DietTypeCode"),
             GetNullableInt(reader, "ItemDisplayOrder"),
             GetNullableString(reader, "ImageUrl"),
             GetNullableString(reader, "ImageAltText"),

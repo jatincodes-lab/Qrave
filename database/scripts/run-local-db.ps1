@@ -56,6 +56,7 @@ $scripts = @(
     "database\postgres\001_schema.sql",
     "database\postgres\002_indexes.sql",
     "database\postgres\006_ist_timezone.sql",
+    "database\postgres\007_menu_item_diet_type.sql",
     "database\postgres\003_functions.sql",
     "database\postgres\005_backfill_order_totals.sql"
 )
