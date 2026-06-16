@@ -676,12 +676,11 @@ function MenuHero({
   sortBy: MenuSortCode;
 }) {
   const availableCategories = categories.filter((category) => category.items.length > 0);
-  const categoryCards = availableCategories.map((category) => ({ category, item: category.items[0] }));
   const offers = (menu.offers ?? []).sort((left, right) => left.displayOrder - right.displayOrder);
   const [activeOfferIndex, setActiveOfferIndex] = useState(0);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const activeOffer = offers[activeOfferIndex] ?? null;
-  const fallbackFeature = categoryCards[0]?.item ?? null;
+  const fallbackFeature = availableCategories[0]?.items[0] ?? null;
   const heroImageUrl = activeOffer?.imageUrl ?? fallbackFeature?.imageUrl ?? null;
   const heroImageAlt = activeOffer?.imageAltText ?? activeOffer?.title ?? fallbackFeature?.imageAltText ?? fallbackFeature?.name ?? menu.branchName;
 
@@ -835,21 +834,30 @@ function MenuHero({
         ) : null}
       </div>
 
-      {categoryCards.length > 0 ? (
+      {availableCategories.length > 0 ? (
         <div className="mt-7">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-2xl font-black text-[#001c11]">Explore Menu</h3>
-            <button type="button" onClick={onCategoryOpen} className="text-sm font-black text-[#006d36]">Full Gallery</button>
+            <h3 className="text-[18px] font-bold leading-6 text-[#1c1b1b]">Explore Menu</h3>
+            <button type="button" onClick={onCategoryOpen} className="text-xs font-bold text-[#0f3d2e]">Full Gallery</button>
           </div>
-          <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2">
-            {categoryCards.map(({ category, item }) => (
-              <a key={category.menuCategoryId} href={`#category-${category.menuCategoryId}`} className="relative min-h-[142px] w-[10.5rem] shrink-0 snap-start overflow-hidden rounded-[24px] bg-[#0f3224] p-4 text-white shadow-sm">
-                {item.imageUrl ? <img src={item.imageUrl} alt={item.imageAltText ?? item.name} className="absolute inset-0 h-full w-full object-cover" /> : <FoodPosterFallback name={category.name} />}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                <div className="relative flex h-full min-h-[110px] flex-col justify-end">
-                  <p className="text-lg font-black leading-5">{category.name}</p>
-                  <p className="mt-1 text-sm font-semibold text-white/75">{category.items.length} items</p>
+          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {availableCategories.map((category, index) => (
+              <a key={category.menuCategoryId} href={`#category-${category.menuCategoryId}`} className="flex w-[4.75rem] shrink-0 flex-col items-center gap-1.5 text-center">
+                <div
+                  className={`grid h-14 w-14 place-items-center rounded-2xl border text-sm font-extrabold shadow-sm transition-colors ${
+                    index === 0
+                      ? "border-[#0f3d2e] bg-[#0f3d2e] text-white"
+                      : "border-[#d9e4df] bg-white text-[#0f3d2e]"
+                  }`}
+                >
+                  {getCategoryInitials(category.name) || <Utensils className="h-5 w-5" aria-hidden="true" />}
                 </div>
+                <span className={`line-clamp-1 max-w-full break-words text-[11px] leading-4 ${index === 0 ? "font-bold text-[#0f3d2e]" : "font-medium text-[#555f59]"}`}>
+                  {category.name}
+                </span>
+                <span className="text-[9px] font-medium leading-3 text-[#8b938f]">
+                  {category.items.length} {category.items.length === 1 ? "item" : "items"}
+                </span>
               </a>
             ))}
           </div>
@@ -1608,6 +1616,15 @@ function formatDietType(dietTypeCode: DietTypeCode): string {
     default:
       return dietTypeCode;
   }
+}
+
+function getCategoryInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
 }
 
 function FoodThumb({ compact = false, imageAltText, imageUrl, name }: { compact?: boolean; imageAltText?: string | null; imageUrl?: string | null; name: string }) {
