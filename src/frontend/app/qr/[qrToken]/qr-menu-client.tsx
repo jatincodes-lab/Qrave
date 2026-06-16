@@ -62,7 +62,7 @@ type CartEstimate = {
 
 type ActiveView = "menu" | "cart" | "customerOrders";
 type DietQuickFilter = "all" | "veg" | "nonveg";
-type MenuSortCode = "recommended" | "priceAsc" | "priceDesc" | "nameAsc" | "imageFirst";
+type MenuSortCode = "recommended" | "priceAsc" | "priceDesc" | "nameAsc";
 
 type SubmitState =
   | {
@@ -759,22 +759,26 @@ function MenuHero({
           <button
             type="button"
             onClick={() => onDietFilterChange(dietFilter === "veg" ? "all" : "veg")}
-            className={`h-10 rounded-full px-2 text-xs font-black uppercase tracking-normal transition-colors ${
+            className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-full px-2 text-xs font-black uppercase tracking-normal transition-colors ${
               dietFilter === "veg" ? "bg-[#83fba5] text-[#00210c]" : "text-[#466155]"
             }`}
             aria-pressed={dietFilter === "veg"}
+            aria-label="Show vegetarian items"
           >
-            Veg
+            <DietSymbol type="veg" />
+            <span>Veg</span>
           </button>
           <button
             type="button"
             onClick={() => onDietFilterChange(dietFilter === "nonveg" ? "all" : "nonveg")}
-            className={`h-10 rounded-full px-2 text-xs font-black uppercase tracking-normal transition-colors ${
+            className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-full px-2 text-xs font-black uppercase tracking-normal transition-colors ${
               dietFilter === "nonveg" ? "bg-[#ffd9b5] text-[#4d2500]" : "text-[#466155]"
             }`}
             aria-pressed={dietFilter === "nonveg"}
+            aria-label="Show non-vegetarian items"
           >
-            Non-veg
+            <DietSymbol type="nonveg" />
+            <span>Non-veg</span>
           </button>
         </div>
 
@@ -790,7 +794,6 @@ function MenuHero({
             <option value="priceAsc">Price: low to high</option>
             <option value="priceDesc">Price: high to low</option>
             <option value="nameAsc">Name: A to Z</option>
-            <option value="imageFirst">Photos first</option>
           </select>
         </label>
       </div>
@@ -882,7 +885,7 @@ function MenuCategorySection({
   onChooseVariant: (item: PublicQrMenuItem, categoryName: string) => void;
   onDecrement: (cartLineId: string) => void;
 }) {
-  const items = [...category.items].sort((left, right) => left.displayOrder - right.displayOrder);
+  const items = category.items;
 
   return (
     <section id={`category-${category.menuCategoryId}`} className="scroll-mt-28">
@@ -1607,6 +1610,22 @@ function DietTypePill({ compact = false, dietTypeCode }: { compact?: boolean; di
   );
 }
 
+function DietSymbol({ type }: { type: "veg" | "nonveg" }) {
+  if (type === "veg") {
+    return (
+      <span className="grid h-4 w-4 shrink-0 place-items-center rounded-[3px] border border-[#0f7a3f] bg-white" aria-hidden="true">
+        <span className="h-2 w-2 rounded-full bg-[#0f7a3f]" />
+      </span>
+    );
+  }
+
+  return (
+    <span className="grid h-4 w-4 shrink-0 place-items-center rounded-[3px] border border-[#c94e20] bg-white" aria-hidden="true">
+      <span className="h-0 w-0 border-x-[4px] border-b-[7px] border-x-transparent border-b-[#c94e20]" />
+    </span>
+  );
+}
+
 function formatDietType(dietTypeCode: DietTypeCode): string {
   switch (dietTypeCode) {
     case "NonVeg":
@@ -1832,10 +1851,6 @@ function compareMenuItems(left: PublicQrMenuItem, right: PublicQrMenuItem, sortB
 
   if (sortBy === "nameAsc") {
     return left.name.localeCompare(right.name) || left.displayOrder - right.displayOrder;
-  }
-
-  if (sortBy === "imageFirst") {
-    return Number(Boolean(right.imageUrl)) - Number(Boolean(left.imageUrl)) || left.displayOrder - right.displayOrder || left.name.localeCompare(right.name);
   }
 
   return left.displayOrder - right.displayOrder || left.name.localeCompare(right.name);
