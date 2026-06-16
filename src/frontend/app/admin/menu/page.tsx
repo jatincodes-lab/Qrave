@@ -950,24 +950,41 @@ function MenuItemMobileCard({
   onDeactivate: (item: MenuItem) => void;
   onEdit: (item: MenuItem) => void;
 }) {
+  const isSaving = savingKey === `item-${item.menuItemId}`;
+
   return (
-    <article className="rounded-xl border border-outline-variant/60 bg-white p-4">
-      <div className="flex items-start gap-3">
-        <MenuItemImage imageAltText={item.imageAltText} imageUrl={item.imageUrl} name={item.name} />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="min-w-0 flex-1 break-words text-sm font-extrabold text-on-surface">{item.name}</p>
-            <DietTypeBadge dietTypeCode={item.dietTypeCode} />
-            <Badge variant={item.isAvailable ? "success" : "outline"}>{item.isAvailable ? "Available" : "Hidden"}</Badge>
+    <article className="overflow-hidden rounded-xl border border-outline-variant/60 bg-white shadow-sm">
+      <div className="grid grid-cols-[4.75rem_minmax(0,1fr)] gap-3 p-3">
+        <MenuItemImage imageAltText={item.imageAltText} imageUrl={item.imageUrl} name={item.name} size="large" />
+
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="line-clamp-2 break-words text-[15px] font-extrabold leading-5 text-on-surface">{item.name}</p>
+              <p className="mt-1 truncate text-xs font-bold text-on-surface-variant">{item.categoryName}</p>
+            </div>
+            <Badge variant={item.isAvailable ? "success" : "outline"} className="shrink-0">
+              {item.isAvailable ? "Live" : "Hidden"}
+            </Badge>
           </div>
-          <p className="mt-1 text-xs font-semibold text-on-surface-variant">{item.categoryName}</p>
-          <p className="mt-2 line-clamp-2 text-xs leading-5 text-on-surface-variant">{item.description || "No description"}</p>
+
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <DietTypeBadge dietTypeCode={item.dietTypeCode} />
+            <Badge variant={item.isActive ? "secondary" : "outline"}>Order {item.displayOrder}</Badge>
+          </div>
+
+          <p className="mt-2 line-clamp-2 break-words text-xs leading-5 text-on-surface-variant">{item.description || "No description"}</p>
         </div>
       </div>
-      <div className="mt-4 flex items-center justify-between gap-3 border-t border-outline-variant/50 pt-3">
-        <p className="text-base font-extrabold text-primary">{formatMoney(item.price)}</p>
+
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-outline-variant/50 bg-surface-container-lowest px-3 py-2.5">
+        <div className="min-w-0">
+          <p className="text-[11px] font-bold uppercase tracking-normal text-on-surface-variant">Price</p>
+          <p className="truncate text-lg font-extrabold leading-6 text-primary">{formatMoney(item.price)}</p>
+        </div>
+
         <div className="grid grid-cols-2 gap-2">
-          <Button type="button" variant="outline" onClick={() => onEdit(item)} className="h-11 border-outline-variant/60" aria-label={`Edit ${item.name}`}>
+          <Button type="button" variant="outline" onClick={() => onEdit(item)} className="h-10 px-3" aria-label={`Edit ${item.name}`}>
             <Pencil size={15} />
             Edit
           </Button>
@@ -975,11 +992,11 @@ function MenuItemMobileCard({
             type="button"
             variant="outline"
             onClick={() => onDeactivate(item)}
-            disabled={savingKey === `item-${item.menuItemId}`}
-            className="h-11 border-destructive/30 text-destructive"
+            disabled={isSaving}
+            className="h-10 border-destructive/30 px-3 text-destructive"
             aria-label={`Turn off ${item.name}`}
           >
-            {savingKey === `item-${item.menuItemId}` ? <Loader2 size={15} className="animate-spin" /> : <Power size={15} />}
+            {isSaving ? <Loader2 size={15} className="animate-spin" /> : <Power size={15} />}
             Off
           </Button>
         </div>
@@ -988,7 +1005,7 @@ function MenuItemMobileCard({
   );
 }
 
-function MenuItemImage({ imageAltText, imageUrl, name }: { imageAltText: string | null; imageUrl: string | null; name: string }) {
+function MenuItemImage({ imageAltText, imageUrl, name, size = "default" }: { imageAltText: string | null; imageUrl: string | null; name: string; size?: "default" | "large" }) {
   const initials = name
     .split(/\s+/)
     .filter(Boolean)
@@ -997,7 +1014,7 @@ function MenuItemImage({ imageAltText, imageUrl, name }: { imageAltText: string 
     .join("");
 
   return (
-    <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl bg-secondary-container text-sm font-black text-primary">
+    <div className={`grid shrink-0 place-items-center overflow-hidden rounded-xl bg-secondary-container font-black text-primary ${size === "large" ? "h-[4.75rem] w-[4.75rem] text-base" : "h-12 w-12 text-sm"}`}>
       {imageUrl ? <img src={imageUrl} alt={imageAltText ?? name} className="h-full w-full object-cover" /> : initials || <ChefHat size={18} />}
     </div>
   );
