@@ -154,7 +154,7 @@ public sealed class SqlBranchTableRepository(INpgsqlConnectionFactory connection
 
         command.AddString("@QrToken", qrToken, 80);
         command.AddGuid("@QrSessionId", qrSessionId);
-        command.Parameters.AddWithValue("@TtlMinutes", ttlMinutes);
+        command.AddInt("@TtlMinutes", ttlMinutes);
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         return await reader.ReadAsync(cancellationToken) ? ReadPublicQrSession(reader) : null;
