@@ -13,7 +13,6 @@ import {
   Send,
   ShoppingCart,
   SlidersHorizontal,
-  Store,
   Trash2,
   Utensils,
   X
@@ -45,6 +44,23 @@ type CartLine = {
   item: PublicQrMenuItem;
   categoryName: string;
   variant: PublicQrMenuItem["variants"][number] | null;
+  itemNote: string;
+  quantity: number;
+};
+
+type StoredQrMenuDraft = {
+  version: 1;
+  customerName: string;
+  customerWhatsApp: string;
+  customerPhoneCountryCode: string;
+  marketingConsent: boolean;
+  notes: string;
+  cartLines: StoredCartLine[];
+};
+
+type StoredCartLine = {
+  menuItemId: string;
+  menuItemVariantId: string | null;
   itemNote: string;
   quantity: number;
 };
@@ -114,6 +130,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
   const [isCustomerLookupLoading, setIsCustomerLookupLoading] = useState(false);
   const [lastLookupWhatsApp, setLastLookupWhatsApp] = useState("");
   const [notes, setNotes] = useState("");
+  const [isDraftRestored, setIsDraftRestored] = useState(false);
   const [activeView, setActiveView] = useState<ActiveView>("menu");
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [submitState, setSubmitState] = useState<SubmitState>({ kind: "idle" });
@@ -162,6 +179,48 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
 
     return () => window.clearInterval(timer);
   }, [currentMenu.qrToken]);
+
+  useEffect(() => {
+    if (isDraftRestored) {
+      return;
+    }
+
+    const draft = readQrMenuDraft(currentMenu.qrToken);
+    if (draft) {
+      setCart(sanitizeStoredCartLines(draft.cartLines, menuItemById, categoryNameByMenuItemId));
+      setCustomerName(normalizeStoredText(draft.customerName, 120));
+      setCustomerWhatsApp(normalizeStoredText(draft.customerWhatsApp, 40));
+      setCustomerPhoneCountryCode(normalizeStoredCountryCode(draft.customerPhoneCountryCode));
+      setMarketingConsent(Boolean(draft.marketingConsent && draft.customerWhatsApp.trim()));
+      setNotes(normalizeStoredText(draft.notes, 500));
+    }
+
+    setIsDraftRestored(true);
+  }, [categoryNameByMenuItemId, currentMenu.qrToken, isDraftRestored, menuItemById]);
+
+  useEffect(() => {
+    if (!isDraftRestored) {
+      return;
+    }
+
+    setCart((current) => sanitizeLiveCartLines(current, menuItemById, categoryNameByMenuItemId));
+  }, [categoryNameByMenuItemId, isDraftRestored, menuItemById]);
+
+  useEffect(() => {
+    if (!isDraftRestored) {
+      return;
+    }
+
+    writeQrMenuDraft(currentMenu.qrToken, {
+      version: 1,
+      customerName: normalizeStoredText(customerName, 120),
+      customerWhatsApp: normalizeStoredText(customerWhatsApp, 40),
+      customerPhoneCountryCode: normalizeStoredCountryCode(customerPhoneCountryCode),
+      marketingConsent: Boolean(marketingConsent && customerWhatsApp.trim()),
+      notes: normalizeStoredText(notes, 500),
+      cartLines: toStoredCartLines(cart)
+    });
+  }, [cart, currentMenu.qrToken, customerName, customerPhoneCountryCode, customerWhatsApp, isDraftRestored, marketingConsent, notes]);
 
   useEffect(() => {
     const cleanWhatsApp = customerWhatsApp.trim();
@@ -345,8 +404,8 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
     }
 
     const validation = firstInvalid(
-      menu.orderSettings.requireCustomerName ? validateRequired(customerName, "Name") : validateOptionalText(customerName, "Name", 120),
-      validatePhone(customerWhatsApp, "WhatsApp number", menu.orderSettings.requireCustomerWhatsApp),
+      currentMenu.orderSettings.requireCustomerName ? validateRequired(customerName, "Name") : validateOptionalText(customerName, "Name", 120),
+      validatePhone(customerWhatsApp, "WhatsApp number", currentMenu.orderSettings.requireCustomerWhatsApp),
       marketingConsent && !customerWhatsApp.trim()
         ? { isValid: false, message: "Enter WhatsApp number to receive updates." }
         : { isValid: true, message: null },
@@ -375,6 +434,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
 
     try {
       const order = await createPublicQrOrder(currentMenu.qrToken, input);
+      clearQrMenuDraft(currentMenu.qrToken);
       setCart({});
       setNotes("");
       setMarketingConsent(false);
@@ -437,7 +497,13 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
 
   return (
     <>
-      <QrPageHeader branchLogoUrl={currentMenu.branchLogoUrl} branchName={currentMenu.branchName} tableName={currentMenu.tableName} onBack={handleHeaderBack} />
+      <QrPageHeader
+        branchName={currentMenu.branchName}
+        cartCount={cartCount}
+        tableName={currentMenu.tableName}
+        onBack={handleHeaderBack}
+        onCartOpen={() => setActiveView("cart")}
+      />
 
       {activeView === "customerOrders" ? (
         <CustomerPreviousOrdersPage
@@ -484,14 +550,12 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
           {!canOrder ? <OrderingUnavailableNotice /> : null}
 
           <MenuHero
-            cartCount={cartCount}
             categories={categories}
             dietFilter={dietFilter}
             itemCount={itemCount}
             menu={currentMenu}
             search={search}
             sortBy={sortBy}
-            onCartOpen={() => setActiveView("cart")}
             onCategoryOpen={() => setIsCategoryOpen(true)}
             onDietFilterChange={setDietFilter}
             onSearchChange={setSearch}
@@ -565,7 +629,19 @@ function OrderingUnavailableNotice() {
   );
 }
 
-function QrPageHeader({ branchLogoUrl, branchName, onBack, tableName }: { branchLogoUrl?: string | null; branchName: string; onBack: () => void; tableName: string }) {
+function QrPageHeader({
+  branchName,
+  cartCount,
+  onBack,
+  onCartOpen,
+  tableName
+}: {
+  branchName: string;
+  cartCount: number;
+  onBack: () => void;
+  onCartOpen: () => void;
+  tableName: string;
+}) {
   return (
     <header className="sticky top-0 z-30 border-b border-[#e6eeea] bg-white/95 px-4 py-3 backdrop-blur">
       <div className="grid h-10 grid-cols-[40px_1fr_40px] items-center">
@@ -576,9 +652,14 @@ function QrPageHeader({ branchLogoUrl, branchName, onBack, tableName }: { branch
           <h1 className="truncate text-[15px] font-black uppercase tracking-normal text-[#001c11]">{branchName}</h1>
           <p className="mt-0.5 truncate text-[11px] font-semibold text-[#5a625e]">{tableName}</p>
         </div>
-        <div className="grid h-10 w-10 place-items-center overflow-hidden rounded-full bg-[#e7f8ee] text-[#006d36]" aria-hidden="true">
-          {branchLogoUrl ? <img src={branchLogoUrl} alt="" className="h-full w-full object-cover" /> : <Store className="h-5 w-5" />}
-        </div>
+        <button type="button" onClick={onCartOpen} className="relative grid h-10 w-10 place-items-center rounded-full bg-[#001c11] text-white shadow-sm" aria-label="Open cart">
+          <ShoppingCart className="h-4 w-4" aria-hidden="true" />
+          {cartCount > 0 ? (
+            <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#83fba5] px-1 text-[10px] font-black leading-none text-[#00210c]">
+              {cartCount > 99 ? "99+" : cartCount}
+            </span>
+          ) : null}
+        </button>
       </div>
     </header>
   );
@@ -649,12 +730,10 @@ function MenuEmptyState({ canOrder, search }: { canOrder: boolean; search?: stri
 }
 
 function MenuHero({
-  cartCount,
   categories,
   dietFilter,
   itemCount,
   menu,
-  onCartOpen,
   onCategoryOpen,
   onDietFilterChange,
   onSearchChange,
@@ -662,12 +741,10 @@ function MenuHero({
   search,
   sortBy
 }: {
-  cartCount: number;
   categories: PublicQrMenuCategory[];
   dietFilter: DietQuickFilter;
   itemCount: number;
   menu: PublicQrMenu;
-  onCartOpen: () => void;
   onCategoryOpen: () => void;
   onDietFilterChange: (value: DietQuickFilter) => void;
   onSearchChange: (value: string) => void;
@@ -714,26 +791,6 @@ function MenuHero({
 
   return (
     <section className="bg-[#f4f7f6] px-4 pb-5 pt-5">
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl bg-[#e7f8ee] text-[#006d36]">
-            {menu.branchLogoUrl ? <img src={menu.branchLogoUrl} alt={`${menu.branchName} logo`} className="h-full w-full object-cover" /> : <Store className="h-6 w-6" />}
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.24em] text-[#006d36]">{menu.tableName}</p>
-            <h1 className="mt-1 truncate text-2xl font-black leading-8 text-[#001c11]">{menu.branchName}</h1>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <button type="button" onClick={onCartOpen} className="relative grid h-12 w-12 place-items-center rounded-full bg-[#001c11] text-white shadow-sm" aria-label="Open cart">
-            <ShoppingCart className="h-5 w-5" aria-hidden="true" />
-            {cartCount > 0 ? (
-              <span className="absolute right-1 top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#83fba5] px-1 text-[10px] font-black text-[#00210c]">{cartCount}</span>
-            ) : null}
-          </button>
-        </div>
-      </div>
-
       <div className="mb-5 flex h-16 items-center gap-3 rounded-full border border-[#dce4df] bg-white px-5 shadow-sm">
         <Search className="h-6 w-6 shrink-0 text-[#6b746f]" aria-hidden="true" />
         <input
@@ -1804,6 +1861,184 @@ function calculateOfferDiscount(subtotal: number, offer: PublicQrMenuOffer): num
 
 function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function getQrMenuDraftKey(qrToken: string): string {
+  return `qrave:qr-menu-draft:${qrToken}`;
+}
+
+function readQrMenuDraft(qrToken: string): StoredQrMenuDraft | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const storageKey = getQrMenuDraftKey(qrToken);
+
+  try {
+    const rawDraft = window.sessionStorage.getItem(storageKey);
+    if (!rawDraft) {
+      return null;
+    }
+
+    const parsed: unknown = JSON.parse(rawDraft);
+    if (!isStoredQrMenuDraft(parsed)) {
+      window.sessionStorage.removeItem(storageKey);
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    try {
+      window.sessionStorage.removeItem(storageKey);
+    } catch {
+      // Ignore storage failures so the menu remains usable in restricted browsers.
+    }
+    return null;
+  }
+}
+
+function writeQrMenuDraft(qrToken: string, draft: StoredQrMenuDraft) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    const storageKey = getQrMenuDraftKey(qrToken);
+    if (!hasStoredDraftContent(draft)) {
+      window.sessionStorage.removeItem(storageKey);
+      return;
+    }
+
+    window.sessionStorage.setItem(storageKey, JSON.stringify(draft));
+  } catch {
+    // Storage can be blocked or full. Ordering must continue without draft persistence.
+  }
+}
+
+function clearQrMenuDraft(qrToken: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.sessionStorage.removeItem(getQrMenuDraftKey(qrToken));
+  } catch {
+    // Ignore storage failures after successful order submission.
+  }
+}
+
+function isStoredQrMenuDraft(value: unknown): value is StoredQrMenuDraft {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const draft = value as Partial<StoredQrMenuDraft>;
+  return (
+    draft.version === 1 &&
+    typeof draft.customerName === "string" &&
+    typeof draft.customerWhatsApp === "string" &&
+    typeof draft.customerPhoneCountryCode === "string" &&
+    typeof draft.marketingConsent === "boolean" &&
+    typeof draft.notes === "string" &&
+    Array.isArray(draft.cartLines) &&
+    draft.cartLines.every(isStoredCartLine)
+  );
+}
+
+function isStoredCartLine(value: unknown): value is StoredCartLine {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const line = value as Partial<StoredCartLine>;
+  return (
+    typeof line.menuItemId === "string" &&
+    (typeof line.menuItemVariantId === "string" || line.menuItemVariantId === null) &&
+    typeof line.itemNote === "string" &&
+    typeof line.quantity === "number"
+  );
+}
+
+function hasStoredDraftContent(draft: StoredQrMenuDraft): boolean {
+  return (
+    draft.cartLines.length > 0 ||
+    draft.customerName.trim().length > 0 ||
+    draft.customerWhatsApp.trim().length > 0 ||
+    draft.notes.trim().length > 0 ||
+    draft.marketingConsent
+  );
+}
+
+function toStoredCartLines(cart: Record<string, CartLine>): StoredCartLine[] {
+  return Object.values(cart)
+    .map((line) => ({
+      menuItemId: line.item.menuItemId,
+      menuItemVariantId: line.variant?.menuItemVariantId ?? null,
+      itemNote: normalizeStoredText(line.itemNote, 200),
+      quantity: normalizeStoredQuantity(line.quantity)
+    }))
+    .filter((line) => line.quantity > 0);
+}
+
+function sanitizeLiveCartLines(
+  cart: Record<string, CartLine>,
+  menuItemById: Map<string, PublicQrMenuItem>,
+  categoryNameByMenuItemId: Map<string, string>
+): Record<string, CartLine> {
+  return sanitizeStoredCartLines(toStoredCartLines(cart), menuItemById, categoryNameByMenuItemId);
+}
+
+function sanitizeStoredCartLines(
+  lines: StoredCartLine[],
+  menuItemById: Map<string, PublicQrMenuItem>,
+  categoryNameByMenuItemId: Map<string, string>
+): Record<string, CartLine> {
+  return lines.reduce<Record<string, CartLine>>((next, line) => {
+    const item = menuItemById.get(line.menuItemId);
+    if (!item) {
+      return next;
+    }
+
+    const variant = line.menuItemVariantId ? item.variants.find((candidate) => candidate.menuItemVariantId === line.menuItemVariantId) ?? null : null;
+    if (line.menuItemVariantId && !variant) {
+      return next;
+    }
+
+    const quantity = normalizeStoredQuantity(line.quantity);
+    if (quantity <= 0) {
+      return next;
+    }
+
+    const cartLineId = getCartLineId(item.menuItemId, variant?.menuItemVariantId ?? null);
+    const existing = next[cartLineId];
+    next[cartLineId] = {
+      cartLineId,
+      item,
+      categoryName: categoryNameByMenuItemId.get(item.menuItemId) ?? "Menu",
+      variant,
+      itemNote: normalizeStoredText(existing?.itemNote ?? line.itemNote, 200),
+      quantity: Math.min(99, (existing?.quantity ?? 0) + quantity)
+    };
+
+    return next;
+  }, {});
+}
+
+function normalizeStoredText(value: string, maxLength: number): string {
+  return value.trim().slice(0, maxLength);
+}
+
+function normalizeStoredCountryCode(value: string): string {
+  const countryCode = value.trim().toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3);
+  return countryCode || "IN";
+}
+
+function normalizeStoredQuantity(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.min(99, Math.max(1, Math.trunc(value)));
 }
 
 function getCartLineId(menuItemId: string, menuItemVariantId: string | null): string {
