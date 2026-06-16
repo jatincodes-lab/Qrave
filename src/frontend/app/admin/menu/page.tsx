@@ -970,7 +970,6 @@ function MenuItemMobileCard({
 
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <DietTypeBadge dietTypeCode={item.dietTypeCode} />
-            <Badge variant={item.isActive ? "secondary" : "outline"}>Order {item.displayOrder}</Badge>
           </div>
 
           <p className="mt-2 line-clamp-2 break-words text-xs leading-5 text-on-surface-variant">{item.description || "No description"}</p>
