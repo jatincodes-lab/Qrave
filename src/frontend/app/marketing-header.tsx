@@ -2,10 +2,19 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Menu, X } from "lucide-react";
+
+const navLinks = [
+  ["Business types", "/#businesses"],
+  ["Products", "/#tools"],
+  ["Operations", "/#operations"],
+  ["Pricing", "/pricing"],
+  ["Contact", "/contact"]
+];
 
 export function MarketingHeader() {
   const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -15,7 +24,7 @@ export function MarketingHeader() {
   }, []);
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-50 border-b border-black/10 bg-white/94 backdrop-blur">
+    <header className="fixed left-0 right-0 top-0 z-50 border-b border-black/10 bg-white/95 backdrop-blur-xl">
       <nav
         className={[
           "mx-auto flex h-20 max-w-[1560px] items-center justify-between px-5 transition-all duration-300 sm:px-8 lg:px-12",
@@ -27,11 +36,11 @@ export function MarketingHeader() {
           <span className="text-xl font-extrabold text-black">Qrave</span>
         </Link>
         <div className="hidden items-center gap-8 text-sm font-extrabold text-black lg:flex">
-          <Link href="/#businesses" className="transition hover:text-[#006aff]">Business types</Link>
-          <Link href="/#tools" className="transition hover:text-[#006aff]">Products</Link>
-          <Link href="/#operations" className="transition hover:text-[#006aff]">Operations</Link>
-          <Link href="/pricing" className="transition hover:text-[#006aff]">Pricing</Link>
-          <Link href="/contact" className="transition hover:text-[#006aff]">Contact</Link>
+          {navLinks.map(([label, href]) => (
+            <Link key={label} href={href} className="transition hover:text-[#006aff]">
+              {label}
+            </Link>
+          ))}
         </div>
         <div className="flex items-center gap-2">
           <Link href="/admin/login" className="hidden px-4 py-2.5 text-sm font-extrabold text-black transition hover:text-[#006aff] sm:inline-flex">
@@ -41,8 +50,29 @@ export function MarketingHeader() {
             Start free
             <ArrowRight size={16} className="hidden sm:block" />
           </Link>
+          <button
+            type="button"
+            className="grid h-11 w-11 place-items-center rounded-full border border-black/10 bg-white text-black lg:hidden"
+            aria-label="Toggle navigation"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            {menuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
         </div>
       </nav>
+      <div className={menuOpen ? "border-t border-black/10 bg-white px-5 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.08)] sm:px-8 lg:hidden" : "hidden"}>
+        <div className="mx-auto grid max-w-[1560px] gap-1">
+          {navLinks.map(([label, href]) => (
+            <Link key={label} href={href} className="rounded-lg px-2 py-3 text-base font-extrabold text-black transition hover:bg-[#f7f6f2]" onClick={() => setMenuOpen(false)}>
+              {label}
+            </Link>
+          ))}
+          <Link href="/admin/login" className="rounded-lg px-2 py-3 text-base font-extrabold text-black transition hover:bg-[#f7f6f2]" onClick={() => setMenuOpen(false)}>
+            Sign in
+          </Link>
+        </div>
+      </div>
     </header>
   );
 }

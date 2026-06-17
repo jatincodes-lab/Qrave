@@ -31,19 +31,26 @@ export default function FaqPage() {
   return (
     <PageShell>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
-      <section className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="text-center">
-          <p className="text-sm font-extrabold uppercase text-secondary">FAQ</p>
-          <h1 className="mt-3 text-4xl font-extrabold text-primary md:text-5xl">Questions restaurant owners ask</h1>
-          <p className="mt-4 text-base leading-7 text-on-surface-variant">
-            Clear answers about QR menu ordering, customer capture, WhatsApp messaging, and branch management.
+      <section className="bg-[#f7f6f2] px-5 pb-20 pt-32 text-[#050505] sm:px-8 lg:px-12">
+        <div className="mx-auto grid max-w-[1560px] gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#707070]">FAQ</p>
+            <h1 className="mt-5 max-w-4xl text-5xl font-extrabold leading-[0.92] tracking-[-0.04em] md:text-7xl">
+              Questions restaurant teams ask before they switch.
+            </h1>
+          </div>
+          <p className="max-w-2xl text-lg font-semibold leading-8 text-[#444]">
+            Clear answers about QR menu ordering, customer capture, WhatsApp messaging, branch management, and day-to-day service.
           </p>
         </div>
-        <div className="mt-10 grid gap-4">
+      </section>
+
+      <section className="bg-white px-5 py-20 sm:px-8 lg:px-12">
+        <div className="mx-auto max-w-[1080px] divide-y divide-[#cfcfcf] border-y border-[#cfcfcf]">
           {FaqItems.map((item) => (
-            <article key={item.question} className="rounded-lg border border-outline-variant bg-white p-5 shadow-soft-saas">
-              <h2 className="text-lg font-extrabold text-on-surface">{item.question}</h2>
-              <p className="mt-2 text-sm leading-6 text-on-surface-variant">{item.answer}</p>
+            <article key={item.question} className="grid gap-5 py-8 md:grid-cols-[0.42fr_0.58fr]">
+              <h2 className="text-2xl font-extrabold leading-tight tracking-[-0.03em] text-[#050505]">{item.question}</h2>
+              <p className="text-base font-semibold leading-8 text-[#4b4b4b]">{item.answer}</p>
             </article>
           ))}
         </div>
