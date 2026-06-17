@@ -209,33 +209,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <nav className="sticky top-20 z-30 border-y border-[#d8d8d8] bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-[1560px] items-center justify-between gap-5 px-5 py-3 text-sm font-extrabold text-[#333] sm:px-8 lg:px-12">
-          <span className="hidden shrink-0 text-black md:block">Qrave for Restaurants</span>
-          <div className="flex min-w-0 flex-1 gap-6 overflow-x-auto md:justify-center">
-            {[
-              ["Overview", "#overview"],
-              ["Food businesses", "#businesses"],
-              ["Products", "#tools"],
-              ["Operations", "#operations"],
-              ["FAQ", "#faq"]
-            ].map(([label, href]) => (
-              <Link key={label} href={href} className="shrink-0 hover:text-[#006aff]">
-                {label}
-              </Link>
-            ))}
-          </div>
-          <div className="hidden shrink-0 items-center gap-2 lg:flex">
-            <Link href="/contact" className="rounded-full border border-black px-4 py-2 text-xs font-extrabold text-black hover:bg-[#f7f6f2]">
-              Contact sales
-            </Link>
-            <Link href="/admin/register" className="rounded-full bg-black px-4 py-2 text-xs font-extrabold text-white hover:bg-[#1f1f1f]">
-              Get started
-            </Link>
-          </div>
-        </div>
-      </nav>
-
       <section id="overview" className="bg-white px-5 py-20 sm:px-8 lg:px-12">
         <div data-landing-reveal="" className="landing-scroll-reveal mx-auto grid max-w-[1560px] gap-10 lg:grid-cols-[0.88fr_1.12fr] lg:items-end">
           <div>

@@ -6,10 +6,9 @@ import { useEffect, useState } from "react";
 import { ArrowRight, Menu, X } from "lucide-react";
 
 const navLinks = [
-  ["Business types", "/#businesses"],
-  ["Products", "/#tools"],
-  ["Operations", "/#operations"],
+  ["Restaurant platform", "/#overview"],
   ["Pricing", "/pricing"],
+  ["FAQ", "/faq"],
   ["Contact", "/contact"]
 ];
 
@@ -51,7 +50,7 @@ export function MarketingHeader() {
         className={[
           "pointer-events-auto mx-auto flex items-center justify-between transition-all duration-500 ease-[cubic-bezier(0.2,0.82,0.28,1)]",
           compact
-            ? "mt-3 h-16 w-[calc(100%-1rem)] max-w-[1120px] rounded-full border border-white/60 bg-white/[0.72] px-3 shadow-[0_18px_60px_rgba(0,0,0,0.14)] backdrop-blur-2xl sm:mt-4 sm:h-[4.25rem] sm:w-[calc(100%-2rem)] sm:px-4"
+            ? "mt-3 h-16 w-[calc(100%-1rem)] max-w-[980px] rounded-full border border-white/45 bg-white/[0.48] px-3 shadow-[0_18px_60px_rgba(0,0,0,0.12)] backdrop-blur-2xl sm:mt-4 sm:h-[4.25rem] sm:w-[calc(100%-2rem)] sm:px-4"
             : "h-20 w-full max-w-[1560px] border border-transparent bg-transparent px-5 sm:px-8 lg:px-12"
         ].join(" ")}
       >
@@ -85,7 +84,7 @@ export function MarketingHeader() {
           </button>
         </div>
       </nav>
-      <div className={menuOpen ? "pointer-events-auto mx-auto mt-2 w-[calc(100%-1rem)] max-w-[28rem] rounded-[1.75rem] border border-white/60 bg-white/[0.82] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.14)] backdrop-blur-2xl sm:w-[calc(100%-2rem)] lg:hidden" : "hidden"}>
+      <div className={menuOpen ? "pointer-events-auto mx-auto mt-2 w-[calc(100%-1rem)] max-w-[28rem] rounded-[1.75rem] border border-white/45 bg-white/[0.64] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.12)] backdrop-blur-2xl sm:w-[calc(100%-2rem)] lg:hidden" : "hidden"}>
         <div className="grid gap-1">
           {navLinks.map(([label, href]) => (
             <Link key={label} href={href} className="rounded-2xl px-4 py-3 text-base font-extrabold text-black transition hover:bg-white/70" onClick={handleAnchorClick(href)}>
