@@ -50,13 +50,16 @@ export function MarketingHeader() {
         className={[
           "pointer-events-auto mx-auto flex items-center justify-between transition-all duration-500 ease-[cubic-bezier(0.2,0.82,0.28,1)]",
           compact
-            ? "mt-3 h-16 w-[calc(100%-1rem)] max-w-[980px] rounded-full border border-white/45 bg-white/[0.48] px-3 shadow-[0_18px_60px_rgba(0,0,0,0.12)] backdrop-blur-2xl sm:mt-4 sm:h-[4.25rem] sm:w-[calc(100%-2rem)] sm:px-4"
+            ? "mt-3 h-16 w-[calc(100%-1rem)] max-w-[980px] rounded-full border border-white/35 bg-white/[0.34] px-3 shadow-[0_18px_60px_rgba(0,0,0,0.1)] backdrop-blur-2xl sm:mt-4 sm:h-[4.25rem] sm:w-[calc(100%-2rem)] sm:px-4"
             : "h-20 w-full max-w-[1560px] border border-transparent bg-transparent px-5 sm:px-8 lg:px-12"
         ].join(" ")}
       >
         <Link href="/" className="flex items-center gap-2 rounded-full pr-3" aria-label="Qrave home" onClick={() => setMenuOpen(false)}>
-          <LogoMark compact={compact} />
-          <span className={compact ? "text-lg font-extrabold text-black" : "text-xl font-extrabold text-black"}>Qrave</span>
+          <img
+            src="/brand/qrave-wordmark-transparent.png"
+            alt="Qrave"
+            className={compact ? "h-10 w-auto object-contain" : "h-12 w-auto object-contain"}
+          />
         </Link>
         <div className={compact ? "hidden items-center gap-5 text-sm font-extrabold text-black lg:flex" : "hidden items-center gap-8 text-sm font-extrabold text-black lg:flex"}>
           {navLinks.map(([label, href]) => (
@@ -84,7 +87,7 @@ export function MarketingHeader() {
           </button>
         </div>
       </nav>
-      <div className={menuOpen ? "pointer-events-auto mx-auto mt-2 w-[calc(100%-1rem)] max-w-[28rem] rounded-[1.75rem] border border-white/45 bg-white/[0.64] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.12)] backdrop-blur-2xl sm:w-[calc(100%-2rem)] lg:hidden" : "hidden"}>
+      <div className={menuOpen ? "pointer-events-auto mx-auto mt-2 w-[calc(100%-1rem)] max-w-[28rem] rounded-[1.75rem] border border-white/35 bg-white/[0.52] p-3 shadow-[0_18px_60px_rgba(0,0,0,0.1)] backdrop-blur-2xl sm:w-[calc(100%-2rem)] lg:hidden" : "hidden"}>
         <div className="grid gap-1">
           {navLinks.map(([label, href]) => (
             <Link key={label} href={href} className="rounded-2xl px-4 py-3 text-base font-extrabold text-black transition hover:bg-white/70" onClick={handleAnchorClick(href)}>
@@ -97,16 +100,5 @@ export function MarketingHeader() {
         </div>
       </div>
     </header>
-  );
-}
-
-function LogoMark({ compact }: { compact: boolean }) {
-  return (
-    <span className={compact ? "grid h-9 w-9 shrink-0 place-items-center rounded-md bg-black text-white" : "grid h-10 w-10 shrink-0 place-items-center rounded-md bg-black text-white"} aria-hidden="true">
-      <svg viewBox="0 0 48 48" className="h-6 w-6" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="8" y="8" width="32" height="32" rx="6" stroke="currentColor" strokeWidth="4" />
-        <path d="M16 16h7v7h-7v-7Zm9 0h7v7h-7v-7ZM16 25h7v7h-7v-7Zm9 0h4v4h4v4h-8v-8Z" fill="currentColor" />
-      </svg>
-    </span>
   );
 }
