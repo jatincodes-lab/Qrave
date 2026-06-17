@@ -103,7 +103,7 @@ export const PricingBullets = [
 
 export function PageShell({ children }: { children: ReactNode }) {
   return (
-    <main className="min-h-screen bg-surface text-on-surface">
+    <main id="top" className="min-h-screen bg-surface text-on-surface">
       <MarketingHeader />
       {children}
       <MarketingFooter />
@@ -113,43 +113,67 @@ export function PageShell({ children }: { children: ReactNode }) {
 
 export function MarketingFooter() {
   return (
-    <footer className="bg-[#121614] px-4 py-16 text-white sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        <div className="grid gap-8 border-b border-white/10 pb-10 md:grid-cols-[1.1fr_0.9fr]">
+    <footer className="border-t border-white/10 bg-black px-5 text-white sm:px-8 lg:px-12">
+      <div className="mx-auto max-w-[1560px] py-20">
+        <div className="grid gap-10 border-b border-white/10 pb-14 lg:grid-cols-[1.05fr_0.95fr] lg:items-end">
           <div>
-            <p className="text-sm font-extrabold uppercase text-[#88e2ad]">Ready for service?</p>
-            <h2 className="mt-4 max-w-2xl text-4xl font-extrabold leading-tight md:text-6xl">Launch your QR ordering and guest platform</h2>
-            <p className="mt-5 max-w-xl text-base font-medium leading-8 text-white/62">
-              Give guests a faster ordering experience and give owners a clearer view of orders, tables, customers, and repeat visits.
+            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-white/50">Qrave for restaurants</p>
+            <h2 className="mt-5 max-w-4xl text-5xl font-extrabold leading-[0.92] tracking-[-0.04em] md:text-7xl">
+              A cleaner way to run QR orders after the scan.
+            </h2>
+            <p className="mt-6 max-w-2xl text-base font-semibold leading-8 text-white/60">
+              Give guests a fast menu, give staff a live order board, and keep customer history ready for the next visit.
             </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link href="/admin/register" className="inline-flex justify-center rounded-full bg-white px-6 py-3 text-sm font-extrabold text-black transition hover:bg-[#d8f1df]">
+                Start free
+              </Link>
+              <Link href="/contact" className="inline-flex justify-center rounded-full border border-white/30 px-6 py-3 text-sm font-extrabold text-white transition hover:border-white hover:bg-white/[0.08]">
+                Contact sales
+              </Link>
+            </div>
           </div>
-          <div className="flex items-end md:justify-end">
-            <Link href="/admin/register" className="inline-flex items-center justify-center rounded-full bg-[#88e2ad] px-6 py-3 text-sm font-extrabold text-[#06281c] transition hover:bg-white">
-              Start free
-            </Link>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+              <QrCode size={24} className="text-[#d8f1df]" />
+              <p className="mt-8 text-3xl font-extrabold tracking-[-0.04em]">QR</p>
+              <p className="mt-2 text-xs font-extrabold uppercase tracking-[0.12em] text-white/40">menu ordering</p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+              <Clock3 size={24} className="text-[#f6e1bf]" />
+              <p className="mt-8 text-3xl font-extrabold tracking-[-0.04em]">Live</p>
+              <p className="mt-2 text-xs font-extrabold uppercase tracking-[0.12em] text-white/40">service board</p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5">
+              <Users size={24} className="text-[#d9e8ff]" />
+              <p className="mt-8 text-3xl font-extrabold tracking-[-0.04em]">CRM</p>
+              <p className="mt-2 text-xs font-extrabold uppercase tracking-[0.12em] text-white/40">guest records</p>
+            </div>
           </div>
         </div>
 
-        <div className="grid gap-8 py-10 md:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr]">
+        <div className="grid gap-10 py-12 md:grid-cols-2 lg:grid-cols-[1.15fr_0.7fr_0.7fr_0.7fr]">
           <div>
             <div className="flex items-center gap-3">
               <QraveMark compact className="h-11 w-11 shrink-0" />
               <span className="text-2xl font-extrabold text-white">Qrave</span>
             </div>
-            <p className="mt-4 max-w-md text-sm font-medium leading-6 text-white/58">
-              QR ordering, live restaurant operations, and customer follow-up software for restaurants, cafes, QSR teams, and cloud kitchens.
+            <p className="mt-5 max-w-md text-sm font-semibold leading-7 text-white/60">
+              QR menu ordering, live restaurant operations, and customer follow-up software for restaurants, cafes, QSR teams, and cloud kitchens.
             </p>
+            <p className="mt-5 text-xs font-extrabold uppercase tracking-[0.16em] text-white/40">Built for table service, counters, cafes, and cloud kitchens.</p>
           </div>
-          <FooterColumn title="Product" links={[["Use cases", "/#use-cases"], ["Features", "/#features"], ["Product", "/#product"], ["Results", "/#results"]]} />
-          <FooterColumn title="Company" links={[["Pricing", "/pricing"], ["Contact", "/contact"], ["FAQ", "/faq"], ["Privacy", "/privacy"]]} />
-          <FooterColumn title="Workspace" links={[["Login", "/admin/login"], ["Create account", "/admin/register"], ["Admin panel", "/admin"]]} />
+          <FooterColumn title="Restaurant" links={[["Overview", "/#overview"], ["Food businesses", "/#businesses"], ["Operations", "/#operations"], ["FAQ", "/#faq"]]} />
+          <FooterColumn title="Product" links={[["QR tools", "/#tools"], ["Pricing", "/pricing"], ["Create account", "/admin/register"], ["Admin login", "/admin/login"]]} />
+          <FooterColumn title="Company" links={[["Contact", "/contact"], ["Privacy", "/privacy"], ["Terms", "/terms"], ["Back to top", "#top"]]} />
         </div>
 
-        <div className="flex flex-col gap-3 border-t border-white/10 pt-6 text-xs font-bold text-white/40 md:flex-row md:items-center md:justify-between">
-          <p>Copyright 2026 Qrave. Restaurant operations, QR menus, and customer CRM.</p>
-          <div className="flex gap-4">
+        <div className="flex flex-col gap-4 border-t border-white/10 pt-6 text-xs font-bold text-white/40 md:flex-row md:items-center md:justify-between">
+          <p>Copyright 2026 Qrave. All rights reserved.</p>
+          <div className="flex flex-wrap gap-4">
             <Link href="/terms">Terms</Link>
             <Link href="/privacy">Privacy</Link>
+            <Link href="/contact">Contact</Link>
           </div>
         </div>
       </div>
@@ -161,7 +185,7 @@ function FooterColumn({ links, title }: { links: Array<[string, string]>; title:
   return (
     <div>
       <p className="text-sm font-extrabold text-white">{title}</p>
-      <div className="mt-4 grid gap-3 text-sm font-semibold text-white/54">
+      <div className="mt-5 grid gap-3 text-sm font-semibold text-white/60">
         {links.map(([label, href]) => (
           <Link key={label} href={href} className="transition hover:text-white">
             {label}

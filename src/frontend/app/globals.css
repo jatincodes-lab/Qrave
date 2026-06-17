@@ -36,6 +36,7 @@ body {
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 8.5rem;
 }
 
 a {
@@ -105,14 +106,14 @@ input {
   }
 
   .landing-hero-wake {
-    --hero-y: 92px;
-    --hero-scale: 0.88;
-    --hero-opacity: 0.5;
-    --hero-blur: 16px;
-    --hero-brightness: 0.72;
-    --hero-tilt: 12deg;
-    --hero-sheen-y: -130%;
-    --hero-sheen-opacity: 0.08;
+    --hero-y: 148px;
+    --hero-scale: 0.82;
+    --hero-opacity: 0.28;
+    --hero-blur: 24px;
+    --hero-brightness: 0.58;
+    --hero-tilt: 18deg;
+    --hero-sheen-y: -165%;
+    --hero-sheen-opacity: 0.04;
     opacity: var(--hero-opacity);
     filter: blur(var(--hero-blur)) brightness(var(--hero-brightness));
     transform: perspective(1400px) translate3d(0, var(--hero-y), 0) scale(var(--hero-scale)) rotateX(var(--hero-tilt));

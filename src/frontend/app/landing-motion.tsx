@@ -17,6 +17,36 @@ export function LandingMotion() {
     const hero = document.querySelector<HTMLElement>("[data-hero-wake]");
     const floatItems = Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-float]"));
 
+    const handleSmoothAnchorClick = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+        return;
+      }
+
+      const link = (event.target as Element | null)?.closest<HTMLAnchorElement>("a[href]");
+      const href = link?.getAttribute("href");
+
+      if (!href || (!href.startsWith("#") && !href.startsWith("/#"))) {
+        return;
+      }
+
+      if (href.startsWith("/#") && window.location.pathname !== "/") {
+        return;
+      }
+
+      const hash = href.slice(href.indexOf("#") + 1);
+      const target = document.getElementById(decodeURIComponent(hash));
+
+      if (!target) {
+        return;
+      }
+
+      event.preventDefault();
+      window.history.pushState(null, "", href.startsWith("/#") ? `/#${hash}` : `#${hash}`);
+      target.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+    };
+
+    document.addEventListener("click", handleSmoothAnchorClick);
+
     if (reduceMotion) {
       revealItems.forEach((item) => item.classList.add("is-visible"));
       if (hero) {
@@ -29,7 +59,7 @@ export function LandingMotion() {
         hero.style.setProperty("--hero-sheen-y", "140%");
         hero.style.setProperty("--hero-sheen-opacity", "0");
       }
-      return;
+      return () => document.removeEventListener("click", handleSmoothAnchorClick);
     }
 
     const observer = new IntersectionObserver(
@@ -62,15 +92,15 @@ export function LandingMotion() {
       const scrollY = window.scrollY;
 
       if (hero) {
-        const progress = easeOutCubic(clamp((scrollY - 18) / 420, 0, 1));
-        hero.style.setProperty("--hero-y", `${Math.round(92 - progress * 92)}px`);
-        hero.style.setProperty("--hero-scale", `${0.88 + progress * 0.12}`);
-        hero.style.setProperty("--hero-opacity", `${0.5 + progress * 0.5}`);
-        hero.style.setProperty("--hero-blur", `${Math.round(16 - progress * 16)}px`);
-        hero.style.setProperty("--hero-brightness", `${0.72 + progress * 0.28}`);
-        hero.style.setProperty("--hero-tilt", `${12 - progress * 12}deg`);
-        hero.style.setProperty("--hero-sheen-y", `${-130 + progress * 275}%`);
-        hero.style.setProperty("--hero-sheen-opacity", `${progress > 0.08 && progress < 0.98 ? 0.42 : 0.08}`);
+        const progress = easeOutCubic(clamp((scrollY - 150) / 760, 0, 1));
+        hero.style.setProperty("--hero-y", `${Math.round(148 - progress * 148)}px`);
+        hero.style.setProperty("--hero-scale", `${0.82 + progress * 0.18}`);
+        hero.style.setProperty("--hero-opacity", `${0.28 + progress * 0.72}`);
+        hero.style.setProperty("--hero-blur", `${Math.round(24 - progress * 24)}px`);
+        hero.style.setProperty("--hero-brightness", `${0.58 + progress * 0.42}`);
+        hero.style.setProperty("--hero-tilt", `${18 - progress * 18}deg`);
+        hero.style.setProperty("--hero-sheen-y", `${-165 + progress * 310}%`);
+        hero.style.setProperty("--hero-sheen-opacity", `${progress > 0.12 && progress < 0.96 ? 0.36 : 0.04}`);
       }
 
       floatItems.forEach((item, index) => {
@@ -97,6 +127,7 @@ export function LandingMotion() {
 
     return () => {
       observer.disconnect();
+      document.removeEventListener("click", handleSmoothAnchorClick);
       window.removeEventListener("scroll", requestUpdate);
       window.removeEventListener("resize", requestUpdate);
     };
