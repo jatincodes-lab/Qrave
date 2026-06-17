@@ -22,6 +22,7 @@ import {
   Users
 } from "lucide-react";
 import { FaqItems, PageShell, SiteUrl } from "./marketing";
+import { LandingMotion } from "./landing-motion";
 
 export const metadata: Metadata = {
   title: "Qrave | QR Menu Ordering for Real Restaurant Service",
@@ -174,20 +175,23 @@ const schema = {
 export default function LandingPage() {
   return (
     <PageShell>
+      <LandingMotion />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
 
       <section className="relative overflow-hidden bg-[#f7f6f2] pt-28 text-[#050505]">
         <div className="absolute inset-x-0 top-0 h-[42rem] bg-[radial-gradient(circle_at_50%_20%,#e1f3d5_0%,#f3e0b9_34%,#f7f6f2_72%)]" />
         <div className="relative mx-auto max-w-[1560px] px-5 pb-10 sm:px-8 lg:px-12">
           <div className="mx-auto max-w-6xl text-center">
-            <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-[#4b4b4b]">Built for QR-first restaurant service</p>
-            <h1 className="mx-auto mt-7 max-w-6xl text-[4.4rem] font-extrabold leading-[0.85] tracking-[-0.04em] sm:text-[6.5rem] lg:text-[9rem]">
+            <p className="landing-reveal text-xs font-extrabold uppercase tracking-[0.22em] text-[#4b4b4b]" style={{ animationDelay: "40ms" }}>
+              Built for QR-first restaurant service
+            </p>
+            <h1 className="landing-reveal mx-auto mt-7 max-w-6xl text-[4.4rem] font-extrabold leading-[0.85] tracking-[-0.04em] sm:text-[6.5rem] lg:text-[9rem]" style={{ animationDelay: "140ms" }}>
               Power your restaurant with Qrave
             </h1>
-            <p className="mx-auto mt-8 max-w-3xl text-lg font-semibold leading-8 text-[#3f3f3f] md:text-xl">
+            <p className="landing-reveal mx-auto mt-8 max-w-3xl text-lg font-semibold leading-8 text-[#3f3f3f] md:text-xl" style={{ animationDelay: "260ms" }}>
               Manage QR orders, keep kitchen and waiter teams in sync, update menus, and bring guests back with customer history built from every visit.
             </p>
-            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <div className="landing-reveal mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row" style={{ animationDelay: "360ms" }}>
               <Link href="/contact" className="inline-flex min-w-36 items-center justify-center rounded-full border border-[#050505] bg-white px-6 py-3 text-sm font-extrabold text-[#050505] transition hover:bg-[#f0eee8]">
                 Contact sales
               </Link>
@@ -197,7 +201,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="relative mx-auto mt-14 max-w-7xl overflow-hidden rounded-[1.4rem] border border-black/10 bg-black p-2 shadow-[0_28px_100px_rgba(0,0,0,0.22)]">
+          <div data-hero-wake="" className="landing-hero-wake relative mx-auto mt-14 max-w-7xl overflow-hidden rounded-[1.4rem] border border-black/10 bg-black p-2 shadow-[0_28px_100px_rgba(0,0,0,0.22)]">
             <ImageReadyFrame src={landingImages.hero} alt="Qrave restaurant operations dashboard" className="h-[28rem] rounded-[1rem] border-0 bg-[#0b0d0c] shadow-none md:h-[42rem]">
               <HeroProductVisual />
             </ImageReadyFrame>
@@ -233,7 +237,7 @@ export default function LandingPage() {
       </nav>
 
       <section id="overview" className="bg-white px-5 py-20 sm:px-8 lg:px-12">
-        <div className="mx-auto grid max-w-[1560px] gap-10 lg:grid-cols-[0.88fr_1.12fr] lg:items-end">
+        <div data-landing-reveal="" className="landing-scroll-reveal mx-auto grid max-w-[1560px] gap-10 lg:grid-cols-[0.88fr_1.12fr] lg:items-end">
           <div>
             <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#707070]">Overview</p>
             <h2 className="mt-5 max-w-3xl text-5xl font-extrabold leading-[0.95] tracking-[-0.04em] md:text-7xl">
@@ -247,7 +251,7 @@ export default function LandingPage() {
               "Owner changes an item price or marks a dish unavailable before lunch service.",
               "Customer details, consent, spend, and favorite items are saved for later follow-up."
             ].map((item) => (
-              <div key={item} className="border-t border-[#cfcfcf] pt-5 text-lg font-semibold leading-7 text-[#333]">
+              <div key={item} data-landing-reveal="" className="landing-scroll-reveal border-t border-[#cfcfcf] pt-5 text-lg font-semibold leading-7 text-[#333]">
                 {item}
               </div>
             ))}
@@ -257,7 +261,9 @@ export default function LandingPage() {
 
       <section id="businesses" className="bg-[#f7f6f2] px-5 py-24 sm:px-8 lg:px-12">
         <div className="mx-auto max-w-[1560px]">
-          <SectionHeading eyebrow="Food businesses" title="Different service styles, the same operating core" />
+          <div data-landing-reveal="" className="landing-scroll-reveal">
+            <SectionHeading eyebrow="Food businesses" title="Different service styles, the same operating core" />
+          </div>
           <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
             {businessTypes.map((item) => (
               <BusinessCard key={item.title} {...item} />
@@ -268,7 +274,7 @@ export default function LandingPage() {
 
       <section id="tools" className="bg-black px-5 py-24 text-white sm:px-8 lg:px-12">
         <div className="mx-auto max-w-[1560px]">
-          <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-end">
+          <div data-landing-reveal="" className="landing-scroll-reveal grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-end">
             <div>
               <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#bdbdbd]">Qrave tools</p>
               <h2 className="mt-5 max-w-3xl text-5xl font-extrabold leading-[0.95] tracking-[-0.04em] text-white md:text-7xl">
@@ -290,8 +296,8 @@ export default function LandingPage() {
       <section className="bg-white px-5 py-20 sm:px-8 lg:px-12">
         <div className="mx-auto grid max-w-[1560px] gap-8 md:grid-cols-4">
           {stats.map((stat) => (
-            <div key={stat.value} className="border-t border-[#cfcfcf] pt-6">
-              <p className="text-6xl font-extrabold leading-none tracking-[-0.05em] text-[#050505] md:text-8xl">{stat.value}</p>
+            <div key={stat.value} data-landing-reveal="" className="landing-scroll-reveal landing-count-card border-t border-[#cfcfcf] pt-6">
+              <p className="relative text-6xl font-extrabold leading-none tracking-[-0.05em] text-[#050505] md:text-8xl">{stat.value}</p>
               <p className="mt-4 max-w-xs text-base font-extrabold leading-6 text-[#444]">{stat.label}</p>
             </div>
           ))}
@@ -299,7 +305,7 @@ export default function LandingPage() {
       </section>
 
       <section className="bg-white px-5 pb-24 sm:px-8 lg:px-12">
-        <div className="mx-auto grid max-w-[1560px] overflow-hidden rounded-xl border border-[#d8d8d8] lg:grid-cols-[0.95fr_1.05fr]">
+        <div data-landing-reveal="" className="landing-scroll-reveal mx-auto grid max-w-[1560px] overflow-hidden rounded-xl border border-[#d8d8d8] lg:grid-cols-[0.95fr_1.05fr]">
           <div className="bg-[#f7f6f2] p-7 md:p-10">
             <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#707070]">First week setup</p>
             <h2 className="mt-5 max-w-2xl text-4xl font-extrabold leading-[0.95] tracking-[-0.04em] md:text-6xl">
@@ -316,7 +322,7 @@ export default function LandingPage() {
               ["Day 3", "Print table QR codes and test the customer ordering flow."],
               ["Day 4", "Train staff on new orders, kitchen status, and waiter calls."]
             ].map(([day, text]) => (
-              <article key={day} className="bg-white p-7">
+              <article key={day} data-landing-reveal="" className="landing-scroll-reveal bg-white p-7">
                 <p className="text-sm font-extrabold text-[#707070]">{day}</p>
                 <p className="mt-3 text-lg font-extrabold leading-7 text-[#050505]">{text}</p>
               </article>
@@ -327,7 +333,9 @@ export default function LandingPage() {
 
       <section id="operations" className="bg-[#f7f6f2] px-5 py-24 sm:px-8 lg:px-12">
         <div className="mx-auto max-w-[1560px]">
-          <SectionHeading eyebrow="Operations" title="Restaurant workflows, built for the rush" centered />
+          <div data-landing-reveal="" className="landing-scroll-reveal">
+            <SectionHeading eyebrow="Operations" title="Restaurant workflows, built for the rush" centered />
+          </div>
           <div className="mt-12 grid gap-8">
             {featureRows.map((feature) => (
               <FeatureRow key={feature.title} {...feature} />
@@ -338,7 +346,7 @@ export default function LandingPage() {
 
       <section className="bg-white px-5 py-24 sm:px-8 lg:px-12">
         <div className="mx-auto grid max-w-[1560px] gap-10 lg:grid-cols-[0.85fr_1.15fr]">
-          <div>
+          <div data-landing-reveal="" className="landing-scroll-reveal">
             <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#707070]">Platform stack</p>
             <h2 className="mt-5 max-w-2xl text-5xl font-extrabold leading-[0.95] tracking-[-0.04em] md:text-7xl">
               Start with QR. Grow into a complete restaurant system.
@@ -346,7 +354,7 @@ export default function LandingPage() {
           </div>
           <div className="grid gap-px overflow-hidden rounded-xl border border-[#d8d8d8] bg-[#d8d8d8] md:grid-cols-2">
             {operatingStack.map(([title, text]) => (
-              <article key={title} className="bg-white p-7">
+              <article key={title} data-landing-reveal="" className="landing-scroll-reveal bg-white p-7">
                 <h3 className="text-2xl font-extrabold tracking-[-0.02em] text-[#050505]">{title}</h3>
                 <p className="mt-4 text-sm font-semibold leading-6 text-[#555]">{text}</p>
               </article>
@@ -357,10 +365,12 @@ export default function LandingPage() {
 
       <section id="faq" className="bg-[#f7f6f2] px-5 py-24 sm:px-8 lg:px-12">
         <div className="mx-auto max-w-[1080px]">
-          <SectionHeading eyebrow="FAQ" title="Questions restaurant teams ask" centered />
+          <div data-landing-reveal="" className="landing-scroll-reveal">
+            <SectionHeading eyebrow="FAQ" title="Questions restaurant teams ask" centered />
+          </div>
           <div className="mt-10 divide-y divide-[#cfcfcf] border-y border-[#cfcfcf]">
             {FaqItems.slice(0, 5).map((item) => (
-              <article key={item.question} className="grid gap-4 py-7 md:grid-cols-[0.42fr_0.58fr]">
+              <article key={item.question} data-landing-reveal="" className="landing-scroll-reveal grid gap-4 py-7 md:grid-cols-[0.42fr_0.58fr]">
                 <h3 className="text-xl font-extrabold tracking-[-0.02em] text-[#050505]">{item.question}</h3>
                 <p className="text-base font-semibold leading-7 text-[#4b4b4b]">{item.answer}</p>
               </article>
@@ -370,7 +380,7 @@ export default function LandingPage() {
       </section>
 
       <section className="bg-black px-5 py-24 text-white sm:px-8 lg:px-12">
-        <div className="mx-auto grid max-w-[1560px] gap-10 lg:grid-cols-[0.95fr_0.75fr] lg:items-center">
+        <div data-landing-reveal="" className="landing-scroll-reveal mx-auto grid max-w-[1560px] gap-10 lg:grid-cols-[0.95fr_0.75fr] lg:items-center">
           <div>
             <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#bdbdbd]">Ready for service?</p>
             <h2 className="mt-5 max-w-5xl text-5xl font-extrabold leading-[0.9] tracking-[-0.04em] md:text-8xl">
@@ -413,7 +423,7 @@ export default function LandingPage() {
 
 function BusinessCard({ accent, image, text, title }: { accent: string; image: string; text: string; title: string }) {
   return (
-    <article className="group overflow-hidden rounded-xl border border-[#d8d8d8] bg-white">
+    <article data-landing-reveal="" className="landing-scroll-reveal landing-hover-lift group overflow-hidden rounded-xl border border-[#d8d8d8] bg-white">
       <ImageReadyFrame src={image} alt={`${title} restaurant setup`} className={`h-[24rem] rounded-none border-0 shadow-none ${accent}`}>
         <BusinessVisual title={title} />
       </ImageReadyFrame>
@@ -430,7 +440,7 @@ function BusinessCard({ accent, image, text, title }: { accent: string; image: s
 
 function ProductTool({ icon: Icon, text, title }: { icon: LucideIcon; text: string; title: string }) {
   return (
-    <article className="bg-[#111] p-7">
+    <article data-landing-reveal="" className="landing-scroll-reveal landing-hover-lift bg-[#111] p-7">
       <div className="grid h-12 w-12 place-items-center rounded-lg bg-white text-black">
         <Icon size={22} />
       </div>
@@ -460,7 +470,7 @@ function FeatureRow({
   visual: "menu" | "operations" | "customers";
 }) {
   return (
-    <article className="grid overflow-hidden rounded-xl border border-[#d8d8d8] bg-white lg:grid-cols-2">
+    <article data-landing-reveal="" className="landing-scroll-reveal grid overflow-hidden rounded-xl border border-[#d8d8d8] bg-white lg:grid-cols-2">
       <div className={reverse ? "lg:order-2" : ""}>
         <ImageReadyFrame src={image} alt={`${title} screenshot`} className="h-[34rem] rounded-none border-0 bg-[#e8efe7] shadow-none lg:h-full">
           <FeatureVisual visual={visual} />
@@ -529,8 +539,8 @@ function HeroProductVisual() {
               ["#185", "Table 9", "New", "Veg thali x1, cold coffee x2", "now"],
               ["#186", "Table 2", "Waiter call", "Water refill requested", "2 min"],
               ["#187", "Pickup", "Ready", "Veg burger combo x1", "ready"]
-            ].map(([id, table, status, order, time]) => (
-              <div key={id} className="grid gap-3 rounded-lg border border-[#d8d8d8] p-4 sm:grid-cols-[0.16fr_0.2fr_0.22fr_1fr_0.16fr] sm:items-center">
+            ].map(([id, table, status, order, time], index) => (
+              <div key={id} className="landing-live-ticket grid gap-3 rounded-lg border border-[#d8d8d8] p-4 sm:grid-cols-[0.16fr_0.2fr_0.22fr_1fr_0.16fr] sm:items-center" style={{ animationDelay: `${index * 180}ms` }}>
                 <p className="font-extrabold text-[#707070]">{id}</p>
                 <p className="font-extrabold">{table}</p>
                 <p className={status === "New" || status === "Waiter call" ? "text-sm font-extrabold text-[#cc4b00]" : "text-sm font-extrabold text-[#0b7a37]"}>{status}</p>
@@ -585,7 +595,7 @@ function HeroProductVisual() {
 function BusinessVisual({ title }: { title: string }) {
   const Icon = title === "Cafes" ? CreditCard : title === "Cloud kitchens" ? Store : title === "Full-service" ? Utensils : ScanLine;
   return (
-    <div className="relative flex h-full flex-col justify-between p-6">
+    <div data-scroll-float="" className="landing-scroll-float relative flex h-full flex-col justify-between p-6">
       <div className="absolute inset-x-6 top-6 h-36 rounded-t-[2rem] bg-black/10" />
       <div className="relative mx-auto mt-2 h-48 w-36 overflow-hidden rounded-[2rem] border-[8px] border-black bg-white shadow-xl">
         <div className="bg-black px-3 py-3 text-white">
@@ -618,7 +628,7 @@ function BusinessVisual({ title }: { title: string }) {
 function FeatureVisual({ visual }: { visual: "menu" | "operations" | "customers" }) {
   if (visual === "operations") {
     return (
-      <div className="flex h-full items-center bg-[#d9e8ff] p-6">
+      <div data-scroll-float="" className="landing-scroll-float flex h-full items-center bg-[#d9e8ff] p-6">
         <div className="mx-auto w-full max-w-xl rounded-xl bg-white p-5">
           <div className="flex items-center justify-between border-b border-[#d8d8d8] pb-4">
             <h4 className="text-2xl font-extrabold tracking-[-0.03em]">Kitchen board</h4>
@@ -645,7 +655,7 @@ function FeatureVisual({ visual }: { visual: "menu" | "operations" | "customers"
 
   if (visual === "customers") {
     return (
-      <div className="grid h-full place-items-center bg-[#f6e1bf] p-6">
+      <div data-scroll-float="" className="landing-scroll-float grid h-full place-items-center bg-[#f6e1bf] p-6">
         <div className="grid w-full max-w-xl gap-4 sm:grid-cols-[0.8fr_1.2fr]">
           <div className="rounded-xl bg-black p-5 text-white">
             <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-white/58">Guest profile</p>
@@ -674,7 +684,7 @@ function FeatureVisual({ visual }: { visual: "menu" | "operations" | "customers"
   }
 
   return (
-    <div className="grid h-full place-items-center bg-[#d8f1df] p-6">
+    <div data-scroll-float="" className="landing-scroll-float grid h-full place-items-center bg-[#d8f1df] p-6">
       <div className="h-[28rem] w-[16rem] overflow-hidden rounded-[2rem] border-[10px] border-black bg-white shadow-2xl">
         <div className="bg-black p-4 text-white">
           <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-white/56">Table 12</p>
@@ -698,7 +708,7 @@ function FeatureVisual({ visual }: { visual: "menu" | "operations" | "customers"
 
 function QrPattern() {
   return (
-    <div className="mt-7 grid h-28 w-28 grid-cols-5 gap-1 rounded-lg bg-white p-2">
+    <div className="landing-scan-line mt-7 grid h-28 w-28 grid-cols-5 gap-1 rounded-lg bg-white p-2">
       {Array.from({ length: 25 }).map((_, index) => (
         <span key={index} className={index % 3 === 0 || index === 7 || index === 18 ? "rounded-[2px] bg-black" : "rounded-[2px] bg-black/10"} />
       ))}

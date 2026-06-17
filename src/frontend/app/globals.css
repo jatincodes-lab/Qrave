@@ -34,6 +34,10 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -80,6 +84,111 @@ input {
 
   .landing-reveal {
     animation: landing-reveal 900ms cubic-bezier(0.2, 0.82, 0.28, 1) both;
+  }
+
+  .landing-scroll-reveal {
+    opacity: 0;
+    filter: blur(12px);
+    transform: translate3d(0, 34px, 0) scale(0.985);
+    transition:
+      opacity 820ms cubic-bezier(0.2, 0.82, 0.28, 1),
+      filter 820ms cubic-bezier(0.2, 0.82, 0.28, 1),
+      transform 820ms cubic-bezier(0.2, 0.82, 0.28, 1);
+    transition-delay: var(--reveal-delay, 0ms);
+    will-change: opacity, filter, transform;
+  }
+
+  .landing-scroll-reveal.is-visible {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  .landing-hero-wake {
+    --hero-y: 92px;
+    --hero-scale: 0.88;
+    --hero-opacity: 0.5;
+    --hero-blur: 16px;
+    --hero-brightness: 0.72;
+    --hero-tilt: 12deg;
+    --hero-sheen-y: -130%;
+    --hero-sheen-opacity: 0.08;
+    opacity: var(--hero-opacity);
+    filter: blur(var(--hero-blur)) brightness(var(--hero-brightness));
+    transform: perspective(1400px) translate3d(0, var(--hero-y), 0) scale(var(--hero-scale)) rotateX(var(--hero-tilt));
+    transform-origin: 50% 0%;
+    will-change: opacity, filter, transform;
+  }
+
+  .landing-hero-wake::after {
+    content: "";
+    position: absolute;
+    inset: -30%;
+    pointer-events: none;
+    background: linear-gradient(115deg, transparent 34%, rgba(255, 255, 255, 0.52) 48%, transparent 62%);
+    opacity: var(--hero-sheen-opacity);
+    transform: translateY(var(--hero-sheen-y)) rotate(6deg);
+    transition: opacity 220ms ease;
+  }
+
+  .landing-scroll-float {
+    transform: translate3d(0, var(--float-y, 0px), 0);
+    transition: transform 120ms linear;
+    will-change: transform;
+  }
+
+  .landing-hover-lift {
+    transition:
+      opacity 820ms cubic-bezier(0.2, 0.82, 0.28, 1),
+      filter 820ms cubic-bezier(0.2, 0.82, 0.28, 1),
+      transform 820ms cubic-bezier(0.2, 0.82, 0.28, 1),
+      border-color 220ms ease,
+      box-shadow 220ms ease;
+  }
+
+  .landing-hover-lift:hover {
+    border-color: rgba(5, 5, 5, 0.24);
+    box-shadow: 0 28px 90px rgba(0, 0, 0, 0.14);
+    transform: translateY(-6px);
+  }
+
+  .landing-live-ticket {
+    animation: landing-live-ticket 3.8s ease-in-out infinite;
+    animation-delay: var(--ticket-delay, 0ms);
+  }
+
+  .landing-scan-line {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .landing-scan-line::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 28%;
+    background: linear-gradient(180deg, transparent, rgba(136, 226, 173, 0.24), transparent);
+    animation: landing-scan-line 4.6s ease-in-out infinite;
+  }
+
+  .landing-count-card {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .landing-count-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.06), transparent);
+    transform: translateX(-120%);
+    transition: transform 900ms cubic-bezier(0.2, 0.82, 0.28, 1);
+  }
+
+  .landing-scroll-reveal.is-visible .landing-count-card::before,
+  .landing-count-card.is-visible::before {
+    transform: translateX(120%);
   }
 
   .landing-rise {
@@ -143,6 +252,33 @@ input {
   }
 }
 
+@keyframes landing-live-ticket {
+  0%,
+  100% {
+    box-shadow: 0 0 0 rgba(32, 199, 122, 0);
+    transform: translateY(0);
+  }
+  50% {
+    box-shadow: 0 12px 32px rgba(32, 199, 122, 0.14);
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes landing-scan-line {
+  0% {
+    transform: translateY(-120%);
+    opacity: 0;
+  }
+  20%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(420%);
+    opacity: 0;
+  }
+}
+
 @keyframes qr-fly-to-cart {
   0% {
     opacity: 0;
@@ -155,5 +291,22 @@ input {
   100% {
     opacity: 0;
     transform: translate3d(-122px, 18px, 0) scale(0.3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+
+  .landing-scroll-reveal {
+    opacity: 1;
+    filter: none;
+    transform: none;
   }
 }
