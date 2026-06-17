@@ -42,7 +42,8 @@ export function LandingMotion() {
 
       event.preventDefault();
       window.history.pushState(null, "", href.startsWith("/#") ? `/#${hash}` : `#${hash}`);
-      target.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+      const top = target.getBoundingClientRect().top + window.scrollY - 116;
+      window.scrollTo({ top: Math.max(0, top), behavior: reduceMotion ? "auto" : "smooth" });
     };
 
     document.addEventListener("click", handleSmoothAnchorClick);
