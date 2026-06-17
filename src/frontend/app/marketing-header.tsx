@@ -15,31 +15,29 @@ export function MarketingHeader() {
   }, []);
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-50 px-4 pt-4">
+    <header className="fixed left-0 right-0 top-0 z-50 border-b border-black/10 bg-white/94 backdrop-blur">
       <nav
         className={[
-          "mx-auto flex h-16 max-w-7xl items-center justify-between rounded-full px-3 transition-all duration-300 sm:px-4",
-          scrolled
-            ? "border border-white/70 bg-white/90 shadow-[0_18px_48px_rgba(15,35,26,0.14)] backdrop-blur-xl"
-            : "border border-white/40 bg-white/52 shadow-none backdrop-blur-md"
+          "mx-auto flex h-20 max-w-[1560px] items-center justify-between px-5 transition-all duration-300 sm:px-8 lg:px-12",
+          scrolled ? "shadow-[0_10px_30px_rgba(0,0,0,0.06)]" : "shadow-none"
         ].join(" ")}
       >
         <Link href="/" className="flex items-center gap-2 rounded-full pr-3" aria-label="Qrave home">
           <LogoMark />
-          <span className="text-xl font-extrabold text-[#075335]">Qrave</span>
+          <span className="text-xl font-extrabold text-black">Qrave</span>
         </Link>
-        <div className="hidden items-center gap-1 rounded-full bg-white/54 p-1 text-sm font-bold text-[#5f5a53] md:flex">
-          <Link href="/#use-cases" className="rounded-full px-4 py-2 transition hover:bg-white hover:text-[#171514]">Use cases</Link>
-          <Link href="/#features" className="rounded-full px-4 py-2 transition hover:bg-white hover:text-[#171514]">Features</Link>
-          <Link href="/#product" className="rounded-full px-4 py-2 transition hover:bg-white hover:text-[#171514]">Product</Link>
-          <Link href="/#results" className="rounded-full px-4 py-2 transition hover:bg-white hover:text-[#171514]">Results</Link>
-          <Link href="/pricing" className="rounded-full px-4 py-2 transition hover:bg-white hover:text-[#171514]">Pricing</Link>
+        <div className="hidden items-center gap-8 text-sm font-extrabold text-black lg:flex">
+          <Link href="/#businesses" className="transition hover:text-[#006aff]">Business types</Link>
+          <Link href="/#tools" className="transition hover:text-[#006aff]">Products</Link>
+          <Link href="/#operations" className="transition hover:text-[#006aff]">Operations</Link>
+          <Link href="/pricing" className="transition hover:text-[#006aff]">Pricing</Link>
+          <Link href="/contact" className="transition hover:text-[#006aff]">Contact</Link>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/admin/login" className="hidden rounded-full px-4 py-2.5 text-sm font-extrabold text-[#171514] transition hover:bg-white sm:inline-flex">
-            Login
+          <Link href="/admin/login" className="hidden px-4 py-2.5 text-sm font-extrabold text-black transition hover:text-[#006aff] sm:inline-flex">
+            Sign in
           </Link>
-          <Link href="/admin/register" className="inline-flex items-center gap-2 rounded-full bg-[#171514] px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#075335]">
+          <Link href="/admin/register" className="inline-flex items-center gap-2 rounded-full bg-black px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-[#1f1f1f]">
             Start free
             <ArrowRight size={16} className="hidden sm:block" />
           </Link>
@@ -51,9 +49,9 @@ export function MarketingHeader() {
 
 function LogoMark() {
   return (
-    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#075335] text-white" aria-hidden="true">
+    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-black text-white" aria-hidden="true">
       <svg viewBox="0 0 48 48" className="h-6 w-6" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="8" y="8" width="32" height="32" rx="9" stroke="currentColor" strokeWidth="4" />
+        <rect x="8" y="8" width="32" height="32" rx="6" stroke="currentColor" strokeWidth="4" />
         <path d="M16 16h7v7h-7v-7Zm9 0h7v7h-7v-7ZM16 25h7v7h-7v-7Zm9 0h4v4h4v4h-8v-8Z" fill="currentColor" />
       </svg>
     </span>
