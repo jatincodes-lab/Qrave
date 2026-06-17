@@ -197,22 +197,12 @@ function FooterColumn({ links, title }: { links: Array<[string, string]>; title:
 }
 
 export function QraveMark({ className = "h-11 w-11 shrink-0", compact = false }: { className?: string; compact?: boolean }) {
-  if (compact) {
-    return (
-      <svg className={className} viewBox="0 0 120 120" role="img" aria-label="Qrave logo mark" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="16" y="16" width="88" height="88" rx="24" fill="#20c77a" />
-        <path d="M38 38h14v14H38V38Zm30 0h14v14H68V38ZM38 68h14v14H38V68Zm30 0h6v6h8v8H68V68Z" fill="#06281c" />
-        <path d="M56 56h8v8h-8v-8Zm20 0h6v6h-6v-6ZM56 76h6v6h-6v-6Z" fill="#06281c" />
-      </svg>
-    );
-  }
-
   return (
-    <svg className={className} viewBox="0 0 120 120" role="img" aria-label="Qrave logo mark" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="12" y="12" width="96" height="96" rx="28" fill="#075335" />
-      <path d="M34 34h18v18H34V34Zm34 0h18v18H68V34ZM34 68h18v18H34V68Zm34 0h8v8h10v10H68V68Z" fill="#ffffff" />
-      <path d="M56 56h10v10H56V56Zm22 0h8v8h-8v-8ZM56 78h8v8h-8v-8Z" fill="#88e2ad" />
-    </svg>
+    <img
+      src={compact ? "/brand/qrave-icon-mark-transparent.png" : "/brand/qrave-icon-mark-transparent.png"}
+      alt="Qrave logo mark"
+      className={className}
+    />
   );
 }
 
