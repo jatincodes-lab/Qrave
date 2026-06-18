@@ -1,6 +1,7 @@
 using Npgsql;
 using QRApp.Api.Errors;
 using QRApp.Application.Tables;
+using QRApp.Application.Tenants;
 
 namespace QRApp.Api.Endpoints;
 
@@ -19,11 +20,18 @@ public static class PublicQrEndpoints
     private static async Task<IResult> GetPublicQrMenuAsync(
         string qrToken,
         IBranchTableService branchTableService,
+        ITenantAccessService tenantAccessService,
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
         try
         {
+            var accessStatus = await tenantAccessService.GetByQrTokenAsync(qrToken, cancellationToken);
+            if (accessStatus is { IsAccessAllowed: false })
+            {
+                return ApiProblemResponses.Locked("This restaurant is temporarily unavailable.");
+            }
+
             var menu = await branchTableService.GetPublicMenuByQrTokenAsync(qrToken, cancellationToken);
             return menu is null ? ApiProblemResponses.NotFound("QR menu was not found. Check that the QR code is active and belongs to an active table.") : Results.Ok(menu);
         }
@@ -39,11 +47,18 @@ public static class PublicQrEndpoints
     private static async Task<IResult> CreatePublicQrSessionAsync(
         string qrToken,
         IBranchTableService branchTableService,
+        ITenantAccessService tenantAccessService,
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
         try
         {
+            var accessStatus = await tenantAccessService.GetByQrTokenAsync(qrToken, cancellationToken);
+            if (accessStatus is { IsAccessAllowed: false })
+            {
+                return ApiProblemResponses.Locked("This restaurant is temporarily unavailable.");
+            }
+
             var session = await branchTableService.CreatePublicQrSessionAsync(qrToken, cancellationToken);
             return session is null
                 ? ApiProblemResponses.NotFound("QR menu was not found. Check that the QR code is active and belongs to an active table.")

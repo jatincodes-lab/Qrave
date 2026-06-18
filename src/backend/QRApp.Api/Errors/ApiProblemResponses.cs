@@ -54,6 +54,15 @@ internal static class ApiProblemResponses
             "https://httpstatuses.com/409");
     }
 
+    public static IResult Locked(string detail)
+    {
+        return Problem(
+            StatusCodes.Status423Locked,
+            "Temporarily unavailable",
+            detail,
+            "https://httpstatuses.com/423");
+    }
+
     public static IResult Forbidden(string detail)
     {
         return Problem(

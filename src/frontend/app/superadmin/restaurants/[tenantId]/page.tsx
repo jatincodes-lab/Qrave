@@ -88,8 +88,18 @@ export default function SuperAdminRestaurantDetailPage() {
   }
 
   async function suspend() {
+    if (actionNote.trim().length < 2) {
+      setError("Suspension reason is required.");
+      return;
+    }
+
+    const confirmed = window.confirm("Suspend this restaurant? Customers will see that the restaurant is temporarily unavailable.");
+    if (!confirmed) {
+      return;
+    }
+
     await run("suspend", async () => {
-      await suspendSuperAdminRestaurant(tenantId, { subscriptionNotes: actionNote || null });
+      await suspendSuperAdminRestaurant(tenantId, { subscriptionNotes: actionNote.trim() });
       setActionNote("");
       await load();
     });

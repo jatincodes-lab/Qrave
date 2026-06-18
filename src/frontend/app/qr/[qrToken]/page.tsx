@@ -67,6 +67,13 @@ async function loadMenu(qrToken: string): Promise<MenuLoadResult> {
         };
       }
 
+      if (caught.status === 423) {
+        return {
+          kind: "unavailable",
+          message: "This restaurant is temporarily unavailable."
+        };
+      }
+
       return {
         kind: "unavailable",
         message: caught.message
@@ -108,7 +115,7 @@ function QrMenuTemporarilyUnavailable({ message }: { message: string }) {
     <main className="grid min-h-screen place-items-center bg-surface px-4 text-ink">
       <section className="w-full max-w-sm border border-line bg-white p-5 text-center shadow-soft-saas">
         <Clock3 className="mx-auto h-10 w-10 text-soft-gold" aria-hidden="true" />
-        <h1 className="mt-4 text-xl font-bold">Menu temporarily unavailable</h1>
+        <h1 className="mt-4 text-xl font-bold">This restaurant is temporarily unavailable</h1>
         <p className="mt-2 text-sm leading-6 text-on-surface-variant">{message}</p>
       </section>
     </main>

@@ -47,6 +47,44 @@ LANGUAGE sql STABLE AS $$
     WHERE bt."QrToken" = p_qrtoken AND bt."IsActive" = true;
 $$;
 
+CREATE OR REPLACE FUNCTION public.tenant_public_access_allowed(p_tenantid uuid)
+RETURNS boolean
+LANGUAGE sql STABLE AS $$
+    SELECT COALESCE((
+        SELECT t."IsActive"
+           AND t."AccountStatusCode" = 'Active'
+           AND (
+                t."SubscriptionStatusCode" IN ('Active','ManualActive')
+                OR (
+                    t."SubscriptionStatusCode" = 'Trialing'
+                    AND (t."TrialStartAtUtc" IS NULL OR t."TrialStartAtUtc" <= public.app_now())
+                    AND t."TrialEndAtUtc" IS NOT NULL
+                    AND t."TrialEndAtUtc" >= public.app_now()
+                )
+           )
+        FROM "Tenants" t
+        WHERE t."TenantId" = p_tenantid
+    ), false);
+$$;
+
+CREATE OR REPLACE FUNCTION public.publicqr_assert_tenant_available(p_qrtoken text)
+RETURNS void
+LANGUAGE plpgsql AS $$
+DECLARE
+    tenant_id uuid;
+BEGIN
+    SELECT bt."TenantId"
+    INTO tenant_id
+    FROM "BranchTables" bt
+    WHERE bt."QrToken" = p_qrtoken AND bt."IsActive"
+    LIMIT 1;
+
+    IF tenant_id IS NOT NULL AND NOT public.tenant_public_access_allowed(tenant_id) THEN
+        PERFORM public.raise_app_error(52002);
+    END IF;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.tenantsubscription_getbytenantid(p_tenantid uuid)
 RETURNS TABLE("TenantId" uuid,"Name" varchar,"Slug" varchar,"OwnerEmail" varchar,"PlanCode" varchar,"TrialStartAtUtc" timestamptz,"TrialEndAtUtc" timestamptz,"SubscriptionStatusCode" varchar,"AccountStatusCode" varchar,"IsTenantActive" boolean,"SubscriptionUpdatedAtUtc" timestamptz,"SubscriptionNotes" varchar)
 LANGUAGE sql STABLE AS $$
@@ -298,7 +336,7 @@ LANGUAGE sql STABLE AS $$
     LEFT JOIN "BranchBillingSettings" bs ON bs."BranchId"=b."BranchId"
     LEFT JOIN "MenuCategories" mc ON mc."BranchId"=b."BranchId" AND mc."IsActive"
     LEFT JOIN "MenuItems" mi ON mi."MenuCategoryId"=mc."MenuCategoryId" AND mi."IsActive" AND mi."IsAvailable"
-    WHERE bt."QrToken"=p_qrtoken AND bt."IsActive"
+    WHERE bt."QrToken"=p_qrtoken AND bt."IsActive" AND public.tenant_public_access_allowed(bt."TenantId")
     ORDER BY mc."DisplayOrder",mi."DisplayOrder",mi."Name";
 $$;
 
@@ -309,7 +347,7 @@ CREATE OR REPLACE FUNCTION public.branchoffer_update(p_tenantid uuid,p_branchid 
 RETURNS SETOF "BranchOffers" LANGUAGE plpgsql AS $$ BEGIN UPDATE "BranchOffers" bo SET "Title"=p_title,"Subtitle"=p_subtitle,"DiscountText"=p_discounttext,"ImageUrl"=p_imageurl,"ImageAltText"=p_imagealttext,"DisplayOrder"=p_displayorder,"StartsAtUtc"=p_startsatutc,"EndsAtUtc"=p_endsatutc,"DiscountTypeCode"=p_discounttypecode,"DiscountValue"=p_discountvalue,"MinimumOrderAmount"=p_minimumorderamount,"MaxDiscountAmount"=p_maxdiscountamount,"AutoApply"=p_autoapply,"IsActive"=p_isactive,"UpdatedAtUtc"=public.app_now() WHERE bo."TenantId"=p_tenantid AND bo."BranchId"=p_branchid AND bo."BranchOfferId"=p_branchofferid; RETURN QUERY SELECT bo.* FROM "BranchOffers" bo WHERE bo."BranchOfferId"=p_branchofferid; END; $$;
 CREATE OR REPLACE FUNCTION public.branchoffer_getlistbybranch(p_tenantid uuid,p_branchid uuid,p_includeinactive boolean) RETURNS SETOF "BranchOffers" LANGUAGE sql STABLE AS $$ SELECT bo.* FROM "BranchOffers" bo WHERE bo."TenantId"=p_tenantid AND bo."BranchId"=p_branchid AND (p_includeinactive OR bo."IsActive") ORDER BY bo."DisplayOrder",bo."CreatedAtUtc" DESC; $$;
 CREATE OR REPLACE FUNCTION public.branchoffer_deactivate(p_tenantid uuid,p_branchid uuid,p_branchofferid uuid) RETURNS void LANGUAGE plpgsql AS $$ BEGIN UPDATE "BranchOffers" bo SET "IsActive"=false,"UpdatedAtUtc"=public.app_now() WHERE bo."TenantId"=p_tenantid AND bo."BranchId"=p_branchid AND bo."BranchOfferId"=p_branchofferid; END; $$;
-CREATE OR REPLACE FUNCTION public.publicoffers_getbyqrtoken(p_qrtoken text) RETURNS SETOF "BranchOffers" LANGUAGE sql STABLE AS $$ SELECT bo.* FROM "BranchTables" bt JOIN "BranchOffers" bo ON bo."BranchId"=bt."BranchId" WHERE bt."QrToken"=p_qrtoken AND bt."IsActive" AND bo."IsActive" AND (bo."StartsAtUtc" IS NULL OR bo."StartsAtUtc" <= public.app_now()) AND (bo."EndsAtUtc" IS NULL OR bo."EndsAtUtc" >= public.app_now()) ORDER BY bo."DisplayOrder"; $$;
+CREATE OR REPLACE FUNCTION public.publicoffers_getbyqrtoken(p_qrtoken text) RETURNS SETOF "BranchOffers" LANGUAGE sql STABLE AS $$ SELECT bo.* FROM "BranchTables" bt JOIN "BranchOffers" bo ON bo."BranchId"=bt."BranchId" WHERE bt."QrToken"=p_qrtoken AND bt."IsActive" AND public.tenant_public_access_allowed(bt."TenantId") AND bo."IsActive" AND (bo."StartsAtUtc" IS NULL OR bo."StartsAtUtc" <= public.app_now()) AND (bo."EndsAtUtc" IS NULL OR bo."EndsAtUtc" >= public.app_now()) ORDER BY bo."DisplayOrder"; $$;
 
 -- Orders
 CREATE OR REPLACE FUNCTION public.publicorder_select(p_orderid uuid)
@@ -338,6 +376,8 @@ DECLARE
     rounding_amount numeric := 0;
     payable_total numeric := 0;
 BEGIN
+    PERFORM public.publicqr_assert_tenant_available(p_qrtoken);
+
     SELECT bt."TenantId",bt."BranchId",bt."TableId",COALESCE(bos."EnableDirectQrOrdering",false) enabled,COALESCE(bos."RequireCustomerName",false) req_name,COALESCE(bos."RequireCustomerWhatsApp",false) req_whatsapp
     INTO ctx FROM "BranchTables" bt JOIN "Branches" b ON b."BranchId"=bt."BranchId" AND b."IsActive" LEFT JOIN "BranchOrderSettings" bos ON bos."BranchId"=bt."BranchId" WHERE bt."QrToken"=p_qrtoken AND bt."IsActive";
     IF ctx."TableId" IS NULL THEN PERFORM public.raise_app_error(51701); END IF;
@@ -487,6 +527,8 @@ CREATE OR REPLACE FUNCTION public.waitercall_select(p_tenantid uuid,p_branchid u
 CREATE OR REPLACE FUNCTION public.waitercall_createfromqrtoken(p_qrtoken text,p_waitercallid uuid,p_customername text,p_note text) RETURNS TABLE("WaiterCallId" uuid,"TenantId" uuid,"BranchId" uuid,"TableId" uuid,"TableName" varchar,"StatusCode" varchar,"CustomerName" varchar,"Note" varchar,"CreatedAtUtc" timestamptz,"UpdatedAtUtc" timestamptz) LANGUAGE plpgsql AS $$
 DECLARE ctx record;
 BEGIN
+    PERFORM public.publicqr_assert_tenant_available(p_qrtoken);
+
     SELECT bt."TenantId",bt."BranchId",bt."TableId",COALESCE(bos."WaiterCallEnabled",true) enabled
     INTO ctx
     FROM "BranchTables" bt
@@ -600,7 +642,7 @@ CREATE OR REPLACE FUNCTION public.orderbill_updaterefundstatus(p_tenantid uuid,p
 CREATE OR REPLACE FUNCTION public.orderfeedback_createfromqrtoken(p_qrtoken text,p_orderid uuid,p_orderfeedbackid uuid,p_rating integer,p_comment text) RETURNS SETOF "OrderFeedback" LANGUAGE plpgsql AS $$ DECLARE o record; BEGIN SELECT o.* INTO o FROM "Orders" o JOIN "BranchTables" bt ON bt."TableId"=o."TableId" WHERE o."OrderId"=p_orderid AND bt."QrToken"=p_qrtoken; IF o."OrderId" IS NULL THEN PERFORM public.raise_app_error(51709); END IF; INSERT INTO "OrderFeedback" ("OrderFeedbackId","TenantId","BranchId","OrderId","Rating","Comment","CustomerName","CustomerWhatsApp") VALUES (p_orderfeedbackid,o."TenantId",o."BranchId",p_orderid,p_rating,p_comment,o."CustomerName",o."CustomerWhatsApp"); RETURN QUERY SELECT * FROM "OrderFeedback" WHERE "OrderFeedbackId"=p_orderfeedbackid; END; $$;
 CREATE OR REPLACE FUNCTION public.orderfeedback_getbyqrtoken(p_qrtoken text,p_orderid uuid) RETURNS SETOF "OrderFeedback" LANGUAGE sql STABLE AS $$ SELECT f.* FROM "OrderFeedback" f JOIN "Orders" o ON o."OrderId"=f."OrderId" JOIN "BranchTables" bt ON bt."TableId"=o."TableId" WHERE f."OrderId"=p_orderid AND bt."QrToken"=p_qrtoken; $$;
 CREATE OR REPLACE FUNCTION public.adminfeedback_getlist(p_tenantid uuid,p_branchid uuid) RETURNS TABLE("OrderFeedbackId" uuid,"TenantId" uuid,"BranchId" uuid,"BranchName" varchar,"OrderId" uuid,"TableName" varchar,"CustomerId" uuid,"CustomerName" varchar,"CustomerWhatsApp" varchar,"Rating" integer,"Comment" varchar,"OrderCreatedAtUtc" timestamptz,"CreatedAtUtc" timestamptz) LANGUAGE sql STABLE AS $$ SELECT f."OrderFeedbackId",f."TenantId",f."BranchId",b."Name",f."OrderId",bt."Name",o."CustomerId",f."CustomerName",f."CustomerWhatsApp",f."Rating",f."Comment",o."CreatedAtUtc",f."CreatedAtUtc" FROM "OrderFeedback" f JOIN "Orders" o ON o."OrderId"=f."OrderId" JOIN "Branches" b ON b."BranchId"=f."BranchId" JOIN "BranchTables" bt ON bt."TableId"=o."TableId" WHERE f."TenantId"=p_tenantid AND (p_branchid IS NULL OR f."BranchId"=p_branchid) ORDER BY f."CreatedAtUtc" DESC LIMIT 200; $$;
-CREATE OR REPLACE FUNCTION public.publiccustomer_lookupbyqrtoken(p_qrtoken text,p_customerwhatsapp text) RETURNS TABLE("CustomerId" uuid,"Name" varchar,"WhatsAppNumber" varchar,"MarketingConsent" boolean,"VisitCount" integer,"TotalOrderCount" integer,"TotalOrderValue" numeric,"LastVisitAtUtc" timestamptz) LANGUAGE sql STABLE AS $$ SELECT c."CustomerId",c."Name",c."WhatsAppNumber",c."MarketingConsent",c."VisitCount",COUNT(o."OrderId")::integer,COALESCE(SUM(o."TotalAmount"),0),COALESCE(c."LastVisitAtUtc",c."CreatedAtUtc") FROM "Customers" c JOIN "BranchTables" bt ON bt."BranchId"=c."BranchId" LEFT JOIN "Orders" o ON o."CustomerId"=c."CustomerId" WHERE bt."QrToken"=p_qrtoken AND c."WhatsAppNumber"=p_customerwhatsapp GROUP BY c."CustomerId"; $$;
+CREATE OR REPLACE FUNCTION public.publiccustomer_lookupbyqrtoken(p_qrtoken text,p_customerwhatsapp text) RETURNS TABLE("CustomerId" uuid,"Name" varchar,"WhatsAppNumber" varchar,"MarketingConsent" boolean,"VisitCount" integer,"TotalOrderCount" integer,"TotalOrderValue" numeric,"LastVisitAtUtc" timestamptz) LANGUAGE sql STABLE AS $$ SELECT c."CustomerId",c."Name",c."WhatsAppNumber",c."MarketingConsent",c."VisitCount",COUNT(o."OrderId")::integer,COALESCE(SUM(o."TotalAmount"),0),COALESCE(c."LastVisitAtUtc",c."CreatedAtUtc") FROM "Customers" c JOIN "BranchTables" bt ON bt."BranchId"=c."BranchId" LEFT JOIN "Orders" o ON o."CustomerId"=c."CustomerId" WHERE bt."QrToken"=p_qrtoken AND public.tenant_public_access_allowed(bt."TenantId") AND c."WhatsAppNumber"=p_customerwhatsapp GROUP BY c."CustomerId"; $$;
 CREATE OR REPLACE FUNCTION public.publiccustomer_recentordersbycustomer(p_customerid uuid) RETURNS TABLE("OrderId" uuid,"CreatedAtUtc" timestamptz,"TotalAmount" numeric) LANGUAGE sql STABLE AS $$ SELECT o."OrderId",o."CreatedAtUtc",o."TotalAmount" FROM "Orders" o WHERE o."CustomerId"=p_customerid ORDER BY o."CreatedAtUtc" DESC LIMIT 5; $$;
 CREATE OR REPLACE FUNCTION public.publiccustomer_recentorderitemsbycustomer(p_customerid uuid) RETURNS TABLE("OrderId" uuid,"MenuItemId" uuid,"MenuItemVariantId" uuid,"MenuItemName" varchar,"VariantName" varchar,"ItemNote" varchar,"DietTypeCode" varchar,"Quantity" integer) LANGUAGE sql STABLE AS $$ SELECT oi."OrderId",oi."MenuItemId",oi."MenuItemVariantId",oi."MenuItemName",oi."VariantName",oi."ItemNote",oi."DietTypeCode",oi."Quantity" FROM "OrderItems" oi JOIN (SELECT o."OrderId" FROM "Orders" o WHERE o."CustomerId"=p_customerid ORDER BY o."CreatedAtUtc" DESC LIMIT 5) recent ON recent."OrderId"=oi."OrderId" ORDER BY oi."RowId"; $$;
 

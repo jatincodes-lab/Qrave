@@ -185,20 +185,27 @@ public sealed class SuperAdminService(
             cancellationToken);
     }
 
-    public Task<OperationResult<TenantSubscriptionResponse>> SuspendAsync(
+    public async Task<OperationResult<TenantSubscriptionResponse>> SuspendAsync(
         Guid tenantId,
         SuperAdminTenantActionRequest request,
         Guid superAdminUserId,
         CancellationToken cancellationToken)
     {
-        return UpdateSubscriptionAsync(
+        var note = CleanNote(request.SubscriptionNotes);
+        if (note is null || note.Length < 2)
+        {
+            return OperationResult<TenantSubscriptionResponse>.Failed(
+                new ValidationFailure(nameof(request.SubscriptionNotes), "Suspension reason is required."));
+        }
+
+        return await UpdateSubscriptionAsync(
             tenantId,
             new SuperAdminUpdateSubscriptionRequest(
                 "manual",
                 "Suspended",
                 "Inactive",
                 null,
-                CleanNote(request.SubscriptionNotes) ?? "Manually suspended by super admin."),
+                note),
             superAdminUserId,
             cancellationToken);
     }

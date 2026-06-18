@@ -24,6 +24,8 @@ DECLARE
     started_at timestamptz := public.app_now();
     ttl_minutes integer := LEAST(GREATEST(COALESCE(p_ttlminutes,240),15),720);
 BEGIN
+    PERFORM public.publicqr_assert_tenant_available(p_qrtoken);
+
     SELECT bt."TenantId",bt."BranchId",bt."TableId"
     INTO ctx
     FROM "BranchTables" bt
@@ -48,6 +50,8 @@ CREATE OR REPLACE FUNCTION public.qrvisitsession_assert_active(p_qrtoken text,p_
 RETURNS TABLE("TenantId" uuid,"BranchId" uuid,"TableId" uuid)
 LANGUAGE plpgsql AS $$
 BEGIN
+    PERFORM public.publicqr_assert_tenant_available(p_qrtoken);
+
     RETURN QUERY
     SELECT qvs."TenantId",qvs."BranchId",qvs."TableId"
     FROM "QrVisitSessions" qvs

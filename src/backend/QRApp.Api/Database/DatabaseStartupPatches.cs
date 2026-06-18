@@ -91,6 +91,44 @@ CREATE INDEX IF NOT EXISTS "IX_SuperAdminInternalNotes_TenantId_CreatedAtUtc" ON
 
 DROP FUNCTION IF EXISTS public.publicorder_getitemsbyorder(uuid);
 
+CREATE OR REPLACE FUNCTION public.tenant_public_access_allowed(p_tenantid uuid)
+RETURNS boolean
+LANGUAGE sql STABLE AS $$
+    SELECT COALESCE((
+        SELECT t."IsActive"
+           AND t."AccountStatusCode" = 'Active'
+           AND (
+                t."SubscriptionStatusCode" IN ('Active','ManualActive')
+                OR (
+                    t."SubscriptionStatusCode" = 'Trialing'
+                    AND (t."TrialStartAtUtc" IS NULL OR t."TrialStartAtUtc" <= public.app_now())
+                    AND t."TrialEndAtUtc" IS NOT NULL
+                    AND t."TrialEndAtUtc" >= public.app_now()
+                )
+           )
+        FROM "Tenants" t
+        WHERE t."TenantId" = p_tenantid
+    ), false);
+$$;
+
+CREATE OR REPLACE FUNCTION public.publicqr_assert_tenant_available(p_qrtoken text)
+RETURNS void
+LANGUAGE plpgsql AS $$
+DECLARE
+    tenant_id uuid;
+BEGIN
+    SELECT bt."TenantId"
+    INTO tenant_id
+    FROM "BranchTables" bt
+    WHERE bt."QrToken" = p_qrtoken AND bt."IsActive"
+    LIMIT 1;
+
+    IF tenant_id IS NOT NULL AND NOT public.tenant_public_access_allowed(tenant_id) THEN
+        PERFORM public.raise_app_error(52002);
+    END IF;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.qrvisitsession_create(p_qrtoken text,p_qrsessionid uuid,p_ttlminutes integer)
 RETURNS TABLE("QrSessionId" uuid,"BranchId" uuid,"TableId" uuid,"StartedAtUtc" timestamptz,"ExpiresAtUtc" timestamptz,"IsExpired" boolean)
 LANGUAGE plpgsql AS $$
@@ -99,6 +137,8 @@ DECLARE
     started_at timestamptz := public.app_now();
     ttl_minutes integer := LEAST(GREATEST(COALESCE(p_ttlminutes,240),15),720);
 BEGIN
+    PERFORM public.publicqr_assert_tenant_available(p_qrtoken);
+
     SELECT bt."TenantId",bt."BranchId",bt."TableId"
     INTO ctx
     FROM "BranchTables" bt
@@ -123,6 +163,8 @@ CREATE OR REPLACE FUNCTION public.qrvisitsession_assert_active(p_qrtoken text,p_
 RETURNS TABLE("TenantId" uuid,"BranchId" uuid,"TableId" uuid)
 LANGUAGE plpgsql AS $$
 BEGIN
+    PERFORM public.publicqr_assert_tenant_available(p_qrtoken);
+
     RETURN QUERY
     SELECT qvs."TenantId",qvs."BranchId",qvs."TableId"
     FROM "QrVisitSessions" qvs
@@ -277,6 +319,19 @@ BEGIN
     PERFORM 1 FROM public.qrvisitsession_assert_active(p_qrtoken,p_qrsessionid);
     RETURN QUERY SELECT * FROM public.waitercall_createfromqrtoken(p_qrtoken,p_waitercallid,p_customername,p_note);
 END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.publiccustomer_lookupbyqrtoken(p_qrtoken text,p_customerwhatsapp text)
+RETURNS TABLE("CustomerId" uuid,"Name" varchar,"WhatsAppNumber" varchar,"MarketingConsent" boolean,"VisitCount" integer,"TotalOrderCount" integer,"TotalOrderValue" numeric,"LastVisitAtUtc" timestamptz)
+LANGUAGE sql STABLE AS $$
+    SELECT c."CustomerId",c."Name",c."WhatsAppNumber",c."MarketingConsent",c."VisitCount",COUNT(o."OrderId")::integer,COALESCE(SUM(o."TotalAmount"),0),COALESCE(c."LastVisitAtUtc",c."CreatedAtUtc")
+    FROM "Customers" c
+    JOIN "BranchTables" bt ON bt."BranchId"=c."BranchId"
+    LEFT JOIN "Orders" o ON o."CustomerId"=c."CustomerId"
+    WHERE bt."QrToken"=p_qrtoken
+      AND public.tenant_public_access_allowed(bt."TenantId")
+      AND c."WhatsAppNumber"=p_customerwhatsapp
+    GROUP BY c."CustomerId";
 $$;
 """;
 }
