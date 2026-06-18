@@ -1,5 +1,7 @@
 const TokenStorageKey = "qrapp.admin.accessToken";
 const SessionStorageKey = "qrapp.admin.session";
+const SuperAdminTokenStorageKey = "qrapp.superadmin.accessToken";
+const SuperAdminSessionStorageKey = "qrapp.superadmin.session";
 
 export type StoredAdminSession = {
   tenant: {
@@ -21,6 +23,16 @@ export type StoredAdminSession = {
       message: string;
     };
   };
+};
+
+export type StoredSuperAdminSession = {
+  user: {
+    userId: string;
+    email: string;
+    displayName: string;
+    roleCode: string;
+  };
+  expiresAtUtc: string;
 };
 
 export function getAccessToken(): string | null {
@@ -64,6 +76,49 @@ export function clearAccessToken(): void {
 
   window.localStorage.removeItem(TokenStorageKey);
   window.localStorage.removeItem(SessionStorageKey);
+}
+
+export function getSuperAdminAccessToken(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.localStorage.getItem(SuperAdminTokenStorageKey);
+}
+
+export function setSuperAdminAccessToken(token: string): void {
+  window.localStorage.setItem(SuperAdminTokenStorageKey, token);
+}
+
+export function setSuperAdminSession(session: StoredSuperAdminSession): void {
+  window.localStorage.setItem(SuperAdminSessionStorageKey, JSON.stringify(session));
+}
+
+export function getSuperAdminSession(): StoredSuperAdminSession | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const raw = window.localStorage.getItem(SuperAdminSessionStorageKey);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw) as StoredSuperAdminSession;
+  } catch {
+    window.localStorage.removeItem(SuperAdminSessionStorageKey);
+    return null;
+  }
+}
+
+export function clearSuperAdminSession(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem(SuperAdminTokenStorageKey);
+  window.localStorage.removeItem(SuperAdminSessionStorageKey);
 }
 
 export function getCurrentRoleCode(): string | null {

@@ -11,6 +11,7 @@ using QRApp.Application.Notifications;
 using QRApp.Application.Orders;
 using QRApp.Application.Reports;
 using QRApp.Application.Staff;
+using QRApp.Application.SuperAdmin;
 using QRApp.Application.Tables;
 using QRApp.Application.Tenants;
 using QRApp.Application.WaiterCalls;
@@ -27,6 +28,7 @@ using QRApp.Infrastructure.Notifications;
 using QRApp.Infrastructure.Orders;
 using QRApp.Infrastructure.Reports;
 using QRApp.Infrastructure.Staff;
+using QRApp.Infrastructure.SuperAdmin;
 using QRApp.Infrastructure.Tables;
 using QRApp.Infrastructure.Tenants;
 using QRApp.Infrastructure.WaiterCalls;
@@ -55,6 +57,7 @@ public static class DependencyInjection
         services.AddScoped<IAdminOrderRepository, SqlAdminOrderRepository>();
         services.AddScoped<IReportRepository, SqlReportRepository>();
         services.AddScoped<IStaffUserRepository, SqlStaffUserRepository>();
+        services.AddScoped<ISuperAdminRepository, SqlSuperAdminRepository>();
         services.AddScoped<IWaiterCallRepository, SqlWaiterCallRepository>();
 
         return services;

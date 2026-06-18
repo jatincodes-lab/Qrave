@@ -12,3 +12,6 @@ CREATE INDEX IF NOT EXISTS "IX_OrderStatusHistory_OrderId_CreatedAtUtc" ON "Orde
 CREATE INDEX IF NOT EXISTS "IX_WaiterCalls_BranchId_Status_CreatedAtUtc" ON "WaiterCalls" ("BranchId", "StatusCode", "CreatedAtUtc" DESC);
 CREATE INDEX IF NOT EXISTS "IX_Customers_TenantId_BranchId_LastVisitAtUtc" ON "Customers" ("TenantId", "BranchId", "LastVisitAtUtc" DESC);
 CREATE INDEX IF NOT EXISTS "IX_AdminNotifications_TenantId_BranchId_IsRead_CreatedAtUtc" ON "AdminNotifications" ("TenantId", "BranchId", "IsRead", "CreatedAtUtc" DESC);
+CREATE INDEX IF NOT EXISTS "IX_SuperAdminAuditEntries_TenantId_CreatedAtUtc" ON "SuperAdminAuditEntries" ("TenantId", "CreatedAtUtc" DESC);
+CREATE INDEX IF NOT EXISTS "IX_SuperAdminAuditEntries_CreatedAtUtc" ON "SuperAdminAuditEntries" ("CreatedAtUtc" DESC);
+CREATE INDEX IF NOT EXISTS "IX_SuperAdminInternalNotes_TenantId_CreatedAtUtc" ON "SuperAdminInternalNotes" ("TenantId", "CreatedAtUtc" DESC);

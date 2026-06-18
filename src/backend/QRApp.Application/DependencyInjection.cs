@@ -11,6 +11,7 @@ using QRApp.Application.Notifications;
 using QRApp.Application.Orders;
 using QRApp.Application.Reports;
 using QRApp.Application.Staff;
+using QRApp.Application.SuperAdmin;
 using QRApp.Application.Tables;
 using QRApp.Application.Tenants;
 using QRApp.Application.WaiterCalls;
@@ -41,6 +42,7 @@ public static class DependencyInjection
         services.AddScoped<IAdminOrderService, AdminOrderService>();
         services.AddScoped<IReportService, ReportService>();
         services.AddScoped<IStaffUserService, StaffUserService>();
+        services.AddScoped<ISuperAdminService, SuperAdminService>();
         services.AddScoped<IWaiterCallService, WaiterCallService>();
 
         return services;

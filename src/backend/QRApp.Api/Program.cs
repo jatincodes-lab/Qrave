@@ -205,6 +205,7 @@ app.MapAdminReportEndpoints();
 app.MapAdminCampaignEndpoints();
 app.MapAdminStaffEndpoints();
 app.MapAdminBillingEndpoints();
+app.MapSuperAdminEndpoints();
 app.MapFeedbackEndpoints();
 app.MapPublicMenuEndpoints();
 app.MapPublicQrEndpoints();

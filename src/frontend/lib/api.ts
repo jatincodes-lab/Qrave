@@ -1,4 +1,4 @@
-import { clearAccessToken, getAccessToken } from "./auth";
+import { clearAccessToken, clearSuperAdminSession, getAccessToken, getSuperAdminAccessToken } from "./auth";
 
 export const ApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:59127";
 
@@ -88,6 +88,121 @@ export type ExtendTenantTrialInput = {
 
 export type TenantSubscriptionActionInput = {
   subscriptionNotes: string | null;
+};
+
+export type SuperAdminLoginResponse = {
+  accessToken: string;
+  expiresAtUtc: string;
+  roleCode: "super_admin" | "support_admin" | "sales_admin";
+  user: {
+    userId: string;
+    email: string;
+    displayName: string;
+    tenantId: string;
+    roleCode: string;
+    branchId: string | null;
+  };
+};
+
+export type SuperAdminRestaurant = {
+  tenantId: string;
+  name: string;
+  slug: string;
+  ownerEmail: string;
+  ownerName: string | null;
+  ownerPhone: string | null;
+  planCode: string;
+  subscriptionStatusCode: SubscriptionStatusCode;
+  accountStatusCode: AccountStatusCode;
+  isTenantActive: boolean;
+  trialEndAtUtc: string | null;
+  branchCount: number;
+  staffCount: number;
+  tableCount: number;
+  orderCount: number;
+  revenueTotal: number;
+  lastOrderAtUtc: string | null;
+  createdAtUtc: string;
+};
+
+export type SuperAdminAuditEntry = {
+  superAdminAuditEntryId: string;
+  tenantId: string | null;
+  tenantName: string | null;
+  actionCode: string;
+  summary: string;
+  metadataJson: string | null;
+  superAdminUserId: string;
+  superAdminEmail: string;
+  createdAtUtc: string;
+};
+
+export type SuperAdminDashboard = {
+  totalRestaurants: number;
+  activeRestaurants: number;
+  trialRestaurants: number;
+  expiredTrials: number;
+  suspendedRestaurants: number;
+  paidRestaurants: number;
+  newRestaurantsThisMonth: number;
+  totalBranches: number;
+  totalTables: number;
+  totalOrders: number;
+  totalRevenue: number;
+  recentRestaurants: SuperAdminRestaurant[];
+  needsAttention: SuperAdminRestaurant[];
+  recentActions: SuperAdminAuditEntry[];
+};
+
+export type SuperAdminBranchSummary = {
+  branchId: string;
+  name: string;
+  city: string | null;
+  state: string | null;
+  countryCode: string;
+  isActive: boolean;
+  tableCount: number;
+  orderCount: number;
+  createdAtUtc: string;
+};
+
+export type SuperAdminStaffSummary = {
+  userId: string;
+  email: string;
+  displayName: string;
+  roleCode: string;
+  branchName: string | null;
+  isActive: boolean;
+  createdAtUtc: string;
+};
+
+export type SuperAdminOrderSummary = {
+  orderId: string;
+  branchName: string;
+  tableName: string;
+  orderStatusCode: string;
+  customerName: string | null;
+  totalAmount: number;
+  createdAtUtc: string;
+};
+
+export type SuperAdminInternalNote = {
+  superAdminInternalNoteId: string;
+  tenantId: string;
+  note: string;
+  createdBySuperAdminUserId: string;
+  createdByEmail: string;
+  createdAtUtc: string;
+};
+
+export type SuperAdminRestaurantDetail = {
+  restaurant: SuperAdminRestaurant;
+  accessStatus: TenantAccessStatus;
+  branches: SuperAdminBranchSummary[];
+  staff: SuperAdminStaffSummary[];
+  recentOrders: SuperAdminOrderSummary[];
+  auditEntries: SuperAdminAuditEntry[];
+  internalNotes: SuperAdminInternalNote[];
 };
 
 export type BranchListItem = {
@@ -1365,6 +1480,103 @@ export async function updateBranchOrderSettings(
   });
 }
 
+export async function loginSuperAdmin(email: string, password: string): Promise<SuperAdminLoginResponse> {
+  return request<SuperAdminLoginResponse>("/api/v1/superadmin/login", {
+    method: "POST",
+    body: { email, password },
+    requireAuth: false
+  });
+}
+
+export async function bootstrapSuperAdmin(input: { email: string; displayName: string; password: string; setupToken: string }): Promise<SuperAdminLoginResponse> {
+  return request<SuperAdminLoginResponse>("/api/v1/superadmin/bootstrap", {
+    method: "POST",
+    body: input,
+    requireAuth: false
+  });
+}
+
+export async function getSuperAdminDashboard(): Promise<SuperAdminDashboard> {
+  return request<SuperAdminDashboard>("/api/v1/superadmin/dashboard", {
+    method: "GET",
+    requireAuth: true,
+    authToken: getSuperAdminAccessToken()
+  });
+}
+
+export async function getSuperAdminRestaurants(filters: { search?: string; status?: string; plan?: string } = {}): Promise<SuperAdminRestaurant[]> {
+  const params = new URLSearchParams();
+  if (filters.search?.trim()) {
+    params.set("search", filters.search.trim());
+  }
+  if (filters.status && filters.status !== "all") {
+    params.set("status", filters.status);
+  }
+  if (filters.plan?.trim() && filters.plan !== "all") {
+    params.set("plan", filters.plan.trim());
+  }
+
+  const query = params.toString();
+  return request<SuperAdminRestaurant[]>(`/api/v1/superadmin/restaurants${query ? `?${query}` : ""}`, {
+    method: "GET",
+    requireAuth: true,
+    authToken: getSuperAdminAccessToken()
+  });
+}
+
+export async function getSuperAdminRestaurantDetail(tenantId: string): Promise<SuperAdminRestaurantDetail> {
+  return request<SuperAdminRestaurantDetail>(`/api/v1/superadmin/restaurants/${encodeURIComponent(tenantId)}`, {
+    method: "GET",
+    requireAuth: true,
+    authToken: getSuperAdminAccessToken()
+  });
+}
+
+export async function updateSuperAdminRestaurantSubscription(tenantId: string, input: UpdateTenantSubscriptionInput): Promise<TenantSubscription> {
+  return request<TenantSubscription>(`/api/v1/superadmin/restaurants/${encodeURIComponent(tenantId)}/subscription`, {
+    method: "PUT",
+    body: input,
+    requireAuth: true,
+    authToken: getSuperAdminAccessToken()
+  });
+}
+
+export async function extendSuperAdminRestaurantTrial(tenantId: string, input: ExtendTenantTrialInput): Promise<TenantSubscription> {
+  return request<TenantSubscription>(`/api/v1/superadmin/restaurants/${encodeURIComponent(tenantId)}/extend-trial`, {
+    method: "POST",
+    body: input,
+    requireAuth: true,
+    authToken: getSuperAdminAccessToken()
+  });
+}
+
+export async function reactivateSuperAdminRestaurant(tenantId: string, input: TenantSubscriptionActionInput): Promise<TenantSubscription> {
+  return request<TenantSubscription>(`/api/v1/superadmin/restaurants/${encodeURIComponent(tenantId)}/reactivate`, {
+    method: "POST",
+    body: input,
+    requireAuth: true,
+    authToken: getSuperAdminAccessToken()
+  });
+}
+
+export async function suspendSuperAdminRestaurant(tenantId: string, input: TenantSubscriptionActionInput): Promise<TenantSubscription> {
+  return request<TenantSubscription>(`/api/v1/superadmin/restaurants/${encodeURIComponent(tenantId)}/suspend`, {
+    method: "POST",
+    body: input,
+    requireAuth: true,
+    authToken: getSuperAdminAccessToken()
+  });
+}
+
+export async function createSuperAdminRestaurantNote(tenantId: string, note: string): Promise<SuperAdminInternalNote> {
+  return request<SuperAdminInternalNote>(`/api/v1/superadmin/restaurants/${encodeURIComponent(tenantId)}/notes`, {
+    method: "POST",
+    body: { note },
+    requireAuth: true,
+    authToken: getSuperAdminAccessToken()
+  });
+}
+
 async function request<T>(
   path: string,
   options: {
@@ -1372,6 +1584,7 @@ async function request<T>(
     body?: unknown;
     headers?: Record<string, string>;
     requireAuth: boolean;
+    authToken?: string | null;
   }
 ): Promise<T> {
   const headers = new Headers();
@@ -1386,7 +1599,7 @@ async function request<T>(
   });
 
   if (options.requireAuth) {
-    const token = getAccessToken();
+    const token = options.authToken ?? getAccessToken();
     if (!token) {
       throw new ApiError("Please login to continue.", 401);
     }
@@ -1414,7 +1627,11 @@ async function request<T>(
 
   if (!response.ok) {
     if (response.status === 401) {
-      clearAccessToken();
+      if (options.authToken !== undefined) {
+        clearSuperAdminSession();
+      } else {
+        clearAccessToken();
+      }
     }
 
     throw toApiError(data, response.status);
