@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { BarChart3, Clock3, Gift, Loader2, Pencil, Plus, Power, RefreshCw, Save, TicketPercent, X } from "lucide-react";
+import { BarChart3, Clock3, Gift, IndianRupee, Loader2, Megaphone, Pencil, Percent, Plus, Power, RefreshCw, Save, TicketPercent, X } from "lucide-react";
 import { AdminShell } from "../../../components/admin-shell";
 import { EmptyBranchState, MetricCard, PageError, PageLoading } from "../../../components/admin-page-common";
 import { MenuItemImagePicker } from "../../../components/menu-item-image-picker";
@@ -230,18 +230,18 @@ export default function AdminOffersPage() {
               <MetricCard icon={<BarChart3 size={20} />} label="Offer revenue" value={isLoading ? "..." : formatCurrency(offerStats.revenue)} />
             </section>
 
-            <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+            <section className="grid gap-4 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
               <Card>
                 <CardHeader>
                   <CardTitle>Add offer or combo</CardTitle>
-                  <CardDescription>Create promotional banners or auto-applied cart discounts for the QR menu.</CardDescription>
+                  <CardDescription>Choose what you want customers to see, then fill only the required details.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={createOffer} className="grid gap-3">
+                  <form onSubmit={createOffer} className="grid gap-4">
                     <OfferFormFields form={form} onChange={setForm} />
-                    <Button type="submit" disabled={savingKey === "offer"} className="w-full justify-self-start sm:w-auto">
+                    <Button type="submit" disabled={savingKey === "offer"} className="h-12 w-full justify-self-start sm:w-auto">
                       {savingKey === "offer" ? <Loader2 size={17} className="animate-spin" /> : <Plus size={17} />}
-                      Add offer
+                      Create offer
                     </Button>
                   </form>
                 </CardContent>
@@ -262,7 +262,7 @@ export default function AdminOffersPage() {
                     </div>
                   ) : (
                     sortedOffers.map((offer) => (
-                      <article key={offer.branchOfferId} className="grid gap-3 rounded-xl border border-outline-variant/60 bg-white p-4">
+                      <article key={offer.branchOfferId} className="grid gap-3 rounded-xl border border-outline-variant/60 bg-white p-4 shadow-sm">
                         {editingOfferId === offer.branchOfferId ? (
                           <form onSubmit={(event) => saveOffer(event, offer)} className="grid gap-3">
                             <div className="flex items-start justify-between gap-3">
@@ -286,11 +286,14 @@ export default function AdminOffersPage() {
                             </div>
                           </form>
                         ) : (
-                          <div className="grid gap-3 sm:flex sm:items-start sm:justify-between">
-                            <div className="min-w-0">
-                              <p className="break-words text-sm font-extrabold text-on-surface">{offer.title}</p>
+                            <div className="grid gap-4 sm:flex sm:items-start sm:justify-between">
+                              <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="break-words text-sm font-extrabold text-on-surface">{offer.title}</p>
+                                <Badge variant={offer.discountTypeCode === "DisplayOnly" ? "outline" : "secondary"}>{offer.discountTypeCode === "DisplayOnly" ? "Combo banner" : offer.requiresPromoCode ? "Coupon" : "Auto discount"}</Badge>
+                              </div>
                               <p className="mt-1 break-words text-xs leading-5 text-on-surface-variant">{offer.subtitle || offer.discountText || "No subtitle"}</p>
-                              <p className="mt-1 text-xs text-on-surface-variant">
+                              <p className="mt-2 text-xs font-semibold text-on-surface-variant">
                                 {formatOfferRule(offer)} - Order {offer.displayOrder}
                               </p>
                               <div className="mt-3 grid gap-2 text-xs text-on-surface-variant sm:grid-cols-3">
@@ -342,152 +345,224 @@ export default function AdminOffersPage() {
 function Field({ children, label }: { children: ReactNode; label: string }) {
   return (
     <div className="grid gap-2">
-      <Label className="text-xs font-bold uppercase tracking-wide text-on-surface-variant">{label}</Label>
+      <Label className="text-xs font-bold uppercase text-on-surface-variant">{label}</Label>
       {children}
     </div>
   );
 }
 
 function OfferFormFields({ form, onChange }: { form: OfferForm; onChange: (form: OfferForm) => void }) {
+  const isDisplayOnly = form.discountTypeCode === "DisplayOnly";
+  const isCoupon = form.discountTypeCode !== "DisplayOnly" && form.requiresPromoCode;
+  const isAutoDiscount = form.discountTypeCode !== "DisplayOnly" && form.autoApply;
+
   return (
     <>
-      <Field label="Title">
-        <Input value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} required placeholder="Lunch combo" />
-      </Field>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Discount text">
-          <Input value={form.discountText} onChange={(event) => onChange({ ...form, discountText: event.target.value })} placeholder="Save Rs 99" />
-        </Field>
-        <Field label="Order">
-          <Input type="number" min="1" value={form.displayOrder} onChange={(event) => onChange({ ...form, displayOrder: event.target.value })} required />
-        </Field>
-      </div>
-      <Field label="Subtitle">
-        <Input value={form.subtitle} onChange={(event) => onChange({ ...form, subtitle: event.target.value })} placeholder="Burger + fries + coke" />
-      </Field>
-      <div className="rounded-lg border border-outline-variant/60 bg-surface-container-low p-3">
-        <p className="text-sm font-extrabold text-on-surface">Discount rule</p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <Field label="Type">
-            <select
-              value={form.discountTypeCode}
-              onChange={(event) => {
-                const discountTypeCode = event.target.value as OfferDiscountTypeCode;
-                onChange({
-                  ...form,
-                  discountTypeCode,
-                  discountValue: discountTypeCode === "DisplayOnly" ? "0" : form.discountValue,
-                  minimumOrderAmount: discountTypeCode === "DisplayOnly" ? "0" : form.minimumOrderAmount,
-                  maxDiscountAmount: discountTypeCode === "DisplayOnly" ? "" : form.maxDiscountAmount,
-                  autoApply: discountTypeCode !== "DisplayOnly" && form.autoApply,
-                  requiresPromoCode: discountTypeCode !== "DisplayOnly" && form.requiresPromoCode
-                });
-              }}
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="DisplayOnly">Display only</option>
-              <option value="Percentage">Percentage</option>
-              <option value="FixedAmount">Fixed amount</option>
-            </select>
-          </Field>
-          <Field label={form.discountTypeCode === "Percentage" ? "Discount %" : "Discount amount"}>
-            <Input
-              type="number"
-              min="0"
-              max={form.discountTypeCode === "Percentage" ? "100" : undefined}
-              step="0.01"
-              value={form.discountValue}
-              onChange={(event) => onChange({ ...form, discountValue: event.target.value })}
-              disabled={form.discountTypeCode === "DisplayOnly"}
-            />
-          </Field>
-          <Field label="Minimum order">
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.minimumOrderAmount}
-              onChange={(event) => onChange({ ...form, minimumOrderAmount: event.target.value })}
-              disabled={form.discountTypeCode === "DisplayOnly"}
-            />
-          </Field>
-          <Field label="Max discount">
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.maxDiscountAmount}
-              onChange={(event) => onChange({ ...form, maxDiscountAmount: event.target.value })}
-              placeholder="No cap"
-              disabled={form.discountTypeCode !== "Percentage"}
-            />
-          </Field>
-        </div>
-        <label className="mt-3 flex items-center gap-2 text-sm font-bold text-on-surface">
-          <input
-            type="checkbox"
-            checked={form.autoApply}
-            onChange={(event) => onChange({ ...form, autoApply: event.target.checked, requiresPromoCode: event.target.checked ? false : form.requiresPromoCode })}
-            disabled={form.discountTypeCode === "DisplayOnly"}
-            className="h-4 w-4 rounded border-outline-variant"
+      <div className="grid gap-3">
+        <p className="text-sm font-extrabold text-on-surface">What do you want to create?</p>
+        <div className="grid gap-2 sm:grid-cols-3">
+          <OfferTypeButton
+            active={isDisplayOnly}
+            description="Show a combo or festival banner on the QR menu."
+            icon={<Megaphone size={18} />}
+            label="Combo banner"
+            onClick={() =>
+              onChange({
+                ...form,
+                discountTypeCode: "DisplayOnly",
+                discountValue: "0",
+                minimumOrderAmount: "0",
+                maxDiscountAmount: "",
+                autoApply: false,
+                promoCode: "",
+                requiresPromoCode: false
+              })
+            }
           />
-          Auto-apply best eligible offer in QR cart
-        </label>
+          <OfferTypeButton
+            active={isCoupon}
+            description="Customer enters a code before placing the order."
+            icon={<TicketPercent size={18} />}
+            label="Coupon code"
+            onClick={() =>
+              onChange({
+                ...form,
+                discountTypeCode: form.discountTypeCode === "DisplayOnly" ? "Percentage" : form.discountTypeCode,
+                discountValue: form.discountTypeCode === "DisplayOnly" ? "10" : form.discountValue,
+                autoApply: false,
+                requiresPromoCode: true,
+                promoCode: form.promoCode || "WELCOME10"
+              })
+            }
+          />
+          <OfferTypeButton
+            active={isAutoDiscount}
+            description="Discount applies automatically when the cart qualifies."
+            icon={<Percent size={18} />}
+            label="Auto discount"
+            onClick={() =>
+              onChange({
+                ...form,
+                discountTypeCode: form.discountTypeCode === "DisplayOnly" ? "Percentage" : form.discountTypeCode,
+                discountValue: form.discountTypeCode === "DisplayOnly" ? "10" : form.discountValue,
+                autoApply: true,
+                requiresPromoCode: false,
+                promoCode: ""
+              })
+            }
+          />
+        </div>
       </div>
-      <div className="rounded-lg border border-outline-variant/60 bg-surface-container-low p-3">
-        <p className="text-sm font-extrabold text-on-surface">Promo code and usage</p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+
+      <SectionPanel title="Customer text">
+        <div className="grid gap-3">
+          <Field label="Offer name">
+            <Input value={form.title} onChange={(event) => onChange({ ...form, title: event.target.value })} required placeholder={isDisplayOnly ? "Family combo" : isCoupon ? "Welcome coupon" : "Lunch discount"} className="h-11" />
+          </Field>
+          <Field label="Short description">
+            <Input value={form.subtitle} onChange={(event) => onChange({ ...form, subtitle: event.target.value })} placeholder={isDisplayOnly ? "Pizza + pasta + 2 drinks" : "Valid on QR orders today"} className="h-11" />
+          </Field>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_120px]">
+            <Field label="Badge text">
+              <Input value={form.discountText} onChange={(event) => onChange({ ...form, discountText: event.target.value })} placeholder={isDisplayOnly ? "Best for 2" : "Save Rs 99"} className="h-11" />
+            </Field>
+            <Field label="Display order">
+              <Input type="number" min="1" value={form.displayOrder} onChange={(event) => onChange({ ...form, displayOrder: event.target.value })} required className="h-11" />
+            </Field>
+          </div>
+        </div>
+      </SectionPanel>
+
+      {!isDisplayOnly ? (
+        <SectionPanel title="Discount rule">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Discount type">
+              <div className="grid grid-cols-2 gap-2">
+                <RuleButton active={form.discountTypeCode === "Percentage"} icon={<Percent size={15} />} label="Percent" onClick={() => onChange({ ...form, discountTypeCode: "Percentage" })} />
+                <RuleButton active={form.discountTypeCode === "FixedAmount"} icon={<IndianRupee size={15} />} label="Rupees" onClick={() => onChange({ ...form, discountTypeCode: "FixedAmount", maxDiscountAmount: "" })} />
+              </div>
+            </Field>
+            <Field label={form.discountTypeCode === "Percentage" ? "Discount percent" : "Discount amount"}>
+              <Input
+                type="number"
+                min="0"
+                max={form.discountTypeCode === "Percentage" ? "100" : undefined}
+                step="0.01"
+                value={form.discountValue}
+                onChange={(event) => onChange({ ...form, discountValue: event.target.value })}
+                className="h-11"
+              />
+            </Field>
+            <Field label="Minimum order amount">
+              <Input type="number" min="0" step="0.01" value={form.minimumOrderAmount} onChange={(event) => onChange({ ...form, minimumOrderAmount: event.target.value })} placeholder="0" className="h-11" />
+            </Field>
+            {form.discountTypeCode === "Percentage" ? (
+              <Field label="Maximum discount">
+                <Input type="number" min="0" step="0.01" value={form.maxDiscountAmount} onChange={(event) => onChange({ ...form, maxDiscountAmount: event.target.value })} placeholder="No cap" className="h-11" />
+              </Field>
+            ) : null}
+          </div>
+        </SectionPanel>
+      ) : null}
+
+      {isCoupon ? (
+        <SectionPanel title="Coupon code">
+          <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Promo code">
             <Input
               value={form.promoCode}
               onChange={(event) => onChange({ ...form, promoCode: event.target.value.toUpperCase().replace(/\s+/g, "") })}
-              placeholder="WELCOME10"
+              placeholder="ENTER CODE"
               maxLength={40}
-              disabled={form.discountTypeCode === "DisplayOnly"}
+              className="h-11"
             />
           </Field>
+            <div className="rounded-lg border border-outline-variant/60 bg-white px-3 py-2 text-xs leading-5 text-on-surface-variant">
+              Customers will tap “Have a promo or coupon code?” on the QR cart and enter this code before checkout.
+            </div>
+          </div>
+        </SectionPanel>
+      ) : null}
+
+      {!isDisplayOnly ? (
+        <SectionPanel title="Usage limits">
+          <div className="grid gap-3 sm:grid-cols-3">
           <Field label="Total uses">
-            <Input type="number" min="1" value={form.maxTotalRedemptions} onChange={(event) => onChange({ ...form, maxTotalRedemptions: event.target.value })} placeholder="No limit" />
+            <Input type="number" min="1" value={form.maxTotalRedemptions} onChange={(event) => onChange({ ...form, maxTotalRedemptions: event.target.value })} placeholder="No limit" className="h-11" />
           </Field>
           <Field label="Uses per customer">
-            <Input type="number" min="1" value={form.maxRedemptionsPerCustomer} onChange={(event) => onChange({ ...form, maxRedemptionsPerCustomer: event.target.value })} placeholder="No limit" />
+            <Input type="number" min="1" value={form.maxRedemptionsPerCustomer} onChange={(event) => onChange({ ...form, maxRedemptionsPerCustomer: event.target.value })} placeholder="No limit" className="h-11" />
           </Field>
           <Field label="Uses per day">
-            <Input type="number" min="1" value={form.maxRedemptionsPerDay} onChange={(event) => onChange({ ...form, maxRedemptionsPerDay: event.target.value })} placeholder="No limit" />
+            <Input type="number" min="1" value={form.maxRedemptionsPerDay} onChange={(event) => onChange({ ...form, maxRedemptionsPerDay: event.target.value })} placeholder="No limit" className="h-11" />
           </Field>
-        </div>
-        <label className="mt-3 flex items-center gap-2 text-sm font-bold text-on-surface">
-          <input
-            type="checkbox"
-            checked={form.requiresPromoCode}
-            onChange={(event) => onChange({ ...form, requiresPromoCode: event.target.checked, autoApply: event.target.checked ? false : form.autoApply })}
-            disabled={form.discountTypeCode === "DisplayOnly"}
-            className="h-4 w-4 rounded border-outline-variant"
-          />
-          Customer must enter promo code
-        </label>
-      </div>
-      <div className="rounded-lg border border-outline-variant/60 bg-surface-container-low p-3">
-        <p className="text-sm font-extrabold text-on-surface">Schedule</p>
+          </div>
+        </SectionPanel>
+      ) : null}
+
+      <SectionPanel title="Schedule">
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <Field label="Starts at">
-            <Input type="datetime-local" value={form.startsAtLocal} onChange={(event) => onChange({ ...form, startsAtLocal: event.target.value })} />
+            <Input type="datetime-local" value={form.startsAtLocal} onChange={(event) => onChange({ ...form, startsAtLocal: event.target.value })} className="h-11" />
           </Field>
           <Field label="Ends at">
-            <Input type="datetime-local" value={form.endsAtLocal} onChange={(event) => onChange({ ...form, endsAtLocal: event.target.value })} />
+            <Input type="datetime-local" value={form.endsAtLocal} onChange={(event) => onChange({ ...form, endsAtLocal: event.target.value })} className="h-11" />
           </Field>
         </div>
-      </div>
-      <Field label="Offer image">
-        <MenuItemImagePicker
-          imageAltText={form.imageAltText}
-          imageUrl={form.imageUrl}
-          itemName={form.title}
-          purpose="offer"
-          onChange={(next) => onChange({ ...form, imageUrl: next.imageUrl, imageAltText: next.imageAltText })}
-        />
-      </Field>
+      </SectionPanel>
+
+      <SectionPanel title="Image">
+        <Field label="Offer image">
+          <MenuItemImagePicker
+            imageAltText={form.imageAltText}
+            imageUrl={form.imageUrl}
+            itemName={form.title}
+            purpose="offer"
+            onChange={(next) => onChange({ ...form, imageUrl: next.imageUrl, imageAltText: next.imageAltText })}
+          />
+        </Field>
+      </SectionPanel>
     </>
+  );
+}
+
+function SectionPanel({ children, title }: { children: ReactNode; title: string }) {
+  return (
+    <div className="rounded-xl border border-outline-variant/60 bg-surface-container-low p-3 sm:p-4">
+      <p className="text-sm font-extrabold text-on-surface">{title}</p>
+      <div className="mt-3">{children}</div>
+    </div>
+  );
+}
+
+function OfferTypeButton({ active, description, icon, label, onClick }: { active: boolean; description: string; icon: ReactNode; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`grid min-h-[116px] gap-2 rounded-xl border p-3 text-left transition sm:min-h-[138px] ${
+        active ? "border-primary bg-primary/10 text-primary shadow-sm" : "border-outline-variant/70 bg-white text-on-surface hover:border-primary/50"
+      }`}
+    >
+      <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${active ? "bg-primary text-white" : "bg-surface-container-low text-on-surface"}`}>{icon}</span>
+      <span className="text-sm font-black">{label}</span>
+      <span className="text-xs font-semibold leading-5 text-on-surface-variant">{description}</span>
+    </button>
+  );
+}
+
+function RuleButton({ active, icon, label, onClick }: { active: boolean; icon: ReactNode; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-extrabold ${
+        active ? "border-primary bg-primary text-white" : "border-outline-variant/70 bg-white text-on-surface"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
 
