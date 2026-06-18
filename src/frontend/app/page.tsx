@@ -45,16 +45,15 @@ export const metadata: Metadata = {
   }
 };
 
-// Add your real assets under src/frontend/public/landing and replace these paths.
 const landingImages = {
-  hero: "",
-  quickService: "",
-  fullService: "",
-  cafe: "",
-  cloudKitchen: "",
-  menu: "",
-  operations: "",
-  customers: ""
+  hero: "/landing/dashboard.png",
+  quickService: "/landing/quick-service-card.svg",
+  fullService: "/landing/full-service-card.svg",
+  cafe: "/landing/cafe-card.svg",
+  cloudKitchen: "/landing/cloud-kitchen-card.svg",
+  menu: "/landing/qr-menu.png",
+  operations: "/landing/orders.png",
+  customers: "/landing/customer-history.png"
 };
 
 const businessTypes = [
@@ -202,7 +201,12 @@ export default function LandingPage() {
           </div>
 
           <div data-hero-wake="" className="landing-hero-wake relative mx-auto mt-14 max-w-7xl overflow-hidden rounded-[1.4rem] border border-black/10 bg-black p-2 shadow-[0_28px_100px_rgba(0,0,0,0.22)]">
-            <ImageReadyFrame src={landingImages.hero} alt="Qrave restaurant operations dashboard" className="h-[28rem] rounded-[1rem] border-0 bg-[#0b0d0c] shadow-none md:h-[42rem]">
+            <ImageReadyFrame
+              src={landingImages.hero}
+              alt="Qrave restaurant operations dashboard"
+              className="h-[14rem] rounded-[1rem] border-0 bg-[#0b0d0c] shadow-none sm:h-[22rem] md:h-[42rem]"
+              imageClassName="h-full w-full bg-[#f7f6f2] object-cover object-left-top md:object-contain"
+            >
               <HeroProductVisual />
             </ImageReadyFrame>
           </div>
@@ -445,7 +449,22 @@ function FeatureRow({
   return (
     <article data-landing-reveal="" className="landing-scroll-reveal grid overflow-hidden rounded-xl border border-[#d8d8d8] bg-white lg:grid-cols-2">
       <div className={reverse ? "lg:order-2" : ""}>
-        <ImageReadyFrame src={image} alt={`${title} screenshot`} className="h-[34rem] rounded-none border-0 bg-[#e8efe7] shadow-none lg:h-full">
+        <ImageReadyFrame
+          src={image}
+          alt={`${title} screenshot`}
+          className={
+            visual === "menu"
+              ? "flex h-[24rem] items-center justify-center rounded-none border-0 bg-[#d8f1df] p-5 shadow-none sm:h-[30rem] lg:h-full"
+              : "h-[20rem] rounded-none border-0 bg-[#e8efe7] shadow-none sm:h-[28rem] lg:h-full"
+          }
+          imageClassName={
+            visual === "menu"
+              ? "h-auto max-h-[21rem] w-auto max-w-full rounded-2xl bg-white object-contain shadow-[0_18px_50px_rgba(0,0,0,0.14)] sm:max-h-[27rem]"
+              : visual === "operations"
+                ? "h-full w-full bg-[#f7f6f2] object-cover object-[48%_top] sm:object-[50%_top] lg:object-contain"
+                : "h-full w-full bg-[#f7f6f2] object-cover object-[62%_top] sm:object-[58%_top] lg:object-contain"
+          }
+        >
           <FeatureVisual visual={visual} />
         </ImageReadyFrame>
       </div>
@@ -473,16 +492,18 @@ function ImageReadyFrame({
   alt,
   children,
   className = "",
+  imageClassName = "h-full w-full bg-[#f7f6f2] object-contain",
   src
 }: {
   alt: string;
   children: ReactNode;
   className?: string;
+  imageClassName?: string;
   src: string;
 }) {
   return (
     <div className={`relative overflow-hidden rounded-xl border border-[#d8d8d8] shadow-[0_18px_60px_rgba(0,0,0,0.08)] ${className}`}>
-      {src ? <img src={src} alt={alt} className="h-full w-full object-cover" /> : children}
+      {src ? <img src={src} alt={alt} className={imageClassName} /> : children}
     </div>
   );
 }

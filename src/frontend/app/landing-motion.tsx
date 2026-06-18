@@ -54,7 +54,6 @@ export function LandingMotion() {
         hero.style.setProperty("--hero-y", "0px");
         hero.style.setProperty("--hero-scale", "1");
         hero.style.setProperty("--hero-opacity", "1");
-        hero.style.setProperty("--hero-blur", "0px");
         hero.style.setProperty("--hero-brightness", "1");
         hero.style.setProperty("--hero-tilt", "0deg");
         hero.style.setProperty("--hero-sheen-y", "140%");
@@ -75,8 +74,8 @@ export function LandingMotion() {
         });
       },
       {
-        rootMargin: "0px 0px -12% 0px",
-        threshold: 0.16
+        rootMargin: "0px 0px -15% 0px",
+        threshold: 0
       }
     );
 
@@ -97,7 +96,6 @@ export function LandingMotion() {
         hero.style.setProperty("--hero-y", `${Math.round(148 - progress * 148)}px`);
         hero.style.setProperty("--hero-scale", `${0.82 + progress * 0.18}`);
         hero.style.setProperty("--hero-opacity", `${0.28 + progress * 0.72}`);
-        hero.style.setProperty("--hero-blur", `${Math.round(24 - progress * 24)}px`);
         hero.style.setProperty("--hero-brightness", `${0.58 + progress * 0.42}`);
         hero.style.setProperty("--hero-tilt", `${18 - progress * 18}deg`);
         hero.style.setProperty("--hero-sheen-y", `${-165 + progress * 310}%`);

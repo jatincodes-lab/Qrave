@@ -54,13 +54,21 @@ export function MarketingHeader() {
             : "h-20 w-full max-w-[1560px] border border-transparent bg-transparent px-5 sm:px-8 lg:px-12"
         ].join(" ")}
       >
-        <Link href="/" className="flex items-center gap-2 rounded-full pr-3" aria-label="Qrave home" onClick={() => setMenuOpen(false)}>
+        <Link
+          href="/"
+          className={[
+            "flex items-center gap-2 rounded-full pr-3 transition",
+            compact ? "drop-shadow-[0_1px_10px_rgba(255,255,255,0.85)]" : "drop-shadow-[0_1px_8px_rgba(255,255,255,0.75)]"
+          ].join(" ")}
+          aria-label="Qrave home"
+          onClick={() => setMenuOpen(false)}
+        >
           <img
             src="/brand/qrave-icon-mark-transparent.png"
             alt=""
             className={compact ? "h-10 w-10 object-contain" : "h-11 w-11 object-contain"}
           />
-          <span className={compact ? "text-lg font-extrabold text-[#006241]" : "text-xl font-extrabold text-[#006241]"}>Qrave</span>
+          <span className={compact ? "text-lg font-extrabold text-[#004d32]" : "text-xl font-extrabold text-[#004d32]"}>Qrave</span>
         </Link>
         <div className={compact ? "hidden items-center gap-5 text-sm font-extrabold text-black lg:flex" : "hidden items-center gap-8 text-sm font-extrabold text-black lg:flex"}>
           {navLinks.map(([label, href]) => (
