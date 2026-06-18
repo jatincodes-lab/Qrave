@@ -1076,13 +1076,15 @@ function MenuCategorySection({
                   <p className="mt-2 line-clamp-2 break-words text-sm font-normal leading-5 text-[#414944]">{item.description || "Freshly prepared by the kitchen."}</p>
                 </div>
 
-                <div className="mt-auto flex min-h-12 items-end justify-between gap-3 pt-3">
-                  <p className="min-w-0 whitespace-nowrap text-[18px] font-bold leading-6 text-[#234f3f]">{hasVariants ? `From ${formatPrice(displayPrice)}` : formatPrice(displayPrice)}</p>
+                <div className="mt-auto flex min-h-12 flex-wrap items-end justify-between gap-x-3 gap-y-2 pt-3">
+                  <p className="min-w-[5.75rem] flex-1 break-words text-[17px] font-bold leading-5 text-[#234f3f] sm:text-[18px] sm:leading-6">
+                    {hasVariants ? `From ${formatPrice(displayPrice)}` : formatPrice(displayPrice)}
+                  </p>
                   {canOrder ? (
                     hasVariants ? (
                       <button
                         type="button"
-                        className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-[#beedd7] px-3 text-xs font-bold uppercase tracking-normal text-[#002116]"
+                        className="inline-flex h-10 min-w-[5.5rem] shrink-0 items-center justify-center rounded-xl bg-[#beedd7] px-3 text-xs font-bold uppercase tracking-normal text-[#002116]"
                         onClick={() => onChooseVariant(item, category.name)}
                         aria-label={`Choose variant for ${item.name}`}
                       >

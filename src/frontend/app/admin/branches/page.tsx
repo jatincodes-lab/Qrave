@@ -225,62 +225,77 @@ export default function AdminBranchesPage() {
                   <p className="mt-1 text-sm text-muted-foreground">Try another search term.</p>
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Branch</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <>
+                  <div className="grid gap-3 md:hidden">
                     {visibleBranches.map((branch) => (
-                      <TableRow key={branch.branchId}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary-fixed-dim text-primary">
-                              <Store size={18} />
-                            </div>
-                            <div>
-                              <p className="font-semibold text-on-surface">{branch.name}</p>
-                              <p className="mt-1 text-xs text-on-surface-variant">Created {formatDate(branch.createdAtUtc)}</p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-on-surface-variant">
-                          <span className="inline-flex items-center gap-2">
-                            <MapPin size={16} />
-                            {[branch.city, branch.countryCode].filter(Boolean).join(", ") || "Not added"}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-on-surface-variant">{branch.phoneNumber || "Not added"}</TableCell>
-                        <TableCell>
-                          <Badge variant="success" className="bg-secondary-container/40 text-on-secondary-container">Active</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex justify-end gap-2">
-                            <Button type="button" variant="outline" size="sm" onClick={() => router.push(`/admin/branches/${branch.branchId}`)} className="border-outline-variant/60">
-                              Manage
-                              <ArrowRight size={16} />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              onClick={() => setBranchToTurnOff(branch)}
-                              className="h-9 w-9 border-destructive/30 text-destructive hover:bg-destructive/10"
-                              aria-label={`Turn off ${branch.name}`}
-                            >
-                              <Power size={16} />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                      <BranchMobileCard
+                        key={branch.branchId}
+                        branch={branch}
+                        onManage={() => router.push(`/admin/branches/${branch.branchId}`)}
+                        onTurnOff={() => setBranchToTurnOff(branch)}
+                      />
                     ))}
-                  </TableBody>
-                </Table>
+                  </div>
+
+                  <div className="hidden overflow-x-auto md:block">
+                    <Table className="min-w-[760px]">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Branch</TableHead>
+                          <TableHead>Location</TableHead>
+                          <TableHead>Contact</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {visibleBranches.map((branch) => (
+                          <TableRow key={branch.branchId}>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary-fixed-dim text-primary">
+                                  <Store size={18} />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-on-surface">{branch.name}</p>
+                                  <p className="mt-1 text-xs text-on-surface-variant">Created {formatDate(branch.createdAtUtc)}</p>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-on-surface-variant">
+                              <span className="inline-flex items-center gap-2">
+                                <MapPin size={16} />
+                                {[branch.city, branch.countryCode].filter(Boolean).join(", ") || "Not added"}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-on-surface-variant">{branch.phoneNumber || "Not added"}</TableCell>
+                            <TableCell>
+                              <Badge variant="success" className="bg-secondary-container/40 text-on-secondary-container">Active</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex justify-end gap-2">
+                                <Button type="button" variant="outline" size="sm" onClick={() => router.push(`/admin/branches/${branch.branchId}`)} className="border-outline-variant/60">
+                                  Manage
+                                  <ArrowRight size={16} />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => setBranchToTurnOff(branch)}
+                                  className="h-9 w-9 border-destructive/30 text-destructive hover:bg-destructive/10"
+                                  aria-label={`Turn off ${branch.name}`}
+                                >
+                                  <Power size={16} />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -321,6 +336,54 @@ function LoadingState() {
         </div>
       ))}
     </div>
+  );
+}
+
+function BranchMobileCard({ branch, onManage, onTurnOff }: { branch: BranchListItem; onManage: () => void; onTurnOff: () => void }) {
+  const location = [branch.city, branch.countryCode].filter(Boolean).join(", ") || "Not added";
+
+  return (
+    <article className="rounded-xl border border-outline-variant/50 bg-white p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-primary-fixed-dim text-primary">
+          <Store size={19} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="break-words text-base font-extrabold leading-5 text-on-surface">{branch.name}</p>
+              <p className="mt-1 text-xs font-semibold text-on-surface-variant">Created {formatDate(branch.createdAtUtc)}</p>
+            </div>
+            <Badge variant="success" className="shrink-0 bg-secondary-container/40 text-on-secondary-container">Active</Badge>
+          </div>
+
+          <div className="mt-3 grid gap-2 text-sm text-on-surface-variant">
+            <span className="inline-flex min-w-0 items-center gap-2">
+              <MapPin size={15} className="shrink-0" />
+              <span className="min-w-0 break-words">{location}</span>
+            </span>
+            <span className="break-words">{branch.phoneNumber || "Contact not added"}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-[minmax(0,1fr)_2.75rem] gap-2">
+        <Button type="button" variant="outline" onClick={onManage} className="h-11 border-outline-variant/60">
+          Manage
+          <ArrowRight size={16} />
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={onTurnOff}
+          className="h-11 w-11 border-destructive/30 text-destructive hover:bg-destructive/10"
+          aria-label={`Turn off ${branch.name}`}
+        >
+          <Power size={16} />
+        </Button>
+      </div>
+    </article>
   );
 }
 

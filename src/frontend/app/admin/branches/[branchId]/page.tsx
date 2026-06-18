@@ -155,6 +155,7 @@ type QrPreviewState = {
   table: BranchTable;
   branchName: string;
   contactLine: string;
+  logoUrl: string | null;
   url: string;
   placardDataUrl: string;
 };
@@ -870,12 +871,14 @@ export default function AdminBranchDetailPage() {
     });
     const branchName = branch?.name ?? "Qrave";
     const contactLine = getQrContactLine(branch);
-    const placardDataUrl = await buildQrPlacardDataUrl(branchName, contactLine, table.name, url, qrDataUrl);
+    const logoUrl = branch?.logoUrl ?? null;
+    const placardDataUrl = await buildQrPlacardDataUrl(branchName, contactLine, logoUrl, table.name, url, qrDataUrl);
 
     return {
       table,
       branchName,
       contactLine,
+      logoUrl,
       url,
       placardDataUrl
     };
@@ -921,6 +924,60 @@ export default function AdminBranchDetailPage() {
       printWindow.focus();
       printWindow.print();
       showSuccess("QR print view opened.");
+    } catch {
+      showError("Could not prepare the QR print view. Please try again.");
+    }
+  }
+
+  async function handleDownloadAllQr() {
+    if (activeTables.length === 0) {
+      showError("Add tables before downloading QR placards.");
+      return;
+    }
+
+    setFeedback({ type: "loading", message: `Preparing ${activeTables.length} QR placard${activeTables.length === 1 ? "" : "s"}...` });
+
+    try {
+      const previews = await Promise.all(activeTables.map((table) => buildTableQrPreview(table)));
+
+      previews.forEach((preview, index) => {
+        window.setTimeout(() => {
+          const link = document.createElement("a");
+          link.href = preview.placardDataUrl;
+          link.download = `${safeFileName(preview.branchName)}-${safeFileName(preview.table.name)}-table-qr.png`;
+          link.click();
+        }, index * 150);
+      });
+
+      showSuccess(`${previews.length} QR placard${previews.length === 1 ? "" : "s"} downloaded.`);
+    } catch {
+      showError("Could not generate all QR placards. Please try again.");
+    }
+  }
+
+  async function handlePrintAllQr() {
+    if (activeTables.length === 0) {
+      showError("Add tables before printing QR placards.");
+      return;
+    }
+
+    setFeedback({ type: "loading", message: `Preparing ${activeTables.length} QR placard${activeTables.length === 1 ? "" : "s"} for print...` });
+
+    try {
+      const previews = await Promise.all(activeTables.map((table) => buildTableQrPreview(table)));
+      const printWindow = window.open("", "_blank", "width=720,height=900");
+
+      if (!printWindow) {
+        showError("Popup blocked. Please allow popups for this site and try printing again.");
+        return;
+      }
+
+      const title = `${previews[0]?.branchName ?? "Qrave"} - table QR placards`;
+      printWindow.document.write(buildQrBulkPrintHtml(title, previews));
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+      showSuccess("Bulk QR print view opened.");
     } catch {
       showError("Could not prepare the QR print view. Please try again.");
     }
@@ -1034,6 +1091,8 @@ export default function AdminBranchDetailPage() {
                   onViewQr={handleViewQr}
                   onDownloadQr={handleDownloadQr}
                   onPrintQr={handlePrintQr}
+                  onDownloadAllQr={handleDownloadAllQr}
+                  onPrintAllQr={handlePrintAllQr}
                   onDeactivateTable={handleDeactivateTable}
                   onRegenerateQr={handleRegenerateQr}
                 />
@@ -2313,6 +2372,8 @@ function TablesPanel({
   onViewQr,
   onDownloadQr,
   onPrintQr,
+  onDownloadAllQr,
+  onPrintAllQr,
   onDeactivateTable,
   onRegenerateQr
 }: {
@@ -2325,6 +2386,8 @@ function TablesPanel({
   onViewQr: (table: BranchTable) => void;
   onDownloadQr: (table: BranchTable) => void;
   onPrintQr: (table: BranchTable) => void;
+  onDownloadAllQr: () => void;
+  onPrintAllQr: () => void;
   onDeactivateTable: (table: BranchTable) => void;
   onRegenerateQr: (table: BranchTable) => void;
 }) {
@@ -2347,6 +2410,23 @@ function TablesPanel({
             Add
           </Button>
         </form>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-outline-variant/30 bg-white p-4">
+          <div className="min-w-0">
+            <p className="text-sm font-extrabold text-on-surface">Bulk QR placards</p>
+            <p className="mt-1 text-xs text-on-surface-variant">{tables.length} active table{tables.length === 1 ? "" : "s"} ready for print or download.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={onDownloadAllQr} disabled={tables.length === 0}>
+              <Download size={15} />
+              Download All
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={onPrintAllQr} disabled={tables.length === 0}>
+              <Printer size={15} />
+              Print All
+            </Button>
+          </div>
+        </div>
 
         <div className="space-y-3">
           {tables.length === 0 ? (
@@ -2877,8 +2957,9 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#039;");
 }
 
-async function buildQrPlacardDataUrl(branchName: string, contactLine: string, tableName: string, url: string, qrDataUrl: string): Promise<string> {
+async function buildQrPlacardDataUrl(branchName: string, contactLine: string, logoUrl: string | null, tableName: string, url: string, qrDataUrl: string): Promise<string> {
   const qrImage = await loadImage(qrDataUrl);
+  const logoImage = logoUrl ? await loadImage(logoUrl).catch(() => null) : null;
   const canvas = document.createElement("canvas");
   canvas.width = 1200;
   canvas.height = 1800;
@@ -2894,28 +2975,76 @@ async function buildQrPlacardDataUrl(branchName: string, contactLine: string, ta
   context.lineWidth = 10;
   context.strokeRect(50, 50, canvas.width - 100, canvas.height - 100);
 
-  drawCenteredText(context, "SCAN ME", 600, 220, "bold 96px Arial", "#1f4f46", 1000);
-  drawCenteredText(context, branchName, 600, 360, "bold 58px Arial", "#151515", 980);
-  drawCenteredText(context, contactLine, 600, 445, "32px Arial", "#555555", 980);
-  drawCenteredText(context, tableName, 600, 555, "bold 46px Arial", "#151515", 980);
+  if (logoImage) {
+    context.fillStyle = "#f8f5ee";
+    context.beginPath();
+    context.arc(600, 185, 104, 0, Math.PI * 2);
+    context.fill();
+    drawRoundedImage(context, logoImage, 510, 95, 180, 180, 36);
+
+    drawCenteredText(context, "SCAN ME", 600, 355, "bold 86px Arial", "#1f4f46", 1000);
+    drawCenteredText(context, branchName, 600, 475, "bold 54px Arial", "#151515", 980);
+    drawCenteredText(context, contactLine, 600, 555, "31px Arial", "#555555", 980);
+    drawCenteredText(context, tableName, 600, 645, "bold 44px Arial", "#151515", 980);
+  } else {
+    drawCenteredText(context, "SCAN ME", 600, 220, "bold 96px Arial", "#1f4f46", 1000);
+    drawCenteredText(context, branchName, 600, 360, "bold 58px Arial", "#151515", 980);
+    drawCenteredText(context, contactLine, 600, 445, "32px Arial", "#555555", 980);
+    drawCenteredText(context, tableName, 600, 555, "bold 46px Arial", "#151515", 980);
+  }
 
   context.fillStyle = "#f8f5ee";
-  context.fillRect(260, 650, 680, 680);
-  context.drawImage(qrImage, 300, 690, 600, 600);
+  context.fillRect(260, logoImage ? 740 : 650, 680, 680);
+  context.drawImage(qrImage, 300, logoImage ? 780 : 690, 600, 600);
 
-  drawCenteredText(context, "Scan this QR code to view the menu and place your order.", 600, 1440, "34px Arial", "#333333", 900);
-  drawCenteredText(context, url, 600, 1530, "24px Arial", "#777777", 900);
+  drawCenteredText(context, "Scan this QR code to view the menu and place your order.", 600, logoImage ? 1510 : 1440, "34px Arial", "#333333", 900);
+  drawCenteredText(context, url, 600, logoImage ? 1600 : 1530, "24px Arial", "#777777", 900);
 
-  return canvas.toDataURL("image/png");
+  try {
+    return canvas.toDataURL("image/png");
+  } catch {
+    if (logoImage) {
+      return buildQrPlacardDataUrl(branchName, contactLine, null, tableName, url, qrDataUrl);
+    }
+
+    throw new Error("QR placard could not be exported.");
+  }
 }
 
 function loadImage(source: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
+    if (/^https?:\/\//i.test(source)) {
+      image.crossOrigin = "anonymous";
+    }
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error("Image could not be loaded."));
     image.src = source;
   });
+}
+
+function drawRoundedImage(context: CanvasRenderingContext2D, image: HTMLImageElement, x: number, y: number, width: number, height: number, radius: number): void {
+  const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+  const sourceWidth = width / scale;
+  const sourceHeight = height / scale;
+  const sourceX = (image.naturalWidth - sourceWidth) / 2;
+  const sourceY = (image.naturalHeight - sourceHeight) / 2;
+
+  context.save();
+  context.beginPath();
+  context.moveTo(x + radius, y);
+  context.lineTo(x + width - radius, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + radius);
+  context.lineTo(x + width, y + height - radius);
+  context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  context.lineTo(x + radius, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - radius);
+  context.lineTo(x, y + radius);
+  context.quadraticCurveTo(x, y, x + radius, y);
+  context.closePath();
+  context.clip();
+  context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, x, y, width, height);
+  context.restore();
 }
 
 function drawCenteredText(context: CanvasRenderingContext2D, text: string, x: number, y: number, font: string, color: string, maxWidth: number): void {
@@ -2977,6 +3106,70 @@ function buildQrPrintHtml(title: string, tableName: string, placardDataUrl: stri
     <main class="sheet">
       <img src="${placardDataUrl}" alt="Printable QR placard for ${safeTableName}" />
     </main>
+  </body>
+</html>`;
+}
+
+function buildQrBulkPrintHtml(title: string, previews: QrPreviewState[]): string {
+  const safeTitle = escapeHtml(title);
+  const sheets = previews
+    .map((preview) => {
+      const safeTableName = escapeHtml(preview.table.name);
+      return `<section class="sheet"><img src="${preview.placardDataUrl}" alt="Printable QR placard for ${safeTableName}" /></section>`;
+    })
+    .join("");
+
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>${safeTitle}</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #ffffff;
+      }
+      .sheet {
+        display: grid;
+        min-height: 100dvh;
+        place-items: center;
+        padding: 16px;
+        break-after: page;
+        page-break-after: always;
+      }
+      .sheet:last-child {
+        break-after: auto;
+        page-break-after: auto;
+      }
+      img {
+        display: block;
+        width: min(92vw, 520px);
+        height: auto;
+      }
+      @media print {
+        @page {
+          margin: 10mm;
+          size: A4 portrait;
+        }
+        body {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .sheet {
+          min-height: 0;
+          padding: 0;
+        }
+        img {
+          max-height: 277mm;
+          width: auto;
+          max-width: 190mm;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    ${sheets}
   </body>
 </html>`;
 }
