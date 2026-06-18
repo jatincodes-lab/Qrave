@@ -110,6 +110,7 @@ type SubmitState =
   | {
       kind: "success";
       order: PublicQrOrder;
+      promoCode: string | null;
     }
   | {
       kind: "error";
@@ -500,11 +501,12 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
       return;
     }
 
+    const appliedPromoCode = valueOrNull(promoCode.toUpperCase());
     const input: CreatePublicQrOrderInput = {
       customerName: valueOrNull(customerName),
       customerWhatsApp: valueOrNull(customerWhatsApp),
       notes: valueOrNull(notes),
-      promoCode: valueOrNull(promoCode.toUpperCase()),
+      promoCode: appliedPromoCode,
       marketingConsent,
       items: cartLines.map((line) => ({
         menuItemId: line.item.menuItemId,
@@ -524,7 +526,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
       setPromoCode("");
       setMarketingConsent(false);
       setActiveView("cart");
-      setSubmitState({ kind: "success", order });
+      setSubmitState({ kind: "success", order, promoCode: appliedPromoCode });
     } catch (caught) {
       setSubmitState({ kind: "idle" });
       toastError(caught instanceof ApiError ? caught.message : "Order could not be submitted. Please try again.");
@@ -612,6 +614,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
           cartLines={cartLines}
           cartEstimate={cartEstimate}
           cartTotal={cartTotal}
+          currentOffers={currentMenu.offers ?? []}
           customerName={customerName}
           customerPhoneCountryCode={customerPhoneCountryCode}
           customerWhatsApp={customerWhatsApp}
@@ -1200,6 +1203,7 @@ function CartPage({
   cartLines,
   cartEstimate,
   cartTotal,
+  currentOffers,
   customerName,
   customerPhoneCountryCode,
   customerWhatsApp,
@@ -1228,6 +1232,7 @@ function CartPage({
   cartLines: CartLine[];
   cartEstimate: CartEstimate;
   cartTotal: number;
+  currentOffers: PublicQrMenuOffer[];
   customerName: string;
   customerPhoneCountryCode: string;
   customerWhatsApp: string;
@@ -1252,8 +1257,38 @@ function CartPage({
   onPromoCodeChange: (value: string) => void;
   onSubmit: () => void;
 }) {
+  const [promoDialogOpen, setPromoDialogOpen] = useState(false);
+  const [promoDraft, setPromoDraft] = useState(promoCode);
+  const [promoMessage, setPromoMessage] = useState<string | null>(null);
+
   if (submitState.kind === "success") {
-    return <OrderPlacedView menuItemById={menuItemById} order={submitState.order} qrToken={qrToken} onBackToMenu={onBackToMenu} />;
+    return <OrderPlacedView menuItemById={menuItemById} order={submitState.order} promoCode={submitState.promoCode} qrToken={qrToken} onBackToMenu={onBackToMenu} />;
+  }
+
+  function openPromoDialog() {
+    setPromoDraft(promoCode);
+    setPromoMessage(null);
+    setPromoDialogOpen(true);
+  }
+
+  function applyPromoCode() {
+    const cleanCode = promoDraft.trim().toUpperCase().replace(/\s+/g, "").slice(0, 40);
+    if (!cleanCode) {
+      onPromoCodeChange("");
+      setPromoMessage(null);
+      setPromoDialogOpen(false);
+      return;
+    }
+
+    const eligibleOffer = selectEligibleOffer(cartTotal, currentOffers, cleanCode);
+    if (!eligibleOffer) {
+      setPromoMessage("This code is not eligible for the current cart.");
+      return;
+    }
+
+    onPromoCodeChange(cleanCode);
+    setPromoMessage(null);
+    setPromoDialogOpen(false);
   }
 
   return (
@@ -1318,22 +1353,23 @@ function CartPage({
               <span>Subtotal</span>
               <span className="font-black text-[#001c11]">{formatPrice(cartTotal)}</span>
             </div>
-            <label className="mt-3 block">
-              <span className="flex items-center gap-1 text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant">
+            <div className="mt-3 rounded-xl border border-[#d9e4df] bg-[#f8f9fa] p-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-1 text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant">
                 <TicketPercent className="h-3.5 w-3.5" aria-hidden="true" />
-                Promo code
-              </span>
-              <input
-                className="mt-1 h-11 w-full rounded-xl border border-[#d9e4df] bg-[#f8f9fa] px-3 text-sm font-black uppercase tracking-normal outline-none focus:border-[#006d36]"
-                value={promoCode}
-                onChange={(event) => onPromoCodeChange(event.target.value.toUpperCase().replace(/\s+/g, "").slice(0, 40))}
-                placeholder="WELCOME10"
-                maxLength={40}
-              />
-              {promoCode.trim() && !cartEstimate.appliedOffer ? (
-                <span className="mt-1 block text-xs font-semibold text-[#8a5b00]">Code will be checked when you place the order.</span>
-              ) : null}
-            </label>
+                  Promo or coupon
+                </span>
+                {promoCode ? (
+                  <button type="button" className="text-xs font-black text-[#9a3d00]" onClick={() => onPromoCodeChange("")}>
+                    Remove
+                  </button>
+                ) : null}
+              </div>
+              <button type="button" className="mt-2 flex w-full items-center justify-between rounded-xl bg-white px-3 py-3 text-left text-sm font-black text-[#001c11]" onClick={openPromoDialog}>
+                <span>{promoCode ? `Code applied: ${promoCode}` : "Have a promo or coupon code?"}</span>
+                <ChevronRight className="h-4 w-4 text-[#006d36]" aria-hidden="true" />
+              </button>
+            </div>
             {cartEstimate.discountAmount > 0 ? (
               <div className="mt-2 rounded-xl border border-[#bfe6cf] bg-[#f1fbf5] px-3 py-2">
                 <div className="flex items-center justify-between gap-3 text-sm">
@@ -1366,6 +1402,40 @@ function CartPage({
               <span className="text-xl font-black text-[#006d36]">{formatPrice(cartEstimate.totalAmount)}</span>
             </div>
           </div>
+
+          {promoDialogOpen ? (
+            <div className="fixed inset-0 z-50 grid place-items-end bg-black/45 px-4 pb-4 sm:place-items-center sm:p-4">
+              <div className="w-full max-w-sm rounded-3xl bg-white p-4 shadow-modal">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#006d36]">Promo code</p>
+                    <h2 className="mt-1 text-xl font-black text-[#001c11]">Apply coupon</h2>
+                  </div>
+                  <button type="button" className="grid h-10 w-10 place-items-center rounded-full bg-[#f8f9fa] text-[#001c11]" onClick={() => setPromoDialogOpen(false)} aria-label="Close promo code">
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </div>
+                <label className="mt-4 block">
+                  <span className="text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant">Enter code</span>
+                  <input
+                    className="mt-1 h-12 w-full rounded-xl border border-[#d9e4df] bg-[#f8f9fa] px-3 text-sm font-black uppercase tracking-normal outline-none focus:border-[#006d36]"
+                    value={promoDraft}
+                    onChange={(event) => {
+                      setPromoDraft(event.target.value.toUpperCase().replace(/\s+/g, "").slice(0, 40));
+                      setPromoMessage(null);
+                    }}
+                    placeholder="Enter code"
+                    maxLength={40}
+                    autoFocus
+                  />
+                </label>
+                {promoMessage ? <p className="mt-2 text-xs font-semibold text-[#9a3d00]">{promoMessage}</p> : null}
+                <button type="button" className="mt-4 h-12 w-full rounded-xl bg-[#001c11] px-4 text-sm font-black text-white" onClick={applyPromoCode}>
+                  Apply
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           {isCustomerLookupLoading ? (
             <div className="rounded-2xl border border-[#d9e4df] bg-white p-4 text-sm font-semibold text-[#5a625e] shadow-sm">
@@ -1476,11 +1546,13 @@ function CartPage({
 function OrderPlacedView({
   menuItemById,
   order,
+  promoCode,
   qrToken,
   onBackToMenu
 }: {
   menuItemById: Map<string, PublicQrMenuItem>;
   order: PublicQrOrder;
+  promoCode: string | null;
   qrToken: string;
   onBackToMenu: () => void;
 }) {
@@ -1540,7 +1612,7 @@ function OrderPlacedView({
         </div>
         {order.appliedOfferDiscountAmount > 0 ? (
           <div className="mt-3 rounded-xl border border-[#bfe6cf] bg-[#f1fbf5] px-3 py-2 text-sm font-bold text-[#006d36]">
-            {order.appliedOfferTitle ?? "Offer applied"} saved {formatPrice(order.appliedOfferDiscountAmount)}
+            {promoCode ? `Promo code ${promoCode}` : order.appliedOfferTitle ?? "Offer applied"} saved {formatPrice(order.appliedOfferDiscountAmount)}
           </div>
         ) : null}
       </div>
