@@ -25,7 +25,7 @@ export default function PricingPage() {
             <div>
               <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#707070]">Pricing</p>
               <h1 className="mt-5 max-w-4xl text-5xl font-extrabold leading-[0.92] tracking-[-0.04em] md:text-7xl">
-                Fixed monthly pricing for Bareilly restaurants.
+                Fixed monthly pricing for growing restaurants.
               </h1>
             </div>
             <p className="max-w-2xl text-lg font-semibold leading-8 text-[#444]">
@@ -70,7 +70,6 @@ export default function PricingPage() {
                 <div className="grid flex-1 gap-5 p-6">
                   <FeatureGroup title="Includes" items={plan.includes} />
                   <FeatureGroup title="Limits" items={plan.limits} muted />
-                  <FeatureGroup title="Pages shown" items={plan.pages} compact />
                   {plan.locked.length > 0 ? <LockedGroup items={plan.locked} /> : null}
                 </div>
 
@@ -142,7 +141,6 @@ const Plans = [
     description: "For restaurants that mainly need a clean QR menu, table codes, and waiter call without advanced operations.",
     includes: ["QR menu", "Table-wise QR codes", "Menu images and variants", "Waiter call", "Basic orders", "QR placard download"],
     limits: ["1 outlet", "15 tables", "100 menu items", "3 staff users", "Basic reports"],
-    pages: ["Dashboard", "Branches", "Tables / QR", "Menu", "Orders", "Waiter Calls", "Basic Reports", "Subscription"],
     locked: ["KOT", "Offers", "Customer CRM", "Campaigns", "Advanced reports", "Multi-branch"],
     cta: "Start Starter"
   },
@@ -150,11 +148,10 @@ const Plans = [
     name: "Growth",
     price: "Rs 1,499",
     priceNote: "per outlet / month",
-    bestFor: "Main Bareilly plan",
+    bestFor: "Recommended plan",
     description: "The recommended plan for cafes and restaurants that want QR ordering, kitchen workflow, billing, offers, and staff roles.",
     includes: ["Everything in Starter", "Direct QR ordering", "KOT / kitchen workflow", "Bill generation", "Tax, discount, service charge", "Offers", "Customer history"],
     limits: ["1 outlet", "40 tables", "300 menu items", "10 staff users", "5 active offers"],
-    pages: ["Dashboard", "Branches", "Tables / QR", "Menu", "Orders", "Kitchen / KOT", "Billing", "Waiter Calls", "Offers", "Customers", "Reports", "Staff"],
     locked: ["WhatsApp campaigns", "Advanced segmentation", "Multi-branch dashboard", "Advanced analytics"],
     cta: "Choose Growth",
     highlight: true
@@ -167,7 +164,6 @@ const Plans = [
     description: "For outlets that need deeper customer tracking, feedback, WhatsApp follow-up links, and advanced performance reports.",
     includes: ["Everything in Growth", "Advanced CRM", "Repeat customer tracking", "Customer feedback", "WhatsApp follow-up links", "Advanced reports", "Priority support"],
     limits: ["1 outlet", "100 tables", "1,000 menu items", "25 staff users", "20 active offers"],
-    pages: ["All Growth pages", "Feedback", "Campaigns / WhatsApp Follow-up", "Advanced Reports", "Settings"],
     locked: ["Multi-branch consolidated reporting", "Branch-wise staff permissions"],
     cta: "Start Pro"
   },
@@ -179,7 +175,6 @@ const Plans = [
     description: "For owners running multiple locations who need branch-wise permissions, consolidated reports, and central control.",
     includes: ["Everything in Pro", "Multiple branches", "Central owner dashboard", "Branch-wise staff access", "Consolidated reports", "Branch-wise menus and offers"],
     limits: ["2 outlets included", "Rs 1,000 per extra outlet", "50 staff users", "Higher table and menu limits"],
-    pages: ["Owner Dashboard", "All Branches", "Branch Dashboard", "Staff Permissions", "Consolidated Reports", "Customers by Branch"],
     locked: [],
     cta: "Talk to sales"
   }
@@ -191,14 +186,14 @@ const TrialRules = [
   "Super admin can extend trial days",
   "Expired accounts are guided to subscription actions",
   "Suspended restaurants show QR menu as temporarily unavailable",
-  "Plan upgrades unlock pages without changing restaurant data"
+  "Plan upgrades unlock features without changing restaurant data"
 ];
 
-function FeatureGroup({ compact = false, items, muted = false, title }: { compact?: boolean; items: string[]; muted?: boolean; title: string }) {
+function FeatureGroup({ items, muted = false, title }: { items: string[]; muted?: boolean; title: string }) {
   return (
     <div>
       <h3 className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#707070]">{title}</h3>
-      <ul className={`mt-3 grid ${compact ? "gap-2" : "gap-3"}`}>
+      <ul className="mt-3 grid gap-3">
         {items.map((item) => (
           <li key={item} className="flex gap-2 text-sm font-bold leading-5 text-[#050505]">
             <Check className={`mt-0.5 shrink-0 ${muted ? "text-[#707070]" : "text-[#0b7a37]"}`} size={16} />
