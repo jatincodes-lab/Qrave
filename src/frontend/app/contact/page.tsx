@@ -64,8 +64,8 @@ export default function ContactPage() {
                 Start free
                 <ArrowRight size={17} />
               </Link>
-              <a href="mailto:hello@qrave.app" className="inline-flex justify-center rounded-full border border-white/30 px-6 py-3 text-sm font-extrabold text-white transition hover:border-white hover:bg-white/[0.08]">
-                hello@qrave.app
+              <a href="mailto:support.qrave@gmail.com" className="inline-flex justify-center rounded-full border border-white/30 px-6 py-3 text-sm font-extrabold text-white transition hover:border-white hover:bg-white/[0.08]">
+                support.qrave@gmail.com
               </a>
             </div>
           </div>
