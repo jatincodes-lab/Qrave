@@ -109,7 +109,7 @@ public sealed class SqlBranchOfferRepository(INpgsqlConnectionFactory connection
                 GetNullableDecimal(reader, "MaxDiscountAmount"),
                 reader.GetBoolean(reader.GetOrdinal("AutoApply")),
                 GetNullableString(reader, "PromoCode"),
-                reader.GetBoolean(reader.GetOrdinal("RequiresPromoCode"))));
+                GetBoolOrDefault(reader, "RequiresPromoCode")));
         }
 
         return offers;
@@ -193,7 +193,7 @@ public sealed class SqlBranchOfferRepository(INpgsqlConnectionFactory connection
             GetNullableDecimal(reader, "MaxDiscountAmount"),
             reader.GetBoolean(reader.GetOrdinal("AutoApply")),
             GetNullableString(reader, "PromoCode"),
-            reader.GetBoolean(reader.GetOrdinal("RequiresPromoCode")),
+            GetBoolOrDefault(reader, "RequiresPromoCode"),
             GetNullableInt(reader, "MaxTotalRedemptions"),
             GetNullableInt(reader, "MaxRedemptionsPerCustomer"),
             GetNullableInt(reader, "MaxRedemptionsPerDay"),
@@ -233,15 +233,23 @@ public sealed class SqlBranchOfferRepository(INpgsqlConnectionFactory connection
         command.Parameters.Add("branchId", NpgsqlDbType.Uuid).Value = branchId;
 
         var analytics = new Dictionary<Guid, (int Total, decimal Discount, decimal Revenue, decimal Average, DateTime? Last)>();
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
+        try
         {
-            analytics[reader.GetGuid(reader.GetOrdinal("BranchOfferId"))] = (
-                reader.GetInt32(reader.GetOrdinal("TotalRedemptions")),
-                reader.GetDecimal(reader.GetOrdinal("TotalDiscountAmount")),
-                reader.GetDecimal(reader.GetOrdinal("TotalRevenueAmount")),
-                reader.GetDecimal(reader.GetOrdinal("AverageOrderValue")),
-                reader.IsDBNull(reader.GetOrdinal("LastRedeemedAtUtc")) ? null : reader.GetDateTime(reader.GetOrdinal("LastRedeemedAtUtc")));
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                analytics[reader.GetGuid(reader.GetOrdinal("BranchOfferId"))] = (
+                    reader.GetInt32(reader.GetOrdinal("TotalRedemptions")),
+                    reader.GetDecimal(reader.GetOrdinal("TotalDiscountAmount")),
+                    reader.GetDecimal(reader.GetOrdinal("TotalRevenueAmount")),
+                    reader.GetDecimal(reader.GetOrdinal("AverageOrderValue")),
+                    reader.IsDBNull(reader.GetOrdinal("LastRedeemedAtUtc")) ? null : reader.GetDateTime(reader.GetOrdinal("LastRedeemedAtUtc")));
+            }
+        }
+        catch (PostgresException ex)
+        when (ex.SqlState is PostgresErrorCodes.UndefinedTable or PostgresErrorCodes.UndefinedColumn)
+        {
+            return offers;
         }
 
         return offers
@@ -280,26 +288,51 @@ public sealed class SqlBranchOfferRepository(INpgsqlConnectionFactory connection
 
     private static string? GetNullableString(NpgsqlDataReader reader, string name)
     {
+        if (!HasColumn(reader, name))
+        {
+            return null;
+        }
+
         var ordinal = reader.GetOrdinal(name);
         return reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
     }
 
     private static DateTime? GetNullableDateTime(NpgsqlDataReader reader, string name)
     {
+        if (!HasColumn(reader, name))
+        {
+            return null;
+        }
+
         var ordinal = reader.GetOrdinal(name);
         return reader.IsDBNull(ordinal) ? null : reader.GetDateTime(ordinal);
     }
 
     private static decimal? GetNullableDecimal(NpgsqlDataReader reader, string name)
     {
+        if (!HasColumn(reader, name))
+        {
+            return null;
+        }
+
         var ordinal = reader.GetOrdinal(name);
         return reader.IsDBNull(ordinal) ? null : reader.GetDecimal(ordinal);
     }
 
     private static int? GetNullableInt(NpgsqlDataReader reader, string name)
     {
+        if (!HasColumn(reader, name))
+        {
+            return null;
+        }
+
         var ordinal = reader.GetOrdinal(name);
         return reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
+    }
+
+    private static bool GetBoolOrDefault(NpgsqlDataReader reader, string name)
+    {
+        return HasColumn(reader, name) && !reader.IsDBNull(reader.GetOrdinal(name)) && reader.GetBoolean(reader.GetOrdinal(name));
     }
 
     private static int GetIntOrDefault(NpgsqlDataReader reader, string name)
