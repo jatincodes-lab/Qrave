@@ -32,7 +32,8 @@ public sealed class OrderService(IOrderRepository repository) : IOrderService
                 .GroupBy(item => new { item.MenuItemId, item.MenuItemVariantId, item.ItemNote })
                 .Select(group => new CreatePublicQrOrderItemRequest(group.Key.MenuItemId, group.Sum(item => item.Quantity), group.Key.MenuItemVariantId, group.Key.ItemNote))
                 .ToArray(),
-            request.MarketingConsent);
+            request.MarketingConsent,
+            CleanPromoCode(request.PromoCode));
 
         var order = await repository.CreateFromQrTokenAsync(cleanToken, qrSessionId, Guid.NewGuid(), cleaned, cancellationToken);
         return OperationResult<PublicOrderResponse>.Success(order);
@@ -109,6 +110,12 @@ public sealed class OrderService(IOrderRepository repository) : IOrderService
             errors.Add(new ValidationFailure(nameof(CreatePublicQrOrderRequest.Notes), "Notes cannot exceed 500 characters."));
         }
 
+        var cleanPromoCode = CleanPromoCode(request.PromoCode);
+        if (cleanPromoCode is { Length: < 3 or > 40 } || cleanPromoCode?.All(c => char.IsLetterOrDigit(c) || c is '-' or '_') == false)
+        {
+            errors.Add(new ValidationFailure(nameof(CreatePublicQrOrderRequest.PromoCode), "Promo code is invalid."));
+        }
+
         if (request.Items.Count is < 1 or > 100)
         {
             errors.Add(new ValidationFailure(nameof(CreatePublicQrOrderRequest.Items), "Order must contain between 1 and 100 items."));
@@ -144,5 +151,11 @@ public sealed class OrderService(IOrderRepository repository) : IOrderService
     private static string PhoneDigits(string value)
     {
         return new string(value.Where(char.IsDigit).ToArray());
+    }
+
+    private static string? CleanPromoCode(string? value)
+    {
+        var clean = CleanOptional(value);
+        return clean is null ? null : clean.ToUpperInvariant();
     }
 }

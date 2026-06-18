@@ -121,4 +121,6 @@ public sealed record PublicMenuOfferResponse(
     decimal DiscountValue,
     decimal MinimumOrderAmount,
     decimal? MaxDiscountAmount,
-    bool AutoApply);
+    bool AutoApply,
+    string? PromoCode,
+    bool RequiresPromoCode);

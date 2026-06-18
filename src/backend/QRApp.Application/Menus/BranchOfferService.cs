@@ -13,7 +13,7 @@ public sealed class BranchOfferService(IBranchOfferRepository repository) : IBra
         CreateBranchOfferRequest request,
         CancellationToken cancellationToken)
     {
-        var errors = Validate(request.Title, request.Subtitle, request.DiscountText, request.ImageUrl, request.ImageAltText, request.DisplayOrder, request.StartsAtUtc, request.EndsAtUtc, request.DiscountTypeCode, request.DiscountValue, request.MinimumOrderAmount, request.MaxDiscountAmount);
+        var errors = Validate(request.Title, request.Subtitle, request.DiscountText, request.ImageUrl, request.ImageAltText, request.DisplayOrder, request.StartsAtUtc, request.EndsAtUtc, request.DiscountTypeCode, request.DiscountValue, request.MinimumOrderAmount, request.MaxDiscountAmount, request.PromoCode, request.RequiresPromoCode, request.MaxTotalRedemptions, request.MaxRedemptionsPerCustomer, request.MaxRedemptionsPerDay);
         if (errors.Count > 0)
         {
             return OperationResult<BranchOfferResponse>.Failed(errors.ToArray());
@@ -33,7 +33,12 @@ public sealed class BranchOfferService(IBranchOfferRepository repository) : IBra
             normalizedDiscountType == "DisplayOnly" ? 0 : request.DiscountValue,
             normalizedDiscountType == "DisplayOnly" ? 0 : request.MinimumOrderAmount,
             normalizedDiscountType == "DisplayOnly" ? null : request.MaxDiscountAmount,
-            normalizedDiscountType != "DisplayOnly" && request.AutoApply);
+            normalizedDiscountType != "DisplayOnly" && request.AutoApply,
+            normalizedDiscountType == "DisplayOnly" ? null : NormalizePromoCode(request.PromoCode),
+            normalizedDiscountType != "DisplayOnly" && request.RequiresPromoCode,
+            normalizedDiscountType == "DisplayOnly" ? null : NormalizeLimit(request.MaxTotalRedemptions),
+            normalizedDiscountType == "DisplayOnly" ? null : NormalizeLimit(request.MaxRedemptionsPerCustomer),
+            normalizedDiscountType == "DisplayOnly" ? null : NormalizeLimit(request.MaxRedemptionsPerDay));
 
         var offer = await repository.CreateAsync(tenantId, branchId, Guid.NewGuid(), cleaned, cancellationToken);
         return OperationResult<BranchOfferResponse>.Success(offer);
@@ -46,7 +51,7 @@ public sealed class BranchOfferService(IBranchOfferRepository repository) : IBra
         UpdateBranchOfferRequest request,
         CancellationToken cancellationToken)
     {
-        var errors = Validate(request.Title, request.Subtitle, request.DiscountText, request.ImageUrl, request.ImageAltText, request.DisplayOrder, request.StartsAtUtc, request.EndsAtUtc, request.DiscountTypeCode, request.DiscountValue, request.MinimumOrderAmount, request.MaxDiscountAmount);
+        var errors = Validate(request.Title, request.Subtitle, request.DiscountText, request.ImageUrl, request.ImageAltText, request.DisplayOrder, request.StartsAtUtc, request.EndsAtUtc, request.DiscountTypeCode, request.DiscountValue, request.MinimumOrderAmount, request.MaxDiscountAmount, request.PromoCode, request.RequiresPromoCode, request.MaxTotalRedemptions, request.MaxRedemptionsPerCustomer, request.MaxRedemptionsPerDay);
         if (errors.Count > 0)
         {
             return OperationResult<BranchOfferResponse>.Failed(errors.ToArray());
@@ -67,7 +72,12 @@ public sealed class BranchOfferService(IBranchOfferRepository repository) : IBra
             normalizedDiscountType == "DisplayOnly" ? 0 : request.DiscountValue,
             normalizedDiscountType == "DisplayOnly" ? 0 : request.MinimumOrderAmount,
             normalizedDiscountType == "DisplayOnly" ? null : request.MaxDiscountAmount,
-            normalizedDiscountType != "DisplayOnly" && request.AutoApply);
+            normalizedDiscountType != "DisplayOnly" && request.AutoApply,
+            normalizedDiscountType == "DisplayOnly" ? null : NormalizePromoCode(request.PromoCode),
+            normalizedDiscountType != "DisplayOnly" && request.RequiresPromoCode,
+            normalizedDiscountType == "DisplayOnly" ? null : NormalizeLimit(request.MaxTotalRedemptions),
+            normalizedDiscountType == "DisplayOnly" ? null : NormalizeLimit(request.MaxRedemptionsPerCustomer),
+            normalizedDiscountType == "DisplayOnly" ? null : NormalizeLimit(request.MaxRedemptionsPerDay));
 
         var offer = await repository.UpdateAsync(tenantId, branchId, branchOfferId, cleaned, cancellationToken);
         return OperationResult<BranchOfferResponse>.Success(offer);
@@ -100,7 +110,12 @@ public sealed class BranchOfferService(IBranchOfferRepository repository) : IBra
         string discountTypeCode,
         decimal discountValue,
         decimal minimumOrderAmount,
-        decimal? maxDiscountAmount)
+        decimal? maxDiscountAmount,
+        string? promoCode,
+        bool requiresPromoCode,
+        int? maxTotalRedemptions,
+        int? maxRedemptionsPerCustomer,
+        int? maxRedemptionsPerDay)
     {
         var errors = new List<ValidationFailure>();
         var cleanTitle = TextRules.CleanRequired(title);
@@ -171,6 +186,26 @@ public sealed class BranchOfferService(IBranchOfferRepository repository) : IBra
             errors.Add(new ValidationFailure(nameof(CreateBranchOfferRequest.DiscountValue), "Discount value is required for a calculated offer."));
         }
 
+        var cleanPromoCode = NormalizePromoCode(promoCode);
+        if (cleanPromoCode is { Length: < 3 or > 40 })
+        {
+            errors.Add(new ValidationFailure(nameof(CreateBranchOfferRequest.PromoCode), "Promo code must be between 3 and 40 characters."));
+        }
+
+        if (cleanPromoCode is not null && !cleanPromoCode.All(c => char.IsLetterOrDigit(c) || c is '-' or '_'))
+        {
+            errors.Add(new ValidationFailure(nameof(CreateBranchOfferRequest.PromoCode), "Promo code can contain only letters, numbers, hyphens, or underscores."));
+        }
+
+        if (requiresPromoCode && cleanPromoCode is null)
+        {
+            errors.Add(new ValidationFailure(nameof(CreateBranchOfferRequest.PromoCode), "Promo code is required when code entry is enabled."));
+        }
+
+        ValidateLimit(maxTotalRedemptions, nameof(CreateBranchOfferRequest.MaxTotalRedemptions), errors);
+        ValidateLimit(maxRedemptionsPerCustomer, nameof(CreateBranchOfferRequest.MaxRedemptionsPerCustomer), errors);
+        ValidateLimit(maxRedemptionsPerDay, nameof(CreateBranchOfferRequest.MaxRedemptionsPerDay), errors);
+
         return errors;
     }
 
@@ -178,5 +213,24 @@ public sealed class BranchOfferService(IBranchOfferRepository repository) : IBra
     {
         var cleaned = TextRules.CleanRequired(value);
         return DiscountTypes.First(item => string.Equals(item, cleaned, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string? NormalizePromoCode(string? value)
+    {
+        var cleaned = TextRules.CleanOptional(value);
+        return string.IsNullOrWhiteSpace(cleaned) ? null : cleaned.Trim().ToUpperInvariant();
+    }
+
+    private static int? NormalizeLimit(int? value)
+    {
+        return value is > 0 ? value.Value : null;
+    }
+
+    private static void ValidateLimit(int? value, string field, List<ValidationFailure> errors)
+    {
+        if (value is < 0)
+        {
+            errors.Add(new ValidationFailure(field, "Usage limit cannot be negative."));
+        }
     }
 }

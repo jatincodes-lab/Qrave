@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { Gift, Loader2, Pencil, Plus, Power, RefreshCw, Save, X } from "lucide-react";
+import { BarChart3, Clock3, Gift, Loader2, Pencil, Plus, Power, RefreshCw, Save, TicketPercent, X } from "lucide-react";
 import { AdminShell } from "../../../components/admin-shell";
 import { EmptyBranchState, MetricCard, PageError, PageLoading } from "../../../components/admin-page-common";
 import { MenuItemImagePicker } from "../../../components/menu-item-image-picker";
@@ -35,6 +35,13 @@ type OfferForm = {
   minimumOrderAmount: string;
   maxDiscountAmount: string;
   autoApply: boolean;
+  promoCode: string;
+  requiresPromoCode: boolean;
+  startsAtLocal: string;
+  endsAtLocal: string;
+  maxTotalRedemptions: string;
+  maxRedemptionsPerCustomer: string;
+  maxRedemptionsPerDay: string;
 };
 
 const EmptyOfferForm: OfferForm = {
@@ -48,7 +55,14 @@ const EmptyOfferForm: OfferForm = {
   discountValue: "0",
   minimumOrderAmount: "0",
   maxDiscountAmount: "",
-  autoApply: false
+  autoApply: false,
+  promoCode: "",
+  requiresPromoCode: false,
+  startsAtLocal: "",
+  endsAtLocal: "",
+  maxTotalRedemptions: "",
+  maxRedemptionsPerCustomer: "",
+  maxRedemptionsPerDay: ""
 };
 
 export default function AdminOffersPage() {
@@ -61,6 +75,14 @@ export default function AdminOffersPage() {
   const [savingKey, setSavingKey] = useState<string | null>(null);
 
   const sortedOffers = useMemo(() => [...offers].sort((left, right) => left.displayOrder - right.displayOrder), [offers]);
+  const offerStats = useMemo(
+    () => ({
+      redemptions: offers.reduce((total, offer) => total + offer.totalRedemptions, 0),
+      discount: offers.reduce((total, offer) => total + offer.totalDiscountAmount, 0),
+      revenue: offers.reduce((total, offer) => total + offer.totalRevenueAmount, 0)
+    }),
+    [offers]
+  );
 
   useEffect(() => {
     if (!workspace.selectedBranch) {
@@ -204,8 +226,8 @@ export default function AdminOffersPage() {
           <>
             <section className="grid gap-4 md:grid-cols-3">
               <MetricCard icon={<Gift size={20} />} label="Active offers" value={isLoading ? "..." : String(offers.length)} />
-              <MetricCard icon={<Plus size={20} />} label="Next order" value={String(offers.length + 1)} />
-              <MetricCard icon={<Power size={20} />} label="QR visibility" value="Public menu" />
+              <MetricCard icon={<TicketPercent size={20} />} label="Redemptions" value={isLoading ? "..." : String(offerStats.redemptions)} />
+              <MetricCard icon={<BarChart3 size={20} />} label="Offer revenue" value={isLoading ? "..." : formatCurrency(offerStats.revenue)} />
             </section>
 
             <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
@@ -271,6 +293,26 @@ export default function AdminOffersPage() {
                               <p className="mt-1 text-xs text-on-surface-variant">
                                 {formatOfferRule(offer)} - Order {offer.displayOrder}
                               </p>
+                              <div className="mt-3 grid gap-2 text-xs text-on-surface-variant sm:grid-cols-3">
+                                <MetricPill label="Used" value={String(offer.totalRedemptions)} />
+                                <MetricPill label="Discount" value={formatCurrency(offer.totalDiscountAmount)} />
+                                <MetricPill label="Revenue" value={formatCurrency(offer.totalRevenueAmount)} />
+                              </div>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {offer.promoCode ? (
+                                  <Badge variant="secondary" className="gap-1">
+                                    <TicketPercent size={12} />
+                                    {offer.promoCode}
+                                  </Badge>
+                                ) : null}
+                                {formatSchedule(offer) ? (
+                                  <Badge variant="outline" className="gap-1">
+                                    <Clock3 size={12} />
+                                    {formatSchedule(offer)}
+                                  </Badge>
+                                ) : null}
+                                {formatLimits(offer) ? <Badge variant="outline">{formatLimits(offer)}</Badge> : null}
+                              </div>
                             </div>
                             <div className="grid grid-cols-2 gap-2 sm:flex">
                               <Button type="button" variant="outline" onClick={() => startEditOffer(offer)} className="h-11 w-full sm:w-auto">
@@ -337,7 +379,8 @@ function OfferFormFields({ form, onChange }: { form: OfferForm; onChange: (form:
                   discountValue: discountTypeCode === "DisplayOnly" ? "0" : form.discountValue,
                   minimumOrderAmount: discountTypeCode === "DisplayOnly" ? "0" : form.minimumOrderAmount,
                   maxDiscountAmount: discountTypeCode === "DisplayOnly" ? "" : form.maxDiscountAmount,
-                  autoApply: discountTypeCode !== "DisplayOnly" && form.autoApply
+                  autoApply: discountTypeCode !== "DisplayOnly" && form.autoApply,
+                  requiresPromoCode: discountTypeCode !== "DisplayOnly" && form.requiresPromoCode
                 });
               }}
               className="h-10 rounded-md border border-input bg-background px-3 text-sm"
@@ -384,12 +427,56 @@ function OfferFormFields({ form, onChange }: { form: OfferForm; onChange: (form:
           <input
             type="checkbox"
             checked={form.autoApply}
-            onChange={(event) => onChange({ ...form, autoApply: event.target.checked })}
+            onChange={(event) => onChange({ ...form, autoApply: event.target.checked, requiresPromoCode: event.target.checked ? false : form.requiresPromoCode })}
             disabled={form.discountTypeCode === "DisplayOnly"}
             className="h-4 w-4 rounded border-outline-variant"
           />
           Auto-apply best eligible offer in QR cart
         </label>
+      </div>
+      <div className="rounded-lg border border-outline-variant/60 bg-surface-container-low p-3">
+        <p className="text-sm font-extrabold text-on-surface">Promo code and usage</p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <Field label="Promo code">
+            <Input
+              value={form.promoCode}
+              onChange={(event) => onChange({ ...form, promoCode: event.target.value.toUpperCase().replace(/\s+/g, "") })}
+              placeholder="WELCOME10"
+              maxLength={40}
+              disabled={form.discountTypeCode === "DisplayOnly"}
+            />
+          </Field>
+          <Field label="Total uses">
+            <Input type="number" min="1" value={form.maxTotalRedemptions} onChange={(event) => onChange({ ...form, maxTotalRedemptions: event.target.value })} placeholder="No limit" />
+          </Field>
+          <Field label="Uses per customer">
+            <Input type="number" min="1" value={form.maxRedemptionsPerCustomer} onChange={(event) => onChange({ ...form, maxRedemptionsPerCustomer: event.target.value })} placeholder="No limit" />
+          </Field>
+          <Field label="Uses per day">
+            <Input type="number" min="1" value={form.maxRedemptionsPerDay} onChange={(event) => onChange({ ...form, maxRedemptionsPerDay: event.target.value })} placeholder="No limit" />
+          </Field>
+        </div>
+        <label className="mt-3 flex items-center gap-2 text-sm font-bold text-on-surface">
+          <input
+            type="checkbox"
+            checked={form.requiresPromoCode}
+            onChange={(event) => onChange({ ...form, requiresPromoCode: event.target.checked, autoApply: event.target.checked ? false : form.autoApply })}
+            disabled={form.discountTypeCode === "DisplayOnly"}
+            className="h-4 w-4 rounded border-outline-variant"
+          />
+          Customer must enter promo code
+        </label>
+      </div>
+      <div className="rounded-lg border border-outline-variant/60 bg-surface-container-low p-3">
+        <p className="text-sm font-extrabold text-on-surface">Schedule</p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <Field label="Starts at">
+            <Input type="datetime-local" value={form.startsAtLocal} onChange={(event) => onChange({ ...form, startsAtLocal: event.target.value })} />
+          </Field>
+          <Field label="Ends at">
+            <Input type="datetime-local" value={form.endsAtLocal} onChange={(event) => onChange({ ...form, endsAtLocal: event.target.value })} />
+          </Field>
+        </div>
       </div>
       <Field label="Offer image">
         <MenuItemImagePicker
@@ -416,7 +503,14 @@ function toOfferForm(offer: BranchOffer): OfferForm {
     discountValue: String(offer.discountValue),
     minimumOrderAmount: String(offer.minimumOrderAmount),
     maxDiscountAmount: offer.maxDiscountAmount === null ? "" : String(offer.maxDiscountAmount),
-    autoApply: offer.autoApply
+    autoApply: offer.autoApply,
+    promoCode: offer.promoCode ?? "",
+    requiresPromoCode: offer.requiresPromoCode,
+    startsAtLocal: toDateTimeLocal(offer.startsAtUtc),
+    endsAtLocal: toDateTimeLocal(offer.endsAtUtc),
+    maxTotalRedemptions: offer.maxTotalRedemptions === null ? "" : String(offer.maxTotalRedemptions),
+    maxRedemptionsPerCustomer: offer.maxRedemptionsPerCustomer === null ? "" : String(offer.maxRedemptionsPerCustomer),
+    maxRedemptionsPerDay: offer.maxRedemptionsPerDay === null ? "" : String(offer.maxRedemptionsPerDay)
   };
 }
 
@@ -428,13 +522,18 @@ function toOfferInput(form: OfferForm): CreateBranchOfferInput {
     imageUrl: optional(form.imageUrl),
     imageAltText: form.imageUrl ? optional(form.imageAltText) ?? form.title.trim() : null,
     displayOrder: toPositiveNumber(form.displayOrder),
-    startsAtUtc: null,
-    endsAtUtc: null,
+    startsAtUtc: toUtcDateTime(form.startsAtLocal),
+    endsAtUtc: toUtcDateTime(form.endsAtLocal),
     discountTypeCode: form.discountTypeCode,
     discountValue: form.discountTypeCode === "DisplayOnly" ? 0 : toMoneyNumber(form.discountValue),
     minimumOrderAmount: form.discountTypeCode === "DisplayOnly" ? 0 : toMoneyNumber(form.minimumOrderAmount),
     maxDiscountAmount: form.discountTypeCode === "Percentage" ? optionalMoney(form.maxDiscountAmount) : null,
-    autoApply: form.discountTypeCode !== "DisplayOnly" && form.autoApply
+    autoApply: form.discountTypeCode !== "DisplayOnly" && form.autoApply,
+    promoCode: form.discountTypeCode === "DisplayOnly" ? null : optional(form.promoCode.toUpperCase()),
+    requiresPromoCode: form.discountTypeCode !== "DisplayOnly" && form.requiresPromoCode,
+    maxTotalRedemptions: optionalPositiveInteger(form.maxTotalRedemptions),
+    maxRedemptionsPerCustomer: optionalPositiveInteger(form.maxRedemptionsPerCustomer),
+    maxRedemptionsPerDay: optionalPositiveInteger(form.maxRedemptionsPerDay)
   };
 }
 
@@ -444,7 +543,12 @@ function validateOfferForm(form: OfferForm) {
     validateOptionalText(form.subtitle, "Subtitle", 200),
     validateOptionalText(form.discountText, "Discount text", 120),
     validatePositiveInteger(form.displayOrder, "Order"),
-    validateOfferRule(form)
+    validateOfferRule(form),
+    validatePromoCode(form),
+    validateSchedule(form),
+    validateOptionalLimit(form.maxTotalRedemptions, "Total uses"),
+    validateOptionalLimit(form.maxRedemptionsPerCustomer, "Uses per customer"),
+    validateOptionalLimit(form.maxRedemptionsPerDay, "Uses per day")
   );
 }
 
@@ -476,6 +580,45 @@ function validateOfferRule(form: OfferForm) {
   return { isValid: true, message: "" };
 }
 
+function validatePromoCode(form: OfferForm) {
+  const code = form.promoCode.trim();
+  if (form.discountTypeCode === "DisplayOnly" || (!code && !form.requiresPromoCode)) {
+    return { isValid: true, message: "" };
+  }
+
+  if (code.length < 3 || code.length > 40) {
+    return { isValid: false, message: "Promo code must be between 3 and 40 characters." };
+  }
+
+  if (!/^[A-Z0-9_-]+$/i.test(code)) {
+    return { isValid: false, message: "Promo code can contain only letters, numbers, hyphens, or underscores." };
+  }
+
+  if (form.requiresPromoCode && !code) {
+    return { isValid: false, message: "Enter a promo code when code entry is required." };
+  }
+
+  return { isValid: true, message: "" };
+}
+
+function validateSchedule(form: OfferForm) {
+  if (!form.startsAtLocal || !form.endsAtLocal) {
+    return { isValid: true, message: "" };
+  }
+
+  return new Date(form.endsAtLocal).getTime() > new Date(form.startsAtLocal).getTime()
+    ? { isValid: true, message: "" }
+    : { isValid: false, message: "Offer end date must be after the start date." };
+}
+
+function validateOptionalLimit(value: string, label: string) {
+  if (!value.trim()) {
+    return { isValid: true, message: "" };
+  }
+
+  return validatePositiveInteger(value, label);
+}
+
 function optional(value: string): string | null {
   const cleaned = value.trim();
   return cleaned.length > 0 ? cleaned : null;
@@ -501,6 +644,35 @@ function optionalMoney(value: string): number | null {
   return Number.isFinite(number) && number >= 0 ? Math.round(number * 100) / 100 : null;
 }
 
+function optionalPositiveInteger(value: string): number | null {
+  const cleaned = value.trim();
+  if (!cleaned) {
+    return null;
+  }
+
+  const number = Number(cleaned);
+  return Number.isInteger(number) && number > 0 ? number : null;
+}
+
+function toUtcDateTime(value: string): string | null {
+  return value ? new Date(value).toISOString() : null;
+}
+
+function toDateTimeLocal(value: string | null): string {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const offset = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offset * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
 function formatOfferRule(offer: BranchOffer): string {
   if (offer.discountTypeCode === "DisplayOnly") {
     return "Display only";
@@ -509,4 +681,52 @@ function formatOfferRule(offer: BranchOffer): string {
   const value = offer.discountTypeCode === "Percentage" ? `${offer.discountValue}% off` : `Rs ${offer.discountValue} off`;
   const minimum = offer.minimumOrderAmount > 0 ? ` above Rs ${offer.minimumOrderAmount}` : "";
   return `${offer.autoApply ? "Auto" : "Manual"} ${value}${minimum}`;
+}
+
+function MetricPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-outline-variant/60 bg-surface-container-low px-3 py-2">
+      <span className="block text-[11px] font-bold uppercase tracking-wide text-on-surface-variant">{label}</span>
+      <span className="mt-1 block font-black text-on-surface">{value}</span>
+    </div>
+  );
+}
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0
+  }).format(value);
+}
+
+function formatSchedule(offer: BranchOffer): string | null {
+  if (!offer.startsAtUtc && !offer.endsAtUtc) {
+    return null;
+  }
+
+  if (offer.startsAtUtc && offer.endsAtUtc) {
+    return `${formatShortDate(offer.startsAtUtc)} to ${formatShortDate(offer.endsAtUtc)}`;
+  }
+
+  return offer.startsAtUtc ? `Starts ${formatShortDate(offer.startsAtUtc)}` : `Ends ${formatShortDate(offer.endsAtUtc!)}`;
+}
+
+function formatLimits(offer: BranchOffer): string | null {
+  const limits = [
+    offer.maxTotalRedemptions ? `${offer.maxTotalRedemptions} total` : null,
+    offer.maxRedemptionsPerCustomer ? `${offer.maxRedemptionsPerCustomer}/customer` : null,
+    offer.maxRedemptionsPerDay ? `${offer.maxRedemptionsPerDay}/day` : null
+  ].filter(Boolean);
+
+  return limits.length > 0 ? `Limit ${limits.join(", ")}` : null;
+}
+
+function formatShortDate(value: string): string {
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(value));
 }

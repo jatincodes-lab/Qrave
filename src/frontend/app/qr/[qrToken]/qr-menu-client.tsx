@@ -13,6 +13,7 @@ import {
   Send,
   ShoppingCart,
   SlidersHorizontal,
+  TicketPercent,
   Trash2,
   Utensils,
   X
@@ -149,6 +150,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
   const [isCustomerLookupLoading, setIsCustomerLookupLoading] = useState(false);
   const [lastLookupWhatsApp, setLastLookupWhatsApp] = useState("");
   const [notes, setNotes] = useState("");
+  const [promoCode, setPromoCode] = useState("");
   const [qrSessionState, setQrSessionState] = useState<QrSessionState>({ kind: "loading" });
   const [sessionTick, setSessionTick] = useState(0);
   const [isDraftRestored, setIsDraftRestored] = useState(false);
@@ -165,7 +167,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
   const cartLines = Object.values(cart);
   const cartCount = cartLines.reduce((total, line) => total + line.quantity, 0);
   const cartTotal = cartLines.reduce((total, line) => total + getCartLinePrice(line) * line.quantity, 0);
-  const cartEstimate = useMemo(() => calculateCartEstimate(cartTotal, currentMenu.billingSettings, currentMenu.offers ?? []), [cartTotal, currentMenu.billingSettings, currentMenu.offers]);
+  const cartEstimate = useMemo(() => calculateCartEstimate(cartTotal, currentMenu.billingSettings, currentMenu.offers ?? [], promoCode), [cartTotal, currentMenu.billingSettings, currentMenu.offers, promoCode]);
   const activeQrSession = qrSessionState.kind === "active" && isQrSessionActive(qrSessionState.session, sessionTick) ? qrSessionState.session : null;
   const hasExpiredQrSession = qrSessionState.kind === "expired" || (qrSessionState.kind === "active" && !activeQrSession);
   const canOrder = currentMenu.orderSettings.enableDirectQrOrdering && Boolean(activeQrSession);
@@ -502,6 +504,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
       customerName: valueOrNull(customerName),
       customerWhatsApp: valueOrNull(customerWhatsApp),
       notes: valueOrNull(notes),
+      promoCode: valueOrNull(promoCode.toUpperCase()),
       marketingConsent,
       items: cartLines.map((line) => ({
         menuItemId: line.item.menuItemId,
@@ -518,6 +521,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
       clearQrMenuDraft(currentMenu.qrToken);
       setCart({});
       setNotes("");
+      setPromoCode("");
       setMarketingConsent(false);
       setActiveView("cart");
       setSubmitState({ kind: "success", order });
@@ -614,6 +618,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
           isCustomerLookupLoading={isCustomerLookupLoading}
           marketingConsent={marketingConsent}
           notes={notes}
+          promoCode={promoCode}
           orderSettings={currentMenu.orderSettings}
           qrToken={currentMenu.qrToken}
           recognizedCustomer={recognizedCustomer}
@@ -627,6 +632,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
           onBackToMenu={returnToMenu}
           onCheckPreviousOrders={() => setActiveView("customerOrders")}
           onNotesChange={setNotes}
+          onPromoCodeChange={setPromoCode}
           onSubmit={submitOrder}
         />
       ) : (
@@ -1200,6 +1206,7 @@ function CartPage({
   isCustomerLookupLoading,
   marketingConsent,
   notes,
+  promoCode,
   orderSettings,
   qrToken,
   menuItemById,
@@ -1214,6 +1221,7 @@ function CartPage({
   onBackToMenu,
   onCheckPreviousOrders,
   onNotesChange,
+  onPromoCodeChange,
   onSubmit
 }: {
   cartCount: number;
@@ -1226,6 +1234,7 @@ function CartPage({
   isCustomerLookupLoading: boolean;
   marketingConsent: boolean;
   notes: string;
+  promoCode: string;
   orderSettings: PublicQrMenu["orderSettings"];
   qrToken: string;
   menuItemById: Map<string, PublicQrMenuItem>;
@@ -1240,6 +1249,7 @@ function CartPage({
   onBackToMenu: () => void;
   onCheckPreviousOrders: () => void;
   onNotesChange: (value: string) => void;
+  onPromoCodeChange: (value: string) => void;
   onSubmit: () => void;
 }) {
   if (submitState.kind === "success") {
@@ -1308,6 +1318,22 @@ function CartPage({
               <span>Subtotal</span>
               <span className="font-black text-[#001c11]">{formatPrice(cartTotal)}</span>
             </div>
+            <label className="mt-3 block">
+              <span className="flex items-center gap-1 text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant">
+                <TicketPercent className="h-3.5 w-3.5" aria-hidden="true" />
+                Promo code
+              </span>
+              <input
+                className="mt-1 h-11 w-full rounded-xl border border-[#d9e4df] bg-[#f8f9fa] px-3 text-sm font-black uppercase tracking-normal outline-none focus:border-[#006d36]"
+                value={promoCode}
+                onChange={(event) => onPromoCodeChange(event.target.value.toUpperCase().replace(/\s+/g, "").slice(0, 40))}
+                placeholder="WELCOME10"
+                maxLength={40}
+              />
+              {promoCode.trim() && !cartEstimate.appliedOffer ? (
+                <span className="mt-1 block text-xs font-semibold text-[#8a5b00]">Code will be checked when you place the order.</span>
+              ) : null}
+            </label>
             {cartEstimate.discountAmount > 0 ? (
               <div className="mt-2 rounded-xl border border-[#bfe6cf] bg-[#f1fbf5] px-3 py-2">
                 <div className="flex items-center justify-between gap-3 text-sm">
@@ -1899,9 +1925,9 @@ function valueOrNull(value: string): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function calculateCartEstimate(subtotalAmount: number, settings: PublicQrMenu["billingSettings"], offers: PublicQrMenuOffer[]): CartEstimate {
+function calculateCartEstimate(subtotalAmount: number, settings: PublicQrMenu["billingSettings"], offers: PublicQrMenuOffer[], promoCode: string): CartEstimate {
   const subtotal = roundMoney(subtotalAmount);
-  const appliedOffer = selectBestAutoOffer(subtotal, offers);
+  const appliedOffer = selectEligibleOffer(subtotal, offers, promoCode);
   const discountAmount = appliedOffer ? calculateOfferDiscount(subtotal, appliedOffer) : 0;
   const taxableAmount = roundMoney(Math.max(0, subtotal - discountAmount));
   const taxRate = Math.max(0, settings.taxRate);
@@ -1934,24 +1960,41 @@ function calculateCartEstimate(subtotalAmount: number, settings: PublicQrMenu["b
   };
 }
 
-function selectBestAutoOffer(subtotal: number, offers: PublicQrMenuOffer[]): PublicQrMenuOffer | null {
+function selectEligibleOffer(subtotal: number, offers: PublicQrMenuOffer[], promoCode: string): PublicQrMenuOffer | null {
+  const cleanPromoCode = promoCode.trim().toUpperCase();
+  if (cleanPromoCode) {
+    const promoOffer = offers
+      .filter((offer) => offer.promoCode?.toUpperCase() === cleanPromoCode)
+      .filter((offer) => offer.discountTypeCode !== "DisplayOnly" && offer.discountValue > 0 && subtotal >= offer.minimumOrderAmount)
+      .map((offer) => ({ offer, discountAmount: calculateOfferDiscount(subtotal, offer) }))
+      .filter((entry) => entry.discountAmount > 0)
+      .sort(compareOfferDiscounts)[0]?.offer;
+
+    return promoOffer ?? null;
+  }
+
   const eligible = offers
-    .filter((offer) => offer.autoApply && offer.discountTypeCode !== "DisplayOnly" && offer.discountValue > 0 && subtotal >= offer.minimumOrderAmount)
+    .filter((offer) => offer.autoApply && !offer.requiresPromoCode && offer.discountTypeCode !== "DisplayOnly" && offer.discountValue > 0 && subtotal >= offer.minimumOrderAmount)
     .map((offer) => ({ offer, discountAmount: calculateOfferDiscount(subtotal, offer) }))
     .filter((entry) => entry.discountAmount > 0)
-    .sort((left, right) => {
-      if (right.discountAmount !== left.discountAmount) {
-        return right.discountAmount - left.discountAmount;
-      }
-
-      if (left.offer.displayOrder !== right.offer.displayOrder) {
-        return left.offer.displayOrder - right.offer.displayOrder;
-      }
-
-      return left.offer.title.localeCompare(right.offer.title);
-    });
+    .sort(compareOfferDiscounts);
 
   return eligible[0]?.offer ?? null;
+}
+
+function compareOfferDiscounts(
+  left: { offer: PublicQrMenuOffer; discountAmount: number },
+  right: { offer: PublicQrMenuOffer; discountAmount: number }
+): number {
+  if (right.discountAmount !== left.discountAmount) {
+    return right.discountAmount - left.discountAmount;
+  }
+
+  if (left.offer.displayOrder !== right.offer.displayOrder) {
+    return left.offer.displayOrder - right.offer.displayOrder;
+  }
+
+  return left.offer.title.localeCompare(right.offer.title);
 }
 
 function calculateOfferDiscount(subtotal: number, offer: PublicQrMenuOffer): number {

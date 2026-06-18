@@ -15,7 +15,12 @@ public sealed record CreateBranchOfferRequest(
     decimal DiscountValue = 0,
     decimal MinimumOrderAmount = 0,
     decimal? MaxDiscountAmount = null,
-    bool AutoApply = false);
+    bool AutoApply = false,
+    string? PromoCode = null,
+    bool RequiresPromoCode = false,
+    int? MaxTotalRedemptions = null,
+    int? MaxRedemptionsPerCustomer = null,
+    int? MaxRedemptionsPerDay = null);
 
 public sealed record UpdateBranchOfferRequest(
     string Title,
@@ -31,7 +36,12 @@ public sealed record UpdateBranchOfferRequest(
     decimal DiscountValue = 0,
     decimal MinimumOrderAmount = 0,
     decimal? MaxDiscountAmount = null,
-    bool AutoApply = false);
+    bool AutoApply = false,
+    string? PromoCode = null,
+    bool RequiresPromoCode = false,
+    int? MaxTotalRedemptions = null,
+    int? MaxRedemptionsPerCustomer = null,
+    int? MaxRedemptionsPerDay = null);
 
 public sealed record BranchOfferResponse(
     Guid BranchOfferId,
@@ -51,6 +61,16 @@ public sealed record BranchOfferResponse(
     decimal MinimumOrderAmount,
     decimal? MaxDiscountAmount,
     bool AutoApply,
+    string? PromoCode,
+    bool RequiresPromoCode,
+    int? MaxTotalRedemptions,
+    int? MaxRedemptionsPerCustomer,
+    int? MaxRedemptionsPerDay,
+    int TotalRedemptions,
+    decimal TotalDiscountAmount,
+    decimal TotalRevenueAmount,
+    decimal AverageOrderValue,
+    DateTime? LastRedeemedAtUtc,
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc);
 

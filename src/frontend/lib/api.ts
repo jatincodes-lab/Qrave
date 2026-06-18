@@ -282,6 +282,16 @@ export type BranchOffer = {
   minimumOrderAmount: number;
   maxDiscountAmount: number | null;
   autoApply: boolean;
+  promoCode: string | null;
+  requiresPromoCode: boolean;
+  maxTotalRedemptions: number | null;
+  maxRedemptionsPerCustomer: number | null;
+  maxRedemptionsPerDay: number | null;
+  totalRedemptions: number;
+  totalDiscountAmount: number;
+  totalRevenueAmount: number;
+  averageOrderValue: number;
+  lastRedeemedAtUtc: string | null;
   createdAtUtc: string;
   updatedAtUtc: string | null;
 };
@@ -388,6 +398,8 @@ export type PublicQrMenuOffer = {
   minimumOrderAmount: number;
   maxDiscountAmount: number | null;
   autoApply: boolean;
+  promoCode: string | null;
+  requiresPromoCode: boolean;
 };
 
 export type PublicQrMenuCategory = {
@@ -432,6 +444,7 @@ export type CreatePublicQrOrderInput = {
   notes: string | null;
   items: CreatePublicQrOrderItemInput[];
   marketingConsent: boolean;
+  promoCode: string | null;
 };
 
 export type PublicQrOrderItem = {
@@ -787,6 +800,11 @@ export type CreateBranchOfferInput = {
   minimumOrderAmount: number;
   maxDiscountAmount: number | null;
   autoApply: boolean;
+  promoCode?: string | null;
+  requiresPromoCode?: boolean;
+  maxTotalRedemptions?: number | null;
+  maxRedemptionsPerCustomer?: number | null;
+  maxRedemptionsPerDay?: number | null;
 };
 
 export type UpdateBranchOfferInput = CreateBranchOfferInput & {

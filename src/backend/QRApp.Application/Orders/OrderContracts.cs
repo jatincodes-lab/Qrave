@@ -7,7 +7,8 @@ public sealed record CreatePublicQrOrderRequest(
     string? CustomerWhatsApp,
     string? Notes,
     IReadOnlyCollection<CreatePublicQrOrderItemRequest> Items,
-    bool MarketingConsent = false);
+    bool MarketingConsent = false,
+    string? PromoCode = null);
 
 public sealed record PublicOrderItemResponse(
     Guid OrderItemId,

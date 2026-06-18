@@ -33,6 +33,7 @@ public sealed class SqlOrderRepository(INpgsqlConnectionFactory connectionFactor
         command.AddString("@ItemsJson", JsonSerializer.Serialize(request.Items, JsonOptions), -1);
         command.AddBool("@MarketingConsent", request.MarketingConsent);
         command.AddString("@MarketingConsentSource", "qr_checkout", 80);
+        command.AddString("@PromoCode", request.PromoCode, 40);
 
         PublicOrderResponse order;
         await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
