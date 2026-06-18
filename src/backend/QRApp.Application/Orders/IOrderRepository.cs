@@ -13,4 +13,10 @@ public interface IOrderRepository
         string qrToken,
         Guid orderId,
         CancellationToken cancellationToken);
+
+    Task<PublicQrPromoCodeValidationResponse> ValidatePromoCodeAsync(
+        string qrToken,
+        Guid qrSessionId,
+        ValidatePublicQrPromoCodeRequest request,
+        CancellationToken cancellationToken);
 }

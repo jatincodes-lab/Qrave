@@ -14,6 +14,7 @@ public static class PublicOrderEndpoints
 
         group.MapPost("/qr/{qrToken}/orders", CreateOrderAsync).AllowAnonymous();
         group.MapGet("/qr/{qrToken}/orders/{orderId:guid}", GetOrderAsync).AllowAnonymous();
+        group.MapPost("/qr/{qrToken}/promo-code/validate", ValidatePromoCodeAsync).AllowAnonymous();
 
         return app;
     }
@@ -68,6 +69,35 @@ public static class PublicOrderEndpoints
         {
             loggerFactory.CreateLogger(nameof(PublicOrderEndpoints)).LogError(ex, "Failed to create public QR order.");
             return ApiProblemResponses.ServerError("Order could not be created.");
+        }
+    }
+
+    private static async Task<IResult> ValidatePromoCodeAsync(
+        string qrToken,
+        ValidatePublicQrPromoCodeRequest request,
+        HttpContext httpContext,
+        IOrderService orderService,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await orderService.ValidatePromoCodeAsync(qrToken, ReadQrSessionId(httpContext), request, cancellationToken);
+            return result.IsSuccess
+                ? Results.Ok(result.Value)
+                : ApiProblemResponses.Validation(result.Errors);
+        }
+        catch (Exception ex)
+        when (ex is PostgresException)
+        {
+            var postgresException = (PostgresException)ex;
+            loggerFactory.CreateLogger(nameof(PublicOrderEndpoints)).LogWarning(postgresException, "Database rejected public QR promo code validation.");
+            return SqlProblemMapper.ToProblem(postgresException);
+        }
+        catch (Exception ex)
+        {
+            loggerFactory.CreateLogger(nameof(PublicOrderEndpoints)).LogError(ex, "Failed to validate public QR promo code.");
+            return ApiProblemResponses.ServerError("Promo code could not be validated.");
         }
     }
 

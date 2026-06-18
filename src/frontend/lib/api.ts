@@ -447,6 +447,20 @@ export type CreatePublicQrOrderInput = {
   promoCode: string | null;
 };
 
+export type ValidatePublicQrPromoCodeInput = {
+  customerWhatsApp: string | null;
+  promoCode: string;
+  items: CreatePublicQrOrderItemInput[];
+};
+
+export type PublicQrPromoCodeValidation = {
+  promoCode: string;
+  branchOfferId: string;
+  title: string;
+  discountText: string | null;
+  discountAmount: number;
+};
+
 export type PublicQrOrderItem = {
   orderItemId: string;
   orderId: string;
@@ -954,6 +968,17 @@ export async function createPublicQrSession(qrToken: string): Promise<PublicQrSe
 
 export async function createPublicQrOrder(qrToken: string, qrSessionId: string, input: CreatePublicQrOrderInput): Promise<PublicQrOrder> {
   return request<PublicQrOrder>(`/api/v1/public/qr/${encodeURIComponent(qrToken)}/orders`, {
+    method: "POST",
+    body: input,
+    headers: {
+      "X-QR-Session-Id": qrSessionId
+    },
+    requireAuth: false
+  });
+}
+
+export async function validatePublicQrPromoCode(qrToken: string, qrSessionId: string, input: ValidatePublicQrPromoCodeInput): Promise<PublicQrPromoCodeValidation> {
+  return request<PublicQrPromoCodeValidation>(`/api/v1/public/qr/${encodeURIComponent(qrToken)}/promo-code/validate`, {
     method: "POST",
     body: input,
     headers: {

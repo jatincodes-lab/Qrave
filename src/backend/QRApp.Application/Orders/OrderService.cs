@@ -66,6 +66,39 @@ public sealed class OrderService(IOrderRepository repository) : IOrderService
         return OperationResult<PublicOrderResponse>.Success(order);
     }
 
+    public async Task<OperationResult<PublicQrPromoCodeValidationResponse>> ValidatePromoCodeAsync(
+        string qrToken,
+        Guid qrSessionId,
+        ValidatePublicQrPromoCodeRequest request,
+        CancellationToken cancellationToken)
+    {
+        var cleanToken = TextRules.CleanRequired(qrToken);
+        var orderRequest = new CreatePublicQrOrderRequest(
+            null,
+            CleanOptional(request.CustomerWhatsApp),
+            null,
+            request.Items,
+            false,
+            CleanPromoCode(request.PromoCode));
+        var errors = Validate(cleanToken, qrSessionId, orderRequest);
+        if (errors.Count > 0)
+        {
+            return OperationResult<PublicQrPromoCodeValidationResponse>.Failed(errors.ToArray());
+        }
+
+        var cleaned = new ValidatePublicQrPromoCodeRequest(
+            CleanOptional(request.CustomerWhatsApp),
+            CleanPromoCode(request.PromoCode)!,
+            request.Items
+                .Select(item => item with { ItemNote = CleanOptional(item.ItemNote) })
+                .GroupBy(item => new { item.MenuItemId, item.MenuItemVariantId, item.ItemNote })
+                .Select(group => new CreatePublicQrOrderItemRequest(group.Key.MenuItemId, group.Sum(item => item.Quantity), group.Key.MenuItemVariantId, group.Key.ItemNote))
+                .ToArray());
+
+        var validation = await repository.ValidatePromoCodeAsync(cleanToken, qrSessionId, cleaned, cancellationToken);
+        return OperationResult<PublicQrPromoCodeValidationResponse>.Success(validation);
+    }
+
     private static List<ValidationFailure> Validate(string qrToken, Guid qrSessionId, CreatePublicQrOrderRequest request)
     {
         var errors = new List<ValidationFailure>();

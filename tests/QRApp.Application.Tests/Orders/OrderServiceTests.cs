@@ -105,11 +105,39 @@ public sealed class OrderServiceTests
         Assert.Contains(result.Errors, error => error.Field == "orderId");
     }
 
+    [Fact]
+    public async Task ValidatePromoCodeAsync_WhenRequestIsValid_NormalizesCodeAndItems()
+    {
+        var itemId = Guid.NewGuid();
+        var repository = new FakeOrderRepository();
+        var service = new OrderService(repository);
+
+        var result = await service.ValidatePromoCodeAsync(
+            " token-123456789012 ",
+            Guid.NewGuid(),
+            new ValidatePublicQrPromoCodeRequest(
+                " 9876543210 ",
+                " abx ",
+                [
+                    new CreatePublicQrOrderItemRequest(itemId, 1),
+                    new CreatePublicQrOrderItemRequest(itemId, 2)
+                ]),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("token-123456789012", repository.QrToken);
+        Assert.Equal("9876543210", repository.PromoRequest!.CustomerWhatsApp);
+        Assert.Equal("ABX", repository.PromoRequest.PromoCode);
+        var item = Assert.Single(repository.PromoRequest.Items);
+        Assert.Equal(3, item.Quantity);
+    }
+
     private sealed class FakeOrderRepository : IOrderRepository
     {
         public string? QrToken { get; private set; }
         public Guid QrSessionId { get; private set; }
         public CreatePublicQrOrderRequest? Request { get; private set; }
+        public ValidatePublicQrPromoCodeRequest? PromoRequest { get; private set; }
 
         public Task<PublicOrderResponse> CreateFromQrTokenAsync(
             string qrToken,
@@ -165,6 +193,24 @@ public sealed class OrderServiceTests
                 DateTime.UtcNow,
                 DateTime.UtcNow,
                 []));
+        }
+
+        public Task<PublicQrPromoCodeValidationResponse> ValidatePromoCodeAsync(
+            string qrToken,
+            Guid qrSessionId,
+            ValidatePublicQrPromoCodeRequest request,
+            CancellationToken cancellationToken)
+        {
+            QrToken = qrToken;
+            QrSessionId = qrSessionId;
+            PromoRequest = request;
+
+            return Task.FromResult(new PublicQrPromoCodeValidationResponse(
+                request.PromoCode,
+                Guid.NewGuid(),
+                "Promo",
+                "Promo discount",
+                10m));
         }
     }
 }

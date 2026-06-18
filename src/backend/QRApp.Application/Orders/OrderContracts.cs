@@ -10,6 +10,18 @@ public sealed record CreatePublicQrOrderRequest(
     bool MarketingConsent = false,
     string? PromoCode = null);
 
+public sealed record ValidatePublicQrPromoCodeRequest(
+    string? CustomerWhatsApp,
+    string PromoCode,
+    IReadOnlyCollection<CreatePublicQrOrderItemRequest> Items);
+
+public sealed record PublicQrPromoCodeValidationResponse(
+    string PromoCode,
+    Guid BranchOfferId,
+    string Title,
+    string? DiscountText,
+    decimal DiscountAmount);
+
 public sealed record PublicOrderItemResponse(
     Guid OrderItemId,
     Guid OrderId,

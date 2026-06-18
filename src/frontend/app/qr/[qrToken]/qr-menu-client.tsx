@@ -5,6 +5,7 @@ import {
   Bell,
   CheckCircle2,
   ChevronRight,
+  Loader2,
   Menu,
   Minus,
   Plus,
@@ -29,6 +30,7 @@ import {
   createPublicQrOrder,
   getPublicQrMenu,
   lookupPublicCustomer,
+  validatePublicQrPromoCode,
   type CreatePublicQrOrderInput,
   type DietTypeCode,
   type PublicCustomerLookup,
@@ -623,6 +625,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
           notes={notes}
           promoCode={promoCode}
           orderSettings={currentMenu.orderSettings}
+          qrSession={activeQrSession}
           qrToken={currentMenu.qrToken}
           recognizedCustomer={recognizedCustomer}
           submitState={submitState}
@@ -1212,6 +1215,7 @@ function CartPage({
   notes,
   promoCode,
   orderSettings,
+  qrSession,
   qrToken,
   menuItemById,
   recognizedCustomer,
@@ -1241,6 +1245,7 @@ function CartPage({
   notes: string;
   promoCode: string;
   orderSettings: PublicQrMenu["orderSettings"];
+  qrSession: PublicQrSession | null;
   qrToken: string;
   menuItemById: Map<string, PublicQrMenuItem>;
   recognizedCustomer: PublicCustomerLookup | null;
@@ -1260,6 +1265,7 @@ function CartPage({
   const [promoDialogOpen, setPromoDialogOpen] = useState(false);
   const [promoDraft, setPromoDraft] = useState(promoCode);
   const [promoMessage, setPromoMessage] = useState<string | null>(null);
+  const [isPromoApplying, setIsPromoApplying] = useState(false);
 
   if (submitState.kind === "success") {
     return <OrderPlacedView menuItemById={menuItemById} order={submitState.order} promoCode={submitState.promoCode} qrToken={qrToken} onBackToMenu={onBackToMenu} />;
@@ -1271,7 +1277,7 @@ function CartPage({
     setPromoDialogOpen(true);
   }
 
-  function applyPromoCode() {
+  async function applyPromoCode() {
     const cleanCode = promoDraft.trim().toUpperCase().replace(/\s+/g, "").slice(0, 40);
     if (!cleanCode) {
       onPromoCodeChange("");
@@ -1280,15 +1286,43 @@ function CartPage({
       return;
     }
 
-    const eligibleOffer = selectEligibleOffer(cartTotal, currentOffers, cleanCode);
-    if (!eligibleOffer) {
-      setPromoMessage("This code is not eligible for the current cart.");
+    if (!qrSession) {
+      setPromoMessage("This table session has expired. Please scan the QR code again.");
       return;
     }
 
-    onPromoCodeChange(cleanCode);
-    setPromoMessage(null);
-    setPromoDialogOpen(false);
+    if (!customerWhatsApp.trim()) {
+      setPromoMessage("Enter WhatsApp number before applying a coupon.");
+      return;
+    }
+
+    setIsPromoApplying(true);
+    try {
+      const validation = await validatePublicQrPromoCode(qrToken, qrSession.qrSessionId, {
+        customerWhatsApp: valueOrNull(customerWhatsApp),
+        promoCode: cleanCode,
+        items: cartLines.map((line) => ({
+          menuItemId: line.item.menuItemId,
+          menuItemVariantId: line.variant?.menuItemVariantId ?? null,
+          itemNote: valueOrNull(line.itemNote),
+          quantity: line.quantity
+        }))
+      });
+
+      const localOffer = currentOffers.find((offer) => offer.branchOfferId === validation.branchOfferId);
+      if (!localOffer && validation.discountAmount <= 0) {
+        setPromoMessage("This code is not eligible for the current cart.");
+        return;
+      }
+
+      onPromoCodeChange(cleanCode);
+      setPromoMessage(null);
+      setPromoDialogOpen(false);
+    } catch (caught) {
+      setPromoMessage(caught instanceof ApiError ? caught.message : "Promo code could not be checked.");
+    } finally {
+      setIsPromoApplying(false);
+    }
   }
 
   return (
@@ -1430,8 +1464,9 @@ function CartPage({
                   />
                 </label>
                 {promoMessage ? <p className="mt-2 text-xs font-semibold text-[#9a3d00]">{promoMessage}</p> : null}
-                <button type="button" className="mt-4 h-12 w-full rounded-xl bg-[#001c11] px-4 text-sm font-black text-white" onClick={applyPromoCode}>
-                  Apply
+                <button type="button" className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#001c11] px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60" onClick={applyPromoCode} disabled={isPromoApplying}>
+                  {isPromoApplying ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                  {isPromoApplying ? "Checking" : "Apply"}
                 </button>
               </div>
             </div>
