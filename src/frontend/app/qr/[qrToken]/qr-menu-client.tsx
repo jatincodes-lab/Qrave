@@ -1430,10 +1430,6 @@ function CartPage({
               </div>
             ))}
             </div>
-            <div className="flex items-center justify-center gap-2 border-t border-[#bfe6cf] bg-[#f1fbf5] p-3 text-xs font-bold text-[#006d36]">
-              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-              Your order will be sent directly to the restaurant.
-            </div>
           </section>
 
           <button type="button" className="flex w-full items-center justify-between rounded-[1.5rem] border-2 border-dashed border-[#bfe6cf] bg-white p-4 text-left shadow-sm transition-transform active:scale-[0.99]" onClick={openPromoDialog}>
