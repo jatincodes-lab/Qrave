@@ -29,18 +29,18 @@ public sealed class SqlFeedbackRepository(INpgsqlConnectionFactory connectionFac
                     NULL::uuid AS "CustomerId"
                 FROM "Orders" o
                 JOIN "BranchTables" bt ON bt."TableId" = o."TableId"
-                WHERE o."OrderId" = @OrderId
-                  AND bt."QrToken" = @QrToken
+                WHERE o."OrderId" = @p_orderid
+                  AND bt."QrToken" = @p_qrtoken
             ),
             updated AS (
                 UPDATE "OrderFeedback" f
                 SET
-                    "Rating" = @Rating,
-                    "Comment" = @Comment,
+                    "Rating" = @p_rating,
+                    "Comment" = @p_comment,
                     "CustomerName" = order_context."CustomerName",
                     "CustomerWhatsApp" = order_context."CustomerWhatsApp"
                 FROM order_context
-                WHERE f."OrderId" = @OrderId
+                WHERE f."OrderId" = @p_orderid
                 RETURNING f.*
             ),
             inserted AS (
@@ -55,12 +55,12 @@ public sealed class SqlFeedbackRepository(INpgsqlConnectionFactory connectionFac
                     "CustomerWhatsApp"
                 )
                 SELECT
-                    @OrderFeedbackId,
+                    @p_orderfeedbackid,
                     order_context."TenantId",
                     order_context."BranchId",
-                    @OrderId,
-                    @Rating,
-                    @Comment,
+                    @p_orderid,
+                    @p_rating,
+                    @p_comment,
                     order_context."CustomerName",
                     order_context."CustomerWhatsApp"
                 FROM order_context
@@ -120,8 +120,8 @@ public sealed class SqlFeedbackRepository(INpgsqlConnectionFactory connectionFac
             FROM "OrderFeedback" f
             JOIN "Orders" o ON o."OrderId" = f."OrderId"
             JOIN "BranchTables" bt ON bt."TableId" = o."TableId"
-            WHERE f."OrderId" = @OrderId
-              AND bt."QrToken" = @QrToken;
+            WHERE f."OrderId" = @p_orderid
+              AND bt."QrToken" = @p_qrtoken;
             """,
             connection);
 
