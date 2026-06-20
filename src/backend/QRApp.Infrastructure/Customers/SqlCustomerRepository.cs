@@ -20,14 +20,14 @@ public sealed class SqlCustomerRepository(INpgsqlConnectionFactory connectionFac
             """
             INSERT INTO "CustomerDeviceAccessTokens"
                 ("CustomerDeviceAccessTokenId", "TenantId", "BranchId", "CustomerId", "TokenHash", "ExpiresAtUtc")
-            SELECT gen_random_uuid(), o."TenantId", o."BranchId", o."CustomerId", @TokenHash, @ExpiresAtUtc
+            SELECT gen_random_uuid(), o."TenantId", o."BranchId", o."CustomerId", @p_tokenhash, @p_expiresatutc
             FROM "Orders" o
             JOIN "BranchTables" bt ON bt."TableId" = o."TableId"
                 AND bt."BranchId" = o."BranchId"
                 AND bt."TenantId" = o."TenantId"
-            WHERE bt."QrToken" = @QrToken
+            WHERE bt."QrToken" = @p_qrtoken
               AND bt."IsActive"
-              AND o."OrderId" = @OrderId
+              AND o."OrderId" = @p_orderid
               AND o."CustomerId" IS NOT NULL
             RETURNING 1
             """,
@@ -36,7 +36,7 @@ public sealed class SqlCustomerRepository(INpgsqlConnectionFactory connectionFac
         command.AddString("@QrToken", qrToken, 80);
         command.AddGuid("@OrderId", orderId);
         command.AddString("@TokenHash", tokenHash, 64);
-        command.Parameters.AddWithValue("@ExpiresAtUtc", expiresAtUtc);
+        command.Parameters.AddWithValue("p_expiresatutc", expiresAtUtc);
         return await command.ExecuteScalarAsync(cancellationToken) is not null;
     }
 
@@ -56,13 +56,13 @@ public sealed class SqlCustomerRepository(INpgsqlConnectionFactory connectionFac
             FROM "CustomerDeviceAccessTokens" access
             JOIN "Customers" c ON c."CustomerId" = access."CustomerId"
             LEFT JOIN "Orders" o ON o."CustomerId" = c."CustomerId"
-            WHERE access."TokenHash" = @TokenHash
+            WHERE access."TokenHash" = @p_tokenhash
               AND access."RevokedAtUtc" IS NULL
               AND access."ExpiresAtUtc" > public.app_now()
               AND EXISTS (
                   SELECT 1
                   FROM "BranchTables" bt
-                  WHERE bt."QrToken" = @QrToken
+                  WHERE bt."QrToken" = @p_qrtoken
                     AND bt."BranchId" = access."BranchId"
                     AND bt."TenantId" = access."TenantId"
                     AND bt."IsActive"
