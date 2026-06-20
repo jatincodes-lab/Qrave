@@ -699,7 +699,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
             onSortChange={setSortBy}
           />
 
-          <div className={`flex-1 space-y-8 bg-[#f4f7f6] px-4 ${canOrder && cartCount > 0 ? "pb-48" : "pb-28"}`}>
+          <div className={`flex-1 space-y-8 bg-[#f4f7f6] px-4 ${canOrder && cartCount > 0 ? "pb-52" : "pb-28"}`}>
             {itemCount > 0 ? (
               categories.map((category) => (
                 <MenuCategorySection
@@ -729,7 +729,6 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
 
           <QrBottomNav
             canCallWaiter={canCallWaiter}
-            hasCart={canOrder && cartCount > 0}
             hasOffers={(currentMenu.offers ?? []).length > 0}
             onMenuOpen={() => setIsCategoryOpen(true)}
             onOffersOpen={() => setIsOffersSheetOpen(true)}
@@ -835,21 +834,19 @@ function QrPageHeader({
 
 function QrBottomNav({
   canCallWaiter,
-  hasCart,
   hasOffers,
   onMenuOpen,
   onOffersOpen,
   onWaiterCallOpen
 }: {
   canCallWaiter: boolean;
-  hasCart: boolean;
   hasOffers: boolean;
   onMenuOpen: () => void;
   onOffersOpen: () => void;
   onWaiterCallOpen: () => void;
 }) {
   return (
-    <nav className={`fixed inset-x-0 z-20 pointer-events-none ${hasCart ? "bottom-[6.9rem]" : "bottom-0"}`} aria-label="QR menu actions">
+    <nav className="fixed inset-x-0 bottom-0 z-30 pointer-events-none" aria-label="QR menu actions">
       <div className="mx-auto w-full max-w-md px-5 pb-3">
         <div className="pointer-events-auto grid grid-cols-3 gap-1.5 rounded-[1.35rem] border border-white/50 bg-white/70 p-1.5 shadow-[0_14px_36px_rgba(0,44,24,0.16)] backdrop-blur-xl">
           <button type="button" onClick={onMenuOpen} className="flex h-11 flex-col items-center justify-center rounded-[1rem] bg-[#001c11]/95 text-white shadow-sm">
@@ -1327,8 +1324,8 @@ function CheckoutBar({
   onOpen: () => void;
 }) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-20 pointer-events-none">
-      <div className="mx-auto w-full max-w-md px-4 pb-5">
+    <div className="fixed inset-x-0 bottom-[5.15rem] z-20 pointer-events-none">
+      <div className="mx-auto w-full max-w-md px-4 pb-3">
         <button
           type="button"
           className="pointer-events-auto flex min-h-16 w-full items-center gap-3 rounded-[24px] bg-[#001c11] px-4 py-3 text-white shadow-modal"

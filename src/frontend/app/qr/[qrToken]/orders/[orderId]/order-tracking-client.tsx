@@ -110,11 +110,6 @@ export function OrderTrackingClient({
   }
 
   function handleBack() {
-    if (shouldReturnToPreviousOrders && typeof window !== "undefined" && window.history.length > 1) {
-      window.history.back();
-      return;
-    }
-
     const menuUrl = `/qr/${encodeURIComponent(qrToken)}`;
     window.location.assign(shouldReturnToPreviousOrders ? `${menuUrl}?view=previous-orders` : menuUrl);
   }
