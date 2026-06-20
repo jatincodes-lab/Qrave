@@ -688,7 +688,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
             onSortChange={setSortBy}
           />
 
-          <div className={`flex-1 space-y-8 bg-[#f4f7f6] px-4 ${canOrder && cartCount > 0 ? "pb-40" : "pb-28"}`}>
+          <div className={`flex-1 space-y-8 bg-[#f4f7f6] px-4 ${canOrder && cartCount > 0 ? "pb-48" : "pb-28"}`}>
             {itemCount > 0 ? (
               categories.map((category) => (
                 <MenuCategorySection
@@ -838,17 +838,17 @@ function QrBottomNav({
   onWaiterCallOpen: () => void;
 }) {
   return (
-    <nav className={`fixed inset-x-0 z-20 pointer-events-none ${hasCart ? "bottom-[5.85rem]" : "bottom-0"}`} aria-label="QR menu actions">
-      <div className="mx-auto w-full max-w-md px-4 pb-3">
-        <div className="pointer-events-auto grid grid-cols-3 gap-2 rounded-[1.4rem] border border-[#dce8e1] bg-white/95 p-2 shadow-[0_12px_34px_rgba(0,44,24,0.13)] backdrop-blur">
-          <button type="button" onClick={onMenuOpen} className="flex h-12 flex-col items-center justify-center rounded-2xl bg-[#001c11] text-white">
+    <nav className={`fixed inset-x-0 z-20 pointer-events-none ${hasCart ? "bottom-[6.9rem]" : "bottom-0"}`} aria-label="QR menu actions">
+      <div className="mx-auto w-full max-w-md px-5 pb-3">
+        <div className="pointer-events-auto grid grid-cols-3 gap-1.5 rounded-[1.35rem] border border-white/50 bg-white/70 p-1.5 shadow-[0_14px_36px_rgba(0,44,24,0.16)] backdrop-blur-xl">
+          <button type="button" onClick={onMenuOpen} className="flex h-11 flex-col items-center justify-center rounded-[1rem] bg-[#001c11]/95 text-white shadow-sm">
             <Menu className="h-4 w-4" aria-hidden="true" />
             <span className="mt-1 text-[11px] font-black">Menu</span>
           </button>
           <button
             type="button"
             onClick={onOffersOpen}
-            className="flex h-12 flex-col items-center justify-center rounded-2xl text-[#006d36] disabled:text-[#9aa8a0]"
+            className="flex h-11 flex-col items-center justify-center rounded-[1rem] text-[#006d36] disabled:text-[#9aa8a0]"
             disabled={!hasOffers}
           >
             <TicketPercent className="h-4 w-4" aria-hidden="true" />
@@ -857,7 +857,7 @@ function QrBottomNav({
           <button
             type="button"
             onClick={onWaiterCallOpen}
-            className="flex h-12 flex-col items-center justify-center rounded-2xl text-[#006d36] disabled:text-[#9aa8a0]"
+            className="flex h-11 flex-col items-center justify-center rounded-[1rem] text-[#006d36] disabled:text-[#9aa8a0]"
             disabled={!canCallWaiter}
           >
             <Bell className="h-4 w-4" aria-hidden="true" />
