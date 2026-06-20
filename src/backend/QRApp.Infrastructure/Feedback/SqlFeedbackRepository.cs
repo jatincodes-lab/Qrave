@@ -194,7 +194,7 @@ public sealed class SqlFeedbackRepository(INpgsqlConnectionFactory connectionFac
                 "Comment" varchar(1000) NULL,
                 "CustomerName" varchar(120) NULL,
                 "CustomerWhatsApp" varchar(32) NULL,
-                "CreatedAtUtc" timestamptz NOT NULL DEFAULT (public.app_now()),
+                "CreatedAtUtc" timestamptz NOT NULL DEFAULT now(),
                 CONSTRAINT "UQ_OrderFeedback_OrderId" UNIQUE ("OrderId")
             );
 
@@ -206,7 +206,7 @@ public sealed class SqlFeedbackRepository(INpgsqlConnectionFactory connectionFac
             ALTER TABLE "OrderFeedback" ADD COLUMN IF NOT EXISTS "Comment" varchar(1000) NULL;
             ALTER TABLE "OrderFeedback" ADD COLUMN IF NOT EXISTS "CustomerName" varchar(120) NULL;
             ALTER TABLE "OrderFeedback" ADD COLUMN IF NOT EXISTS "CustomerWhatsApp" varchar(32) NULL;
-            ALTER TABLE "OrderFeedback" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamptz NOT NULL DEFAULT (public.app_now());
+            ALTER TABLE "OrderFeedback" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamptz NOT NULL DEFAULT now();
             CREATE UNIQUE INDEX IF NOT EXISTS "UX_OrderFeedback_OrderId" ON "OrderFeedback" ("OrderId");
             """,
             connection);

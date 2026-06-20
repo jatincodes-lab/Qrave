@@ -64,6 +64,11 @@ public static class FeedbackEndpoints
         {
             var postgresException = (PostgresException)ex;
             loggerFactory.CreateLogger(nameof(FeedbackEndpoints)).LogWarning(postgresException, "Database rejected order feedback lookup.");
+            if (IsSchemaUnavailable(postgresException))
+            {
+                return Results.Ok(null);
+            }
+
             return SqlProblemMapper.ToProblem(postgresException);
         }
         catch (Exception ex)
@@ -71,6 +76,15 @@ public static class FeedbackEndpoints
             loggerFactory.CreateLogger(nameof(FeedbackEndpoints)).LogError(ex, "Failed to read order feedback.");
             return ApiProblemResponses.ServerError("Feedback could not be read.");
         }
+    }
+
+    private static bool IsSchemaUnavailable(PostgresException exception)
+    {
+        return exception.SqlState is PostgresErrorCodes.UndefinedTable
+            or PostgresErrorCodes.UndefinedColumn
+            or PostgresErrorCodes.UndefinedFunction
+            or "42702"
+            or "42P13";
     }
 
     private static async Task<IResult> GetAdminFeedbackAsync(

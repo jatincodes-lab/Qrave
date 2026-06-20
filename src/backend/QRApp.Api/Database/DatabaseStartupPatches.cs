@@ -331,7 +331,7 @@ CREATE TABLE IF NOT EXISTS "OrderFeedback" (
     "Comment" varchar(1000) NULL,
     "CustomerName" varchar(120) NULL,
     "CustomerWhatsApp" varchar(32) NULL,
-    "CreatedAtUtc" timestamptz NOT NULL DEFAULT (public.app_now()),
+    "CreatedAtUtc" timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT "UQ_OrderFeedback_OrderId" UNIQUE ("OrderId")
 );
 
@@ -339,7 +339,7 @@ ALTER TABLE "OrderFeedback" ADD COLUMN IF NOT EXISTS "Rating" integer;
 ALTER TABLE "OrderFeedback" ADD COLUMN IF NOT EXISTS "Comment" varchar(1000) NULL;
 ALTER TABLE "OrderFeedback" ADD COLUMN IF NOT EXISTS "CustomerName" varchar(120) NULL;
 ALTER TABLE "OrderFeedback" ADD COLUMN IF NOT EXISTS "CustomerWhatsApp" varchar(32) NULL;
-ALTER TABLE "OrderFeedback" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamptz NOT NULL DEFAULT (public.app_now());
+ALTER TABLE "OrderFeedback" ADD COLUMN IF NOT EXISTS "CreatedAtUtc" timestamptz NOT NULL DEFAULT now();
 CREATE UNIQUE INDEX IF NOT EXISTS "UX_OrderFeedback_OrderId" ON "OrderFeedback" ("OrderId");
 
 DROP FUNCTION IF EXISTS public.orderfeedback_createfromqrtoken(text,uuid,uuid,integer,text);
