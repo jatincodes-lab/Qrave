@@ -24,12 +24,14 @@ export function OrderTrackingClient({
   const [feedback, setFeedback] = useState<OrderFeedback | null>(null);
   const [feedbackRating, setFeedbackRating] = useState(5);
   const [feedbackComment, setFeedbackComment] = useState("");
+  const [isFeedbackRequested, setIsFeedbackRequested] = useState(false);
   const [isSavingFeedback, setIsSavingFeedback] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const currentStepIndex = useMemo(() => StatusSteps.findIndex((status) => status === order.orderStatusCode), [order.orderStatusCode]);
   const isCancelled = order.orderStatusCode === "Cancelled";
   const isCompleted = order.orderStatusCode === "Completed";
   const shouldReturnToPreviousOrders = returnTarget === "previous-orders";
+  const shouldShowFeedback = isCompleted || isFeedbackRequested;
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -38,6 +40,7 @@ export function OrderTrackingClient({
 
     const params = new URLSearchParams(window.location.search);
     setReturnTarget(params.get("from") === "previous-orders" ? "previous-orders" : "menu");
+    setIsFeedbackRequested(window.location.hash === "#feedback");
   }, []);
 
   useEffect(() => {
@@ -51,13 +54,13 @@ export function OrderTrackingClient({
   }, [orderId, qrToken]);
 
   useEffect(() => {
-    if (!isCompleted) {
+    if (!shouldShowFeedback) {
       setFeedback(null);
       return;
     }
 
     void loadFeedback();
-  }, [isCompleted, orderId, qrToken]);
+  }, [shouldShowFeedback, orderId, qrToken]);
 
   useEffect(() => {
     if (typeof window === "undefined" || window.location.hash !== "#feedback") {
@@ -69,7 +72,7 @@ export function OrderTrackingClient({
     }, 120);
 
     return () => window.clearTimeout(timer);
-  }, [isCompleted, feedback]);
+  }, [shouldShowFeedback, feedback]);
 
   async function refreshOrder() {
     setIsRefreshing(true);
@@ -216,7 +219,7 @@ export function OrderTrackingClient({
         <p className="mt-1 text-sm font-black text-[#001c11]">{formatOrderDate(order.createdAtUtc)}</p>
       </div>
 
-      {isCompleted ? (
+      {shouldShowFeedback ? (
         <div id="feedback" className="mt-4 scroll-mt-6 rounded-2xl border border-[#d9e4df] bg-white p-4 shadow-sm">
           <div className="flex items-start gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#f1fbf5] text-[#006d36]">

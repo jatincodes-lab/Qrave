@@ -321,6 +321,120 @@ BEGIN
 END;
 $$;
 
+DROP FUNCTION IF EXISTS public.orderfeedback_createfromqrtoken(text,uuid,uuid,integer,text);
+DROP FUNCTION IF EXISTS public.orderfeedback_getbyqrtoken(text,uuid);
+
+CREATE OR REPLACE FUNCTION public.orderfeedback_createfromqrtoken(
+    p_qrtoken text,
+    p_orderid uuid,
+    p_orderfeedbackid uuid,
+    p_rating integer,
+    p_comment text
+)
+RETURNS TABLE(
+    "OrderFeedbackId" uuid,
+    "TenantId" uuid,
+    "BranchId" uuid,
+    "OrderId" uuid,
+    "CustomerId" uuid,
+    "Rating" integer,
+    "Comment" varchar,
+    "CreatedAtUtc" timestamptz
+)
+LANGUAGE plpgsql AS $$
+DECLARE
+    order_context record;
+BEGIN
+    SELECT
+        o."TenantId",
+        o."BranchId",
+        o."OrderId",
+        o."CustomerId",
+        o."CustomerName",
+        o."CustomerWhatsApp"
+    INTO order_context
+    FROM "Orders" o
+    JOIN "BranchTables" bt ON bt."TableId" = o."TableId"
+    WHERE o."OrderId" = p_orderid
+      AND bt."QrToken" = p_qrtoken;
+
+    IF NOT FOUND THEN
+        PERFORM public.raise_app_error(51709);
+    END IF;
+
+    RETURN QUERY
+    WITH saved AS (
+        INSERT INTO "OrderFeedback" (
+            "OrderFeedbackId",
+            "TenantId",
+            "BranchId",
+            "OrderId",
+            "Rating",
+            "Comment",
+            "CustomerName",
+            "CustomerWhatsApp"
+        )
+        VALUES (
+            p_orderfeedbackid,
+            order_context."TenantId",
+            order_context."BranchId",
+            p_orderid,
+            p_rating,
+            p_comment,
+            order_context."CustomerName",
+            order_context."CustomerWhatsApp"
+        )
+        ON CONFLICT ("OrderId") DO UPDATE SET
+            "Rating" = EXCLUDED."Rating",
+            "Comment" = EXCLUDED."Comment",
+            "CustomerName" = EXCLUDED."CustomerName",
+            "CustomerWhatsApp" = EXCLUDED."CustomerWhatsApp"
+        RETURNING *
+    )
+    SELECT
+        saved."OrderFeedbackId",
+        saved."TenantId",
+        saved."BranchId",
+        saved."OrderId",
+        order_context."CustomerId",
+        saved."Rating",
+        saved."Comment",
+        saved."CreatedAtUtc"
+    FROM saved;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.orderfeedback_getbyqrtoken(
+    p_qrtoken text,
+    p_orderid uuid
+)
+RETURNS TABLE(
+    "OrderFeedbackId" uuid,
+    "TenantId" uuid,
+    "BranchId" uuid,
+    "OrderId" uuid,
+    "CustomerId" uuid,
+    "Rating" integer,
+    "Comment" varchar,
+    "CreatedAtUtc" timestamptz
+)
+LANGUAGE sql STABLE AS $$
+    SELECT
+        f."OrderFeedbackId",
+        f."TenantId",
+        f."BranchId",
+        f."OrderId",
+        o."CustomerId",
+        f."Rating",
+        f."Comment",
+        f."CreatedAtUtc"
+    FROM "OrderFeedback" f
+    JOIN "Orders" o ON o."OrderId" = f."OrderId"
+    JOIN "BranchTables" bt ON bt."TableId" = o."TableId"
+    WHERE f."OrderId" = p_orderid
+      AND bt."QrToken" = p_qrtoken;
+$$;
+
 CREATE OR REPLACE FUNCTION public.publiccustomer_lookupbyqrtoken(p_qrtoken text,p_customerwhatsapp text)
 RETURNS TABLE("CustomerId" uuid,"Name" varchar,"WhatsAppNumber" varchar,"MarketingConsent" boolean,"VisitCount" integer,"TotalOrderCount" integer,"TotalOrderValue" numeric,"LastVisitAtUtc" timestamptz)
 LANGUAGE sql STABLE AS $$
