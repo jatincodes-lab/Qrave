@@ -625,7 +625,6 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
         tableName={currentMenu.tableName}
         onBack={handleHeaderBack}
         onCartOpen={() => setActiveView("cart")}
-        onCustomerOrdersOpen={recognizedCustomer ? () => setActiveView("customerOrders") : null}
       />
 
       {activeView === "customerOrders" ? (
@@ -684,9 +683,11 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
             dietFilter={dietFilter}
             itemCount={itemCount}
             menu={currentMenu}
+            recognizedCustomer={recognizedCustomer}
             search={search}
             sortBy={sortBy}
             onCategoryOpen={() => setIsCategoryOpen(true)}
+            onCustomerOrdersOpen={() => setActiveView("customerOrders")}
             onDietFilterChange={setDietFilter}
             onSearchChange={setSearch}
             onSortChange={setSortBy}
@@ -780,14 +781,12 @@ function QrPageHeader({
   cartCount,
   onBack,
   onCartOpen,
-  onCustomerOrdersOpen,
   tableName
 }: {
   branchName: string;
   cartCount: number;
   onBack: () => void;
   onCartOpen: () => void;
-  onCustomerOrdersOpen: (() => void) | null;
   tableName: string;
 }) {
   return (
@@ -800,27 +799,14 @@ function QrPageHeader({
           <h1 className="truncate text-[15px] font-black uppercase tracking-normal text-[#001c11]">{branchName}</h1>
           <p className="mt-0.5 truncate text-[11px] font-semibold text-[#5a625e]">{tableName}</p>
         </div>
-        <div className="flex items-center gap-2">
-          {onCustomerOrdersOpen ? (
-            <button
-              type="button"
-              onClick={onCustomerOrdersOpen}
-              className="grid h-10 w-10 place-items-center rounded-full border border-[#d9e4df] bg-white text-[#001c11] shadow-sm"
-              aria-label="Open my orders"
-              title="My orders"
-            >
-              <ReceiptText className="h-4 w-4" aria-hidden="true" />
-            </button>
+        <button type="button" onClick={onCartOpen} className="relative grid h-10 w-10 place-items-center rounded-full bg-[#001c11] text-white shadow-sm" aria-label="Open cart">
+          <ShoppingCart className="h-4 w-4" aria-hidden="true" />
+          {cartCount > 0 ? (
+            <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#83fba5] px-1 text-[10px] font-black leading-none text-[#00210c]">
+              {cartCount > 99 ? "99+" : cartCount}
+            </span>
           ) : null}
-          <button type="button" onClick={onCartOpen} className="relative grid h-10 w-10 place-items-center rounded-full bg-[#001c11] text-white shadow-sm" aria-label="Open cart">
-            <ShoppingCart className="h-4 w-4" aria-hidden="true" />
-            {cartCount > 0 ? (
-              <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#83fba5] px-1 text-[10px] font-black leading-none text-[#00210c]">
-                {cartCount > 99 ? "99+" : cartCount}
-              </span>
-            ) : null}
-          </button>
-        </div>
+        </button>
       </div>
     </header>
   );
@@ -896,9 +882,11 @@ function MenuHero({
   itemCount,
   menu,
   onCategoryOpen,
+  onCustomerOrdersOpen,
   onDietFilterChange,
   onSearchChange,
   onSortChange,
+  recognizedCustomer,
   search,
   sortBy
 }: {
@@ -907,9 +895,11 @@ function MenuHero({
   itemCount: number;
   menu: PublicQrMenu;
   onCategoryOpen: () => void;
+  onCustomerOrdersOpen: () => void;
   onDietFilterChange: (value: DietQuickFilter) => void;
   onSearchChange: (value: string) => void;
   onSortChange: (value: MenuSortCode) => void;
+  recognizedCustomer: PublicCustomerLookup | null;
   search: string;
   sortBy: MenuSortCode;
 }) {
@@ -952,6 +942,20 @@ function MenuHero({
 
   return (
     <section className="bg-[#f4f7f6] px-4 pb-5 pt-5">
+      {recognizedCustomer ? (
+        <button
+          type="button"
+          onClick={onCustomerOrdersOpen}
+          className="mb-4 flex w-full items-center justify-between gap-3 rounded-2xl border border-[#bfe6cf] bg-[#f1fbf5] p-4 text-left shadow-sm"
+        >
+          <span className="min-w-0">
+            <span className="block truncate text-base font-black text-[#001c11]">Welcome back, {recognizedCustomer.name ?? "Customer"}</span>
+            <span className="mt-1 block text-sm font-semibold text-[#466155]">View your previous orders</span>
+          </span>
+          <ChevronRight className="h-5 w-5 shrink-0 text-[#006d36]" aria-hidden="true" />
+        </button>
+      ) : null}
+
       <div className="mb-5 flex h-16 items-center gap-3 rounded-full border border-[#dce4df] bg-white px-5 shadow-sm">
         <Search className="h-6 w-6 shrink-0 text-[#6b746f]" aria-hidden="true" />
         <input
