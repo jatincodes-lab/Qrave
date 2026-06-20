@@ -166,6 +166,8 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
   const [isDraftRestored, setIsDraftRestored] = useState(false);
   const [activeView, setActiveView] = useState<ActiveView>("menu");
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+  const [isOffersSheetOpen, setIsOffersSheetOpen] = useState(false);
+  const [isWaiterCallSheetOpen, setIsWaiterCallSheetOpen] = useState(false);
   const [submitState, setSubmitState] = useState<SubmitState>({ kind: "idle" });
   const [waiterCallNote, setWaiterCallNote] = useState("");
   const [waiterCallState, setWaiterCallState] = useState<WaiterCallState>({ kind: "idle" });
@@ -674,33 +676,19 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
           <MenuHero
             categories={categories}
             dietFilter={dietFilter}
-            itemCount={itemCount}
             menu={currentMenu}
             recognizedCustomer={recognizedCustomer}
             search={search}
             sortBy={sortBy}
             onCategoryOpen={() => setIsCategoryOpen(true)}
             onCustomerOrdersOpen={openCustomerOrders}
+            onOffersOpen={() => setIsOffersSheetOpen(true)}
             onDietFilterChange={setDietFilter}
             onSearchChange={setSearch}
             onSortChange={setSortBy}
           />
 
-          {canCallWaiter ? (
-            <WaiterCallAction
-              note={waiterCallNote}
-              state={waiterCallState}
-              onNoteChange={(value) => {
-                setWaiterCallNote(value);
-                if (waiterCallState.kind !== "submitting") {
-                  setWaiterCallState({ kind: "idle" });
-                }
-              }}
-              onSubmit={() => void submitWaiterCall()}
-            />
-          ) : null}
-
-          <div className="flex-1 space-y-8 bg-[#f4f7f6] px-4 pb-28">
+          <div className={`flex-1 space-y-8 bg-[#f4f7f6] px-4 ${canOrder && cartCount > 0 ? "pb-40" : "pb-28"}`}>
             {itemCount > 0 ? (
               categories.map((category) => (
                 <MenuCategorySection
@@ -728,13 +716,42 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
             />
           ) : null}
 
-          <FloatingMenuButton hasCheckoutBar={canOrder && cartCount > 0} onOpen={() => setIsCategoryOpen(true)} />
+          <QrBottomNav
+            canCallWaiter={canCallWaiter}
+            hasCart={canOrder && cartCount > 0}
+            hasOffers={(currentMenu.offers ?? []).length > 0}
+            onMenuOpen={() => setIsCategoryOpen(true)}
+            onOffersOpen={() => setIsOffersSheetOpen(true)}
+            onWaiterCallOpen={() => setIsWaiterCallSheetOpen(true)}
+          />
           {variantPicker ? (
             <VariantPickerSheet
               categoryName={variantPicker.categoryName}
               item={variantPicker.item}
               onAdd={(variant) => addItem(variantPicker.item, variantPicker.categoryName, variant)}
               onClose={() => setVariantPicker(null)}
+            />
+          ) : null}
+          {isOffersSheetOpen ? (
+            <OffersSheet
+              offers={currentMenu.offers ?? []}
+              onClose={() => setIsOffersSheetOpen(false)}
+            />
+          ) : null}
+          {isWaiterCallSheetOpen ? (
+            <WaiterCallSheet
+              canCallWaiter={canCallWaiter}
+              note={waiterCallNote}
+              state={waiterCallState}
+              tableName={currentMenu.tableName}
+              onClose={() => setIsWaiterCallSheetOpen(false)}
+              onNoteChange={(value) => {
+                setWaiterCallNote(value);
+                if (waiterCallState.kind !== "submitting") {
+                  setWaiterCallState({ kind: "idle" });
+                }
+              }}
+              onSubmit={() => void submitWaiterCall()}
             />
           ) : null}
         </>
@@ -805,49 +822,164 @@ function QrPageHeader({
   );
 }
 
-function WaiterCallAction({
-  note,
-  state,
-  onNoteChange,
-  onSubmit
+function QrBottomNav({
+  canCallWaiter,
+  hasCart,
+  hasOffers,
+  onMenuOpen,
+  onOffersOpen,
+  onWaiterCallOpen
 }: {
-  note: string;
-  state: WaiterCallState;
-  onNoteChange: (value: string) => void;
-  onSubmit: () => void;
+  canCallWaiter: boolean;
+  hasCart: boolean;
+  hasOffers: boolean;
+  onMenuOpen: () => void;
+  onOffersOpen: () => void;
+  onWaiterCallOpen: () => void;
 }) {
   return (
-    <section className="bg-[#f8f9fa] px-4 pb-5">
-      <div className="rounded-2xl border border-[#cfe1d8] bg-white p-4 shadow-sm">
-        <div className="flex items-start gap-3">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#e7f8ee] text-[#006d36]">
-            <Bell className="h-5 w-5" aria-hidden="true" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-extrabold text-ink">Call Waiter</p>
-            <p className="mt-0.5 text-xs font-medium text-on-surface-variant">Staff at your service</p>
-            <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto]">
-              <input
-                value={note}
-                onChange={(event) => onNoteChange(event.target.value)}
-                maxLength={500}
-                placeholder="Optional note"
-                className="h-11 min-w-0 rounded-xl border border-[#d9e4df] bg-[#f8f9fa] px-3 text-sm outline-none focus:border-[#006d36]"
-              />
-              <button
-                type="button"
-                disabled={state.kind === "submitting"}
-                onClick={onSubmit}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#001c11] px-4 text-sm font-extrabold text-white disabled:opacity-50"
-              >
-                <Bell className="h-4 w-4" aria-hidden="true" />
-                {state.kind === "submitting" ? "Calling" : "Call waiter"}
-              </button>
-            </div>
-          </div>
+    <nav className={`fixed inset-x-0 z-20 pointer-events-none ${hasCart ? "bottom-[5.85rem]" : "bottom-0"}`} aria-label="QR menu actions">
+      <div className="mx-auto w-full max-w-md px-4 pb-3">
+        <div className="pointer-events-auto grid grid-cols-3 gap-2 rounded-[1.4rem] border border-[#dce8e1] bg-white/95 p-2 shadow-[0_12px_34px_rgba(0,44,24,0.13)] backdrop-blur">
+          <button type="button" onClick={onMenuOpen} className="flex h-12 flex-col items-center justify-center rounded-2xl bg-[#001c11] text-white">
+            <Menu className="h-4 w-4" aria-hidden="true" />
+            <span className="mt-1 text-[11px] font-black">Menu</span>
+          </button>
+          <button
+            type="button"
+            onClick={onOffersOpen}
+            className="flex h-12 flex-col items-center justify-center rounded-2xl text-[#006d36] disabled:text-[#9aa8a0]"
+            disabled={!hasOffers}
+          >
+            <TicketPercent className="h-4 w-4" aria-hidden="true" />
+            <span className="mt-1 text-[11px] font-black">Offers</span>
+          </button>
+          <button
+            type="button"
+            onClick={onWaiterCallOpen}
+            className="flex h-12 flex-col items-center justify-center rounded-2xl text-[#006d36] disabled:text-[#9aa8a0]"
+            disabled={!canCallWaiter}
+          >
+            <Bell className="h-4 w-4" aria-hidden="true" />
+            <span className="mt-1 text-[11px] font-black">Waiter</span>
+          </button>
         </div>
       </div>
-    </section>
+    </nav>
+  );
+}
+
+function OffersSheet({ offers, onClose }: { offers: PublicQrMenuOffer[]; onClose: () => void }) {
+  const sortedOffers = [...offers].sort((left, right) => left.displayOrder - right.displayOrder);
+
+  return (
+    <aside className="fixed inset-x-0 bottom-0 z-40">
+      <div className="mx-auto w-full max-w-md rounded-t-[2rem] border border-[#dce8e1] bg-white p-4 shadow-modal">
+        <div className="mx-auto mb-3 h-1 w-12 rounded-full bg-[#dce8e1]" />
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#006d36]">Offers</p>
+            <h2 className="mt-1 text-2xl font-black text-[#001c11]">Available deals</h2>
+          </div>
+          <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full bg-[#f4f7f6] text-[#001c11]" aria-label="Close offers">
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+
+        {sortedOffers.length > 0 ? (
+          <div className="mt-4 max-h-[60dvh] space-y-3 overflow-y-auto pr-1">
+            {sortedOffers.map((offer) => (
+              <article key={offer.branchOfferId} className="rounded-[1.4rem] border border-[#bfe6cf] bg-gradient-to-br from-[#f8fffb] to-[#e9fff1] p-4">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white text-[#006d36] shadow-sm">
+                    <TicketPercent className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <h3 className="text-base font-black text-[#001c11]">{offer.title}</h3>
+                    {offer.discountText ? <p className="mt-1 text-sm font-black text-[#006d36]">{offer.discountText}</p> : null}
+                    {offer.subtitle ? <p className="mt-1 text-sm font-semibold leading-5 text-[#5a625e]">{offer.subtitle}</p> : null}
+                    {offer.promoCode ? (
+                      <p className="mt-3 inline-flex rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.08em] text-[#001c11]">
+                        Code: {offer.promoCode}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-6 rounded-2xl bg-[#f4f7f6] p-5 text-center">
+            <p className="text-sm font-black text-[#001c11]">No offers right now</p>
+            <p className="mt-1 text-sm font-semibold text-[#5a625e]">Please check again later.</p>
+          </div>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+function WaiterCallSheet({
+  canCallWaiter,
+  note,
+  onClose,
+  onNoteChange,
+  onSubmit,
+  state,
+  tableName
+}: {
+  canCallWaiter: boolean;
+  note: string;
+  onClose: () => void;
+  onNoteChange: (value: string) => void;
+  onSubmit: () => void;
+  state: WaiterCallState;
+  tableName: string;
+}) {
+  return (
+    <aside className="fixed inset-x-0 bottom-0 z-40">
+      <div className="mx-auto w-full max-w-md rounded-t-[2rem] border border-[#dce8e1] bg-white p-4 shadow-modal">
+        <div className="mx-auto mb-3 h-1 w-12 rounded-full bg-[#dce8e1]" />
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#006d36]">{tableName}</p>
+            <h2 className="mt-1 text-2xl font-black text-[#001c11]">Call waiter</h2>
+            <p className="mt-1 text-sm font-semibold text-[#5a625e]">Need water, bill help, or service? Add a note if needed.</p>
+          </div>
+          <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full bg-[#f4f7f6] text-[#001c11]" aria-label="Close waiter call">
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+
+        {state.kind === "success" ? (
+          <div className="mt-4 rounded-2xl border border-[#bfe6cf] bg-[#f1fbf5] p-4 text-sm font-black text-[#006d36]">
+            Staff has been notified.
+          </div>
+        ) : null}
+        {state.kind === "error" ? (
+          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-black text-rose-900">
+            {state.message}
+          </div>
+        ) : null}
+
+        <textarea
+          className="mt-4 min-h-28 w-full resize-none rounded-2xl border border-[#d9e4df] bg-[#f8fbf9] px-4 py-3 text-sm font-semibold text-[#001c11] outline-none focus:border-[#006d36]"
+          value={note}
+          onChange={(event) => onNoteChange(event.target.value)}
+          maxLength={500}
+          placeholder="Optional note, e.g. please bring water"
+        />
+        <button
+          type="button"
+          className="mt-4 inline-flex h-14 w-full items-center justify-center gap-2 rounded-[1.25rem] bg-[#001c11] px-5 text-base font-black text-white shadow-[0_12px_28px_rgba(0,28,17,0.22)] disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={onSubmit}
+          disabled={!canCallWaiter || state.kind === "submitting"}
+        >
+          <Bell className="h-5 w-5" aria-hidden="true" />
+          {state.kind === "submitting" ? "Calling" : "Call waiter"}
+        </button>
+      </div>
+    </aside>
   );
 }
 
@@ -872,10 +1004,10 @@ function MenuEmptyState({ canOrder, search }: { canOrder: boolean; search?: stri
 function MenuHero({
   categories,
   dietFilter,
-  itemCount,
   menu,
   onCategoryOpen,
   onCustomerOrdersOpen,
+  onOffersOpen,
   onDietFilterChange,
   onSearchChange,
   onSortChange,
@@ -885,10 +1017,10 @@ function MenuHero({
 }: {
   categories: PublicQrMenuCategory[];
   dietFilter: DietQuickFilter;
-  itemCount: number;
   menu: PublicQrMenu;
   onCategoryOpen: () => void;
   onCustomerOrdersOpen: () => void;
+  onOffersOpen: () => void;
   onDietFilterChange: (value: DietQuickFilter) => void;
   onSearchChange: (value: string) => void;
   onSortChange: (value: MenuSortCode) => void;
@@ -898,40 +1030,7 @@ function MenuHero({
 }) {
   const availableCategories = categories.filter((category) => category.items.length > 0);
   const offers = (menu.offers ?? []).sort((left, right) => left.displayOrder - right.displayOrder);
-  const [activeOfferIndex, setActiveOfferIndex] = useState(0);
-  const [touchStartX, setTouchStartX] = useState<number | null>(null);
-  const activeOffer = offers[activeOfferIndex] ?? null;
-  const fallbackFeature = availableCategories[0]?.items[0] ?? null;
-  const heroImageUrl = activeOffer?.imageUrl ?? fallbackFeature?.imageUrl ?? null;
-  const heroImageAlt = activeOffer?.imageAltText ?? activeOffer?.title ?? fallbackFeature?.imageAltText ?? fallbackFeature?.name ?? menu.branchName;
-
-  useEffect(() => {
-    if (offers.length <= 1) {
-      setActiveOfferIndex(0);
-      return;
-    }
-
-    setActiveOfferIndex((current) => (current >= offers.length ? 0 : current));
-    const timer = window.setInterval(() => {
-      setActiveOfferIndex((current) => (current + 1) % offers.length);
-    }, 4_200);
-
-    return () => window.clearInterval(timer);
-  }, [offers.length]);
-
-  function handleOfferTouchEnd(clientX: number) {
-    if (touchStartX === null || offers.length <= 1) {
-      setTouchStartX(null);
-      return;
-    }
-
-    const delta = touchStartX - clientX;
-    if (Math.abs(delta) > 36) {
-      setActiveOfferIndex((current) => (delta > 0 ? current + 1 : current - 1 + offers.length) % offers.length);
-    }
-
-    setTouchStartX(null);
-  }
+  const compactOffers = offers.slice(0, 4);
 
   return (
     <section className="bg-[#f4f7f6] px-4 pb-5 pt-5">
@@ -1019,44 +1118,39 @@ function MenuHero({
         </label>
       </div>
 
-      <div
-        className="relative min-h-[320px] overflow-hidden rounded-[28px] bg-[#0f3224] text-white shadow-soft-saas"
-        onTouchStart={(event) => setTouchStartX(event.touches[0]?.clientX ?? null)}
-        onTouchEnd={(event) => handleOfferTouchEnd(event.changedTouches[0]?.clientX ?? 0)}
-      >
-        {heroImageUrl ? <img src={heroImageUrl} alt={heroImageAlt} className="absolute inset-0 h-full w-full object-cover" /> : <FoodPosterFallback name={menu.branchName} />}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-black/5" />
-        <div className="relative flex min-h-[320px] flex-col justify-end p-6">
-          <div className="mb-auto flex justify-end">
-            {activeOffer?.discountText ? (
-              <div className="rounded-[28px] border border-white/20 bg-white/20 px-5 py-4 text-center shadow-modal backdrop-blur-md">
-                <p className="text-xs font-black uppercase tracking-[0.12em] text-white/75">Promo</p>
-                <p className="mt-1 text-xl font-black">{activeOffer.discountText}</p>
-              </div>
-            ) : null}
+      {compactOffers.length > 0 ? (
+        <div className="mb-6">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#006d36]">Today&apos;s offers</p>
+              <h3 className="mt-0.5 text-lg font-black text-[#001c11]">Save on your order</h3>
+            </div>
+            <button type="button" onClick={onOffersOpen} className="rounded-full bg-white px-3 py-2 text-xs font-black text-[#006d36] shadow-sm">
+              View all
+            </button>
           </div>
-          <div>
-            <span className="inline-flex rounded-lg bg-[#00743a] px-3 py-2 text-xs font-black uppercase tracking-wide text-white">
-              {activeOffer ? "Newbie Offer" : "Recommended"}
-            </span>
-            <h2 className="mt-4 max-w-[13rem] text-[40px] font-black leading-[1.08] tracking-normal">{activeOffer?.title ?? fallbackFeature?.name ?? "Explore Menu"}</h2>
-            <p className="mt-3 max-w-[18rem] text-base font-semibold leading-6 text-white/80">{activeOffer?.subtitle ?? `${itemCount} dishes available today`}</p>
-          </div>
-        </div>
-        {offers.length > 1 ? (
-          <div className="absolute bottom-5 right-5 flex gap-1.5">
-            {offers.map((offer, index) => (
+          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {compactOffers.map((offer) => (
               <button
                 key={offer.branchOfferId}
                 type="button"
-                onClick={() => setActiveOfferIndex(index)}
-                className={`h-1.5 rounded-full transition-all ${index === activeOfferIndex ? "w-6 bg-white" : "w-1.5 bg-white/45"}`}
-                aria-label={`Show offer ${index + 1}`}
-              />
+                onClick={onOffersOpen}
+                className="flex min-w-[15rem] max-w-[17rem] shrink-0 items-center gap-3 rounded-[1.4rem] border border-[#bfe6cf] bg-white p-3 text-left shadow-[0_10px_24px_rgba(0,44,24,0.07)]"
+              >
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#e9fff1] text-[#006d36]">
+                  <TicketPercent className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="line-clamp-1 text-sm font-black text-[#001c11]">{offer.title}</span>
+                  <span className="mt-0.5 block line-clamp-1 text-xs font-semibold text-[#5a625e]">
+                    {offer.discountText ?? offer.subtitle ?? "Limited-time branch offer"}
+                  </span>
+                </span>
+              </button>
             ))}
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       {availableCategories.length > 0 ? (
         <div className="mt-7">
@@ -1824,23 +1918,6 @@ function CustomerPreviousOrdersPage({
   );
 }
 
-function FloatingMenuButton({ hasCheckoutBar, onOpen }: { hasCheckoutBar: boolean; onOpen: () => void }) {
-  return (
-    <div className="fixed inset-x-0 bottom-0 z-20 pointer-events-none">
-      <div className={`mx-auto flex w-full max-w-md justify-end px-4 ${hasCheckoutBar ? "pb-24" : "pb-5"}`}>
-        <button
-          type="button"
-          className="pointer-events-auto relative grid h-14 w-14 place-items-center rounded-full bg-primary text-on-primary shadow-modal"
-          onClick={onOpen}
-          aria-label="Open categories"
-        >
-          <Menu className="h-7 w-7" aria-hidden="true" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function VariantPickerSheet({
   categoryName,
   item,
@@ -2049,21 +2126,6 @@ function OrderItemThumb({ item, name }: { item?: PublicQrMenuItem; name: string 
           <span className="relative text-sm font-black">{initials || <Utensils className="h-4 w-4" aria-hidden="true" />}</span>
         </>
       )}
-      <span className="sr-only">{name}</span>
-    </div>
-  );
-}
-
-function FoodPosterFallback({ name }: { name: string }) {
-  return (
-    <div className="absolute inset-0 overflow-hidden bg-gradient-to-br from-[#dff5e8] via-[#759b89] to-[#001c11]">
-      <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-white/20" />
-      <div className="absolute bottom-8 left-8 h-32 w-32 rounded-full bg-[#83fba5]/30" />
-      <div className="absolute inset-0 grid place-items-center">
-        <div className="grid h-28 w-28 place-items-center rounded-full bg-white/80 text-[#001c11] shadow-modal">
-          <Utensils className="h-12 w-12" aria-hidden="true" />
-        </div>
-      </div>
       <span className="sr-only">{name}</span>
     </div>
   );
