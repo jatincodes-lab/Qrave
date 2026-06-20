@@ -9,7 +9,7 @@ public sealed class SqlCustomerRepository(INpgsqlConnectionFactory connectionFac
 {
     public async Task<bool> CreateDeviceAccessAsync(
         string qrToken,
-        string customerWhatsApp,
+        Guid orderId,
         string tokenHash,
         DateTime expiresAtUtc,
         CancellationToken cancellationToken)
@@ -20,18 +20,21 @@ public sealed class SqlCustomerRepository(INpgsqlConnectionFactory connectionFac
             """
             INSERT INTO "CustomerDeviceAccessTokens"
                 ("CustomerDeviceAccessTokenId", "TenantId", "BranchId", "CustomerId", "TokenHash", "ExpiresAtUtc")
-            SELECT gen_random_uuid(), c."TenantId", c."BranchId", c."CustomerId", @TokenHash, @ExpiresAtUtc
-            FROM "Customers" c
-            JOIN "BranchTables" bt ON bt."BranchId" = c."BranchId" AND bt."TenantId" = c."TenantId"
+            SELECT gen_random_uuid(), o."TenantId", o."BranchId", o."CustomerId", @TokenHash, @ExpiresAtUtc
+            FROM "Orders" o
+            JOIN "BranchTables" bt ON bt."TableId" = o."TableId"
+                AND bt."BranchId" = o."BranchId"
+                AND bt."TenantId" = o."TenantId"
             WHERE bt."QrToken" = @QrToken
               AND bt."IsActive"
-              AND c."WhatsAppNumber" = @CustomerWhatsApp
+              AND o."OrderId" = @OrderId
+              AND o."CustomerId" IS NOT NULL
             RETURNING 1
             """,
             connection);
 
         command.AddString("@QrToken", qrToken, 80);
-        command.AddString("@CustomerWhatsApp", customerWhatsApp, 32);
+        command.AddGuid("@OrderId", orderId);
         command.AddString("@TokenHash", tokenHash, 64);
         command.Parameters.AddWithValue("@ExpiresAtUtc", expiresAtUtc);
         return await command.ExecuteScalarAsync(cancellationToken) is not null;

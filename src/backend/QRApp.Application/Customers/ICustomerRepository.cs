@@ -4,7 +4,7 @@ public interface ICustomerRepository
 {
     Task<bool> CreateDeviceAccessAsync(
         string qrToken,
-        string customerWhatsApp,
+        Guid orderId,
         string tokenHash,
         DateTime expiresAtUtc,
         CancellationToken cancellationToken);

@@ -2,7 +2,6 @@ using QRApp.Application.Common;
 using QRApp.Shared.Results;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace QRApp.Application.Customers;
 
@@ -12,15 +11,13 @@ public sealed class CustomerService(ICustomerRepository repository) : ICustomerS
     private const int MaxQrTokenLength = 80;
     private const int DeviceTokenLength = 43;
     private static readonly TimeSpan DeviceAccessLifetime = TimeSpan.FromDays(90);
-    private static readonly Regex AllowedPhoneCharacters = new(@"^[0-9+\-().\s]+$", RegexOptions.Compiled);
 
     public async Task<OperationResult<CustomerDeviceAccessResponse?>> CreateDeviceAccessAsync(
         string qrToken,
-        string customerWhatsApp,
+        Guid orderId,
         CancellationToken cancellationToken)
     {
         var cleanToken = TextRules.CleanRequired(qrToken);
-        var cleanWhatsApp = TextRules.CleanRequired(customerWhatsApp);
         var errors = new List<ValidationFailure>();
 
         if (cleanToken.Length is < MinQrTokenLength or > MaxQrTokenLength)
@@ -28,15 +25,9 @@ public sealed class CustomerService(ICustomerRepository repository) : ICustomerS
             errors.Add(new ValidationFailure("QrToken", "QR token is invalid."));
         }
 
-        if (cleanWhatsApp.Length > 32)
+        if (orderId == Guid.Empty)
         {
-            errors.Add(new ValidationFailure(nameof(customerWhatsApp), "WhatsApp cannot exceed 32 characters."));
-        }
-
-        var digits = new string(cleanWhatsApp.Where(char.IsDigit).ToArray());
-        if (!AllowedPhoneCharacters.IsMatch(cleanWhatsApp) || digits.Length is < 10 or > 15)
-        {
-            errors.Add(new ValidationFailure(nameof(customerWhatsApp), "WhatsApp must be a valid phone number."));
+            errors.Add(new ValidationFailure(nameof(orderId), "Order is required."));
         }
 
         if (errors.Count > 0)
@@ -51,7 +42,7 @@ public sealed class CustomerService(ICustomerRepository repository) : ICustomerS
         var expiresAtUtc = DateTime.UtcNow.Add(DeviceAccessLifetime);
         var created = await repository.CreateDeviceAccessAsync(
             cleanToken,
-            cleanWhatsApp,
+            orderId,
             HashToken(deviceToken),
             expiresAtUtc,
             cancellationToken);

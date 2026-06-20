@@ -12,14 +12,14 @@ public sealed class CustomerServiceTests
 
         var result = await service.CreateDeviceAccessAsync(
             " demo-table-1 ",
-            " 9876543210 ",
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
         Assert.Equal(43, result.Value.Token.Length);
         Assert.Equal("demo-table-1", repository.QrToken);
-        Assert.Equal("9876543210", repository.CustomerWhatsApp);
+        Assert.Equal(Guid.Parse("11111111-1111-1111-1111-111111111111"), repository.OrderId);
         Assert.Equal(64, repository.TokenHash?.Length);
         Assert.DoesNotContain(result.Value.Token, repository.TokenHash!, StringComparison.Ordinal);
         Assert.True(result.Value.ExpiresAtUtc > DateTime.UtcNow.AddDays(89));
@@ -72,18 +72,18 @@ public sealed class CustomerServiceTests
         public bool CreateResult { get; init; }
         public PublicCustomerLookupResponse? Customer { get; init; }
         public string? QrToken { get; private set; }
-        public string? CustomerWhatsApp { get; private set; }
+        public Guid? OrderId { get; private set; }
         public string? TokenHash { get; private set; }
 
         public Task<bool> CreateDeviceAccessAsync(
             string qrToken,
-            string customerWhatsApp,
+            Guid orderId,
             string tokenHash,
             DateTime expiresAtUtc,
             CancellationToken cancellationToken)
         {
             QrToken = qrToken;
-            CustomerWhatsApp = customerWhatsApp;
+            OrderId = orderId;
             TokenHash = tokenHash;
             return Task.FromResult(CreateResult);
         }

@@ -6,7 +6,7 @@ public interface ICustomerService
 {
     Task<OperationResult<CustomerDeviceAccessResponse?>> CreateDeviceAccessAsync(
         string qrToken,
-        string customerWhatsApp,
+        Guid orderId,
         CancellationToken cancellationToken);
 
     Task<OperationResult<PublicCustomerLookupResponse?>> GetByDeviceAccessAsync(

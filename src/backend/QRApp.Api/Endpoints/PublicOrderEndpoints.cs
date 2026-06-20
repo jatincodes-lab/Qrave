@@ -64,7 +64,7 @@ public static class PublicOrderEndpoints
             {
                 try
                 {
-                    var accessResult = await customerService.CreateDeviceAccessAsync(qrToken, order.CustomerWhatsApp, cancellationToken);
+                    var accessResult = await customerService.CreateDeviceAccessAsync(qrToken, order.OrderId, cancellationToken);
                     if (accessResult.IsSuccess)
                     {
                         customerAccess = accessResult.Value;
