@@ -16,10 +16,69 @@ public sealed class SqlFeedbackRepository(INpgsqlConnectionFactory connectionFac
     {
         await using var connection = (NpgsqlConnection)connectionFactory.CreateConnection();
         await connection.OpenAsync(cancellationToken);
-        await using var command = new NpgsqlCommand(StoredProcedures.OrderFeedbackCreateFromQrToken, connection)
-        {
-            CommandType = CommandType.StoredProcedure
-        };
+        await using var command = new NpgsqlCommand(
+            """
+            WITH order_context AS (
+                SELECT
+                    o."TenantId",
+                    o."BranchId",
+                    o."OrderId",
+                    o."CustomerName",
+                    o."CustomerWhatsApp",
+                    NULL::uuid AS "CustomerId"
+                FROM "Orders" o
+                JOIN "BranchTables" bt ON bt."TableId" = o."TableId"
+                WHERE o."OrderId" = @OrderId
+                  AND bt."QrToken" = @QrToken
+            ),
+            guard AS (
+                SELECT CASE
+                    WHEN EXISTS (SELECT 1 FROM order_context) THEN NULL
+                    ELSE public.raise_app_error(51709)
+                END
+            ),
+            saved AS (
+                INSERT INTO "OrderFeedback" (
+                    "OrderFeedbackId",
+                    "TenantId",
+                    "BranchId",
+                    "OrderId",
+                    "Rating",
+                    "Comment",
+                    "CustomerName",
+                    "CustomerWhatsApp"
+                )
+                SELECT
+                    @OrderFeedbackId,
+                    order_context."TenantId",
+                    order_context."BranchId",
+                    @OrderId,
+                    @Rating,
+                    @Comment,
+                    order_context."CustomerName",
+                    order_context."CustomerWhatsApp"
+                FROM order_context
+                CROSS JOIN guard
+                ON CONFLICT ("OrderId") DO UPDATE SET
+                    "Rating" = EXCLUDED."Rating",
+                    "Comment" = EXCLUDED."Comment",
+                    "CustomerName" = EXCLUDED."CustomerName",
+                    "CustomerWhatsApp" = EXCLUDED."CustomerWhatsApp"
+                RETURNING *
+            )
+            SELECT
+                saved."OrderFeedbackId",
+                saved."TenantId",
+                saved."BranchId",
+                saved."OrderId",
+                order_context."CustomerId",
+                saved."Rating",
+                saved."Comment",
+                saved."CreatedAtUtc"
+            FROM saved
+            JOIN order_context ON order_context."OrderId" = saved."OrderId";
+            """,
+            connection);
 
         command.AddString("@QrToken", qrToken, 80);
         command.AddGuid("@OrderId", orderId);
@@ -40,10 +99,24 @@ public sealed class SqlFeedbackRepository(INpgsqlConnectionFactory connectionFac
     {
         await using var connection = (NpgsqlConnection)connectionFactory.CreateConnection();
         await connection.OpenAsync(cancellationToken);
-        await using var command = new NpgsqlCommand(StoredProcedures.OrderFeedbackGetByQrToken, connection)
-        {
-            CommandType = CommandType.StoredProcedure
-        };
+        await using var command = new NpgsqlCommand(
+            """
+            SELECT
+                f."OrderFeedbackId",
+                f."TenantId",
+                f."BranchId",
+                f."OrderId",
+                NULL::uuid AS "CustomerId",
+                f."Rating",
+                f."Comment",
+                f."CreatedAtUtc"
+            FROM "OrderFeedback" f
+            JOIN "Orders" o ON o."OrderId" = f."OrderId"
+            JOIN "BranchTables" bt ON bt."TableId" = o."TableId"
+            WHERE f."OrderId" = @OrderId
+              AND bt."QrToken" = @QrToken;
+            """,
+            connection);
 
         command.AddString("@QrToken", qrToken, 80);
         command.AddGuid("@OrderId", orderId);
