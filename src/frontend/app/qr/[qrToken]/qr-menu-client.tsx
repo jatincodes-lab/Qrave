@@ -160,7 +160,6 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
   const [customerPhoneCountryCode, setCustomerPhoneCountryCode] = useState("IN");
   const [marketingConsent, setMarketingConsent] = useState(false);
   const [recognizedCustomer, setRecognizedCustomer] = useState<PublicCustomerLookup | null>(null);
-  const [isCustomerLookupLoading, setIsCustomerLookupLoading] = useState(false);
   const [notes, setNotes] = useState("");
   const [promoCode, setPromoCode] = useState("");
   const [qrSessionState, setQrSessionState] = useState<QrSessionState>({ kind: "loading" });
@@ -280,7 +279,6 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
     setCustomerName(normalizeStoredText(profile.customerName, 120));
     setCustomerWhatsApp(normalizeStoredText(profile.customerWhatsApp, 40));
     setCustomerPhoneCountryCode(normalizeStoredCountryCode(profile.customerPhoneCountryCode));
-    setIsCustomerLookupLoading(true);
 
     let isActive = true;
     getPublicCustomerByDevice(currentMenu.qrToken, profile.deviceToken)
@@ -296,11 +294,6 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
       })
       .catch(() => {
         // Keep the remembered profile during temporary API or network failures.
-      })
-      .finally(() => {
-        if (isActive) {
-          setIsCustomerLookupLoading(false);
-        }
       });
 
     return () => {
@@ -562,6 +555,10 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
     setActiveView("menu");
   }
 
+  function openCustomerOrders() {
+    setActiveView("customerOrders");
+  }
+
   function handleHeaderBack() {
     if (activeView === "menu") {
       window.history.back();
@@ -569,7 +566,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
     }
 
     if (activeView === "customerOrders") {
-      setActiveView("cart");
+      returnToMenu();
       return;
     }
 
@@ -632,7 +629,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
           customer={recognizedCustomer}
           menuItemById={menuItemById}
           qrToken={currentMenu.qrToken}
-          onBackToCart={() => setActiveView("cart")}
+          onBack={returnToMenu}
           onForgetCustomer={forgetRememberedCustomer}
           onReorder={(order) => {
             addRecentOrderToCart(order);
@@ -650,14 +647,12 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
           customerName={customerName}
           customerPhoneCountryCode={customerPhoneCountryCode}
           customerWhatsApp={customerWhatsApp}
-          isCustomerLookupLoading={isCustomerLookupLoading}
           marketingConsent={marketingConsent}
           notes={notes}
           promoCode={promoCode}
           orderSettings={currentMenu.orderSettings}
           qrSession={activeQrSession}
           qrToken={currentMenu.qrToken}
-          recognizedCustomer={recognizedCustomer}
           submitState={submitState}
           onCustomerNameChange={setCustomerName}
           onCustomerPhoneCountryChange={setCustomerPhoneCountryCode}
@@ -666,7 +661,6 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
           onItemNoteChange={updateCartLineNote}
           onMarketingConsentChange={setMarketingConsent}
           onBackToMenu={returnToMenu}
-          onCheckPreviousOrders={() => setActiveView("customerOrders")}
           onNotesChange={setNotes}
           onPromoCodeChange={setPromoCode}
           onSubmit={submitOrder}
@@ -687,7 +681,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
             search={search}
             sortBy={sortBy}
             onCategoryOpen={() => setIsCategoryOpen(true)}
-            onCustomerOrdersOpen={() => setActiveView("customerOrders")}
+            onCustomerOrdersOpen={openCustomerOrders}
             onDietFilterChange={setDietFilter}
             onSearchChange={setSearch}
             onSortChange={setSortBy}
@@ -946,13 +940,19 @@ function MenuHero({
         <button
           type="button"
           onClick={onCustomerOrdersOpen}
-          className="mb-4 flex w-full items-center justify-between gap-3 rounded-2xl border border-[#bfe6cf] bg-[#f1fbf5] p-4 text-left shadow-sm"
+          className="group mb-5 flex w-full items-center gap-4 overflow-hidden rounded-[26px] border border-[#bee8ce] bg-gradient-to-br from-white via-[#f1fff6] to-[#dff8e8] p-4 text-left shadow-[0_18px_42px_rgba(0,44,24,0.10)] transition-transform active:scale-[0.99]"
         >
-          <span className="min-w-0">
-            <span className="block truncate text-base font-black text-[#001c11]">Welcome back, {recognizedCustomer.name ?? "Customer"}</span>
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#001c11] text-white shadow-sm">
+            <ReceiptText className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[11px] font-black uppercase tracking-[0.14em] text-[#00743a]">Returning customer</span>
+            <span className="mt-1 block truncate text-lg font-black leading-tight text-[#001c11]">Welcome back, {recognizedCustomer.name ?? "Customer"}</span>
             <span className="mt-1 block text-sm font-semibold text-[#466155]">View your previous orders</span>
           </span>
-          <ChevronRight className="h-5 w-5 shrink-0 text-[#006d36]" aria-hidden="true" />
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-[#006d36] shadow-sm transition-transform group-active:translate-x-0.5">
+            <ChevronRight className="h-5 w-5" aria-hidden="true" />
+          </span>
         </button>
       ) : null}
 
@@ -1260,7 +1260,6 @@ function CartPage({
   customerName,
   customerPhoneCountryCode,
   customerWhatsApp,
-  isCustomerLookupLoading,
   marketingConsent,
   notes,
   promoCode,
@@ -1268,7 +1267,6 @@ function CartPage({
   qrSession,
   qrToken,
   menuItemById,
-  recognizedCustomer,
   submitState,
   onCustomerNameChange,
   onCustomerPhoneCountryChange,
@@ -1277,7 +1275,6 @@ function CartPage({
   onItemNoteChange,
   onMarketingConsentChange,
   onBackToMenu,
-  onCheckPreviousOrders,
   onNotesChange,
   onPromoCodeChange,
   onSubmit
@@ -1290,7 +1287,6 @@ function CartPage({
   customerName: string;
   customerPhoneCountryCode: string;
   customerWhatsApp: string;
-  isCustomerLookupLoading: boolean;
   marketingConsent: boolean;
   notes: string;
   promoCode: string;
@@ -1298,7 +1294,6 @@ function CartPage({
   qrSession: PublicQrSession | null;
   qrToken: string;
   menuItemById: Map<string, PublicQrMenuItem>;
-  recognizedCustomer: PublicCustomerLookup | null;
   submitState: SubmitState;
   onCustomerNameChange: (value: string) => void;
   onCustomerPhoneCountryChange: (value: string) => void;
@@ -1307,7 +1302,6 @@ function CartPage({
   onItemNoteChange: (cartLineId: string, value: string) => void;
   onMarketingConsentChange: (value: boolean) => void;
   onBackToMenu: () => void;
-  onCheckPreviousOrders: () => void;
   onNotesChange: (value: string) => void;
   onPromoCodeChange: (value: string) => void;
   onSubmit: () => void;
@@ -1522,37 +1516,6 @@ function CartPage({
             </div>
           ) : null}
 
-          {isCustomerLookupLoading ? (
-            <div className="rounded-2xl border border-[#d9e4df] bg-white p-4 text-sm font-semibold text-[#5a625e] shadow-sm">
-              Checking customer history...
-            </div>
-          ) : recognizedCustomer ? (
-            <div className="rounded-2xl border border-[#bfe6cf] bg-[#f1fbf5] p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs font-black uppercase tracking-[0.12em] text-[#006d36]">Welcome back</p>
-                  <h2 className="mt-1 truncate text-lg font-black text-[#001c11]">
-                    {recognizedCustomer.name ?? "Customer"}
-                  </h2>
-                  <p className="mt-1 text-xs font-semibold text-[#5a625e]">
-                    {recognizedCustomer.totalOrderCount} previous order{recognizedCustomer.totalOrderCount === 1 ? "" : "s"}
-                  </p>
-                </div>
-                {recognizedCustomer.marketingConsent ? (
-                  <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-black text-[#006d36]">Opted in</span>
-                ) : null}
-              </div>
-
-              <button
-                type="button"
-                className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#001c11] px-4 text-sm font-black text-white"
-                onClick={onCheckPreviousOrders}
-              >
-                Check previous orders
-              </button>
-            </div>
-          ) : null}
-
           <div className="grid gap-3">
             <label className="block">
               <span className="text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant">
@@ -1725,14 +1688,14 @@ function CustomerPreviousOrdersPage({
   customer,
   menuItemById,
   qrToken,
-  onBackToCart,
+  onBack,
   onForgetCustomer,
   onReorder
 }: {
   customer: PublicCustomerLookup | null;
   menuItemById: Map<string, PublicQrMenuItem>;
   qrToken: string;
-  onBackToCart: () => void;
+  onBack: () => void;
   onForgetCustomer: () => void;
   onReorder: (order: PublicCustomerRecentOrder) => void;
 }) {
@@ -1752,9 +1715,9 @@ function CustomerPreviousOrdersPage({
         <button
           type="button"
           className="rounded-full border border-[#d9e4df] bg-white px-4 py-2 text-sm font-black text-[#001c11] shadow-sm"
-          onClick={onBackToCart}
+          onClick={onBack}
         >
-          Cart
+          Back
         </button>
       </div>
 
@@ -1835,9 +1798,9 @@ function CustomerPreviousOrdersPage({
           <button
             type="button"
             className="mt-4 rounded-xl bg-[#001c11] px-4 py-2 text-sm font-bold text-white"
-            onClick={onBackToCart}
+            onClick={onBack}
           >
-            Back to cart
+            Back
           </button>
         </div>
       )}
