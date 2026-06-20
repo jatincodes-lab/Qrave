@@ -8,6 +8,8 @@ public interface IAdminOrderRealtimeNotifier
 {
     Task OrderCreatedAsync(PublicOrderResponse order, CancellationToken cancellationToken);
 
+    Task OrderStatusUpdatedAsync(PublicOrderResponse order, CancellationToken cancellationToken);
+
     Task OrderStatusUpdatedAsync(AdminOrderResponse order, CancellationToken cancellationToken);
 
     Task WaiterCallCreatedAsync(WaiterCallResponse waiterCall, CancellationToken cancellationToken);
@@ -28,6 +30,16 @@ public sealed class AdminOrderRealtimeNotifier(IHubContext<AdminOrderHub> hubCon
     }
 
     public Task OrderStatusUpdatedAsync(AdminOrderResponse order, CancellationToken cancellationToken)
+    {
+        return hubContext.Clients
+            .Group(AdminOrderHub.BranchGroup(order.TenantId, order.BranchId))
+            .SendAsync(
+                "OrderStatusUpdated",
+                new AdminOrderRealtimeEvent(order.OrderId, order.TenantId, order.BranchId, order.OrderStatusCode),
+                cancellationToken);
+    }
+
+    public Task OrderStatusUpdatedAsync(PublicOrderResponse order, CancellationToken cancellationToken)
     {
         return hubContext.Clients
             .Group(AdminOrderHub.BranchGroup(order.TenantId, order.BranchId))

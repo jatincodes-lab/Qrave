@@ -15,6 +15,22 @@ public sealed record ValidatePublicQrPromoCodeRequest(
     string PromoCode,
     IReadOnlyCollection<CreatePublicQrOrderItemRequest> Items);
 
+public sealed record CancelPublicQrOrderRequest(string? Reason = null);
+
+public enum PublicOrderCancelResultCode
+{
+    Cancelled,
+    AlreadyCancelled,
+    NotFound,
+    Forbidden,
+    NotCancellable
+}
+
+public sealed record PublicOrderCancelResult(
+    PublicOrderCancelResultCode Code,
+    PublicOrderResponse? Order,
+    string? CurrentStatusCode);
+
 public sealed record PublicQrPromoCodeValidationResponse(
     string PromoCode,
     Guid BranchOfferId,

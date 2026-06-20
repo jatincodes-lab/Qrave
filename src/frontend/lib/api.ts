@@ -453,6 +453,10 @@ export type ValidatePublicQrPromoCodeInput = {
   items: CreatePublicQrOrderItemInput[];
 };
 
+export type CancelPublicQrOrderInput = {
+  reason: string | null;
+};
+
 export type PublicQrPromoCodeValidation = {
   promoCode: string;
   branchOfferId: string;
@@ -1001,6 +1005,17 @@ export async function validatePublicQrPromoCode(qrToken: string, qrSessionId: st
 export async function getPublicQrOrder(qrToken: string, orderId: string): Promise<PublicQrOrder> {
   return request<PublicQrOrder>(`/api/v1/public/qr/${encodeURIComponent(qrToken)}/orders/${encodeURIComponent(orderId)}`, {
     method: "GET",
+    requireAuth: false
+  });
+}
+
+export async function cancelPublicQrOrder(qrToken: string, orderId: string, deviceToken: string, input: CancelPublicQrOrderInput): Promise<PublicQrOrder> {
+  return request<PublicQrOrder>(`/api/v1/public/qr/${encodeURIComponent(qrToken)}/orders/${encodeURIComponent(orderId)}/cancel`, {
+    method: "POST",
+    body: input,
+    headers: {
+      "X-Customer-Device-Token": deviceToken
+    },
     requireAuth: false
   });
 }

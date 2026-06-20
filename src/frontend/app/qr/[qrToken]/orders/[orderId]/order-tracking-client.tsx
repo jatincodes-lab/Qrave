@@ -3,7 +3,7 @@
 import { AlertCircle, ArrowLeft, CheckCircle2, Clock3, Loader2, RefreshCw, ReceiptText, Send, Star, Utensils } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "../../../../../components/ui/toast";
-import { ApiError, createPublicOrderFeedback, getPublicOrderFeedback, getPublicQrOrder, type DietTypeCode, type OrderFeedback, type PublicQrMenu, type PublicQrOrder } from "../../../../../lib/api";
+import { ApiError, cancelPublicQrOrder, createPublicOrderFeedback, getPublicOrderFeedback, getPublicQrOrder, type DietTypeCode, type OrderFeedback, type PublicQrMenu, type PublicQrOrder } from "../../../../../lib/api";
 
 const StatusSteps = ["Placed", "Accepted", "Preparing", "Ready", "Served"] as const;
 
@@ -27,9 +27,14 @@ export function OrderTrackingClient({
   const [isFeedbackRequested, setIsFeedbackRequested] = useState(false);
   const [isSavingFeedback, setIsSavingFeedback] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [customerDeviceToken, setCustomerDeviceToken] = useState<string | null>(null);
+  const [isCancelPanelOpen, setIsCancelPanelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [isCancelling, setIsCancelling] = useState(false);
   const currentStepIndex = useMemo(() => StatusSteps.findIndex((status) => status === order.orderStatusCode), [order.orderStatusCode]);
   const isCancelled = order.orderStatusCode === "Cancelled";
   const isCompleted = order.orderStatusCode === "Completed";
+  const canCancelOrder = order.orderStatusCode === "Placed";
   const shouldReturnToPreviousOrders = returnTarget === "previous-orders";
   const shouldShowFeedback = isCompleted || isFeedbackRequested;
 
@@ -42,6 +47,10 @@ export function OrderTrackingClient({
     setReturnTarget(params.get("from") === "previous-orders" ? "previous-orders" : "menu");
     setIsFeedbackRequested(window.location.hash === "#feedback");
   }, []);
+
+  useEffect(() => {
+    setCustomerDeviceToken(readCustomerDeviceToken(initialMenu.branchId));
+  }, [initialMenu.branchId]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -112,6 +121,36 @@ export function OrderTrackingClient({
     }
   }
 
+  async function cancelOrder() {
+    if (!customerDeviceToken) {
+      toastError("This order can only be cancelled from the device used to place it.");
+      return;
+    }
+
+    setIsCancelling(true);
+
+    try {
+      const cancelledOrder = await cancelPublicQrOrder(qrToken, orderId, customerDeviceToken, {
+        reason: cancelReason.trim() || null
+      });
+      setOrder(cancelledOrder);
+      setCancelReason("");
+      setIsCancelPanelOpen(false);
+      toastSuccess("Order cancelled.");
+    } catch (caught) {
+      if (caught instanceof ApiError && caught.status === 403) {
+        toastError("This order can only be cancelled from the device used to place it.");
+      } else if (caught instanceof ApiError && caught.status === 409) {
+        toastError(caught.message || "This order can no longer be cancelled.");
+        await refreshOrder();
+      } else {
+        toastError(caught instanceof ApiError ? caught.message : "Could not cancel order.");
+      }
+    } finally {
+      setIsCancelling(false);
+    }
+  }
+
   function handleBack() {
     const menuUrl = `/qr/${encodeURIComponent(qrToken)}`;
     window.location.assign(shouldReturnToPreviousOrders ? `${menuUrl}?view=previous-orders` : menuUrl);
@@ -173,9 +212,73 @@ export function OrderTrackingClient({
         </div>
 
         {isCancelled ? (
-          <p className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-900">This order was cancelled by staff.</p>
+          <p className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-900">This order was cancelled. If this was unexpected, please contact staff.</p>
         ) : null}
       </div>
+
+      {canCancelOrder ? (
+        <div className="mt-4 overflow-hidden rounded-2xl border border-red-100 bg-white shadow-sm">
+          <div className="bg-gradient-to-br from-red-50 via-white to-[#f1fbf5] p-4">
+            <div className="flex items-start gap-3">
+              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-red-100 bg-white text-red-600 shadow-sm">
+                <AlertCircle className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-base font-black text-[#001c11]">Need to cancel?</p>
+                <p className="mt-1 text-sm font-semibold leading-6 text-[#5a625e]">
+                  You can cancel the whole order before the restaurant accepts it.
+                </p>
+              </div>
+            </div>
+
+            {!customerDeviceToken ? (
+              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold leading-6 text-amber-900">
+                Cancellation is available only on the device used to place this order. Please contact staff if you need help.
+              </div>
+            ) : isCancelPanelOpen ? (
+              <div className="mt-4 grid gap-3">
+                <textarea
+                  value={cancelReason}
+                  onChange={(event) => setCancelReason(event.target.value)}
+                  maxLength={300}
+                  placeholder="Reason is optional"
+                  className="min-h-24 w-full resize-none rounded-xl border border-red-100 bg-white px-3 py-3 text-sm font-semibold text-[#001c11] outline-none placeholder:text-[#8a948f] focus:border-red-400 focus:ring-2 focus:ring-red-500/10"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCancelPanelOpen(false);
+                      setCancelReason("");
+                    }}
+                    disabled={isCancelling}
+                    className="h-12 rounded-xl border border-[#d9e4df] bg-white px-4 text-sm font-black text-[#001c11] disabled:opacity-60"
+                  >
+                    Keep order
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void cancelOrder()}
+                    disabled={isCancelling}
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 text-sm font-black text-white shadow-sm disabled:opacity-60"
+                  >
+                    {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                    Cancel order
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsCancelPanelOpen(true)}
+                className="mt-4 inline-flex h-12 w-full items-center justify-center rounded-xl border border-red-200 bg-white px-4 text-sm font-black text-red-700 shadow-sm"
+              >
+                Cancel whole order
+              </button>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-4 rounded-2xl border border-[#d9e4df] bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between border-b border-[#e6eeea] pb-3">
@@ -335,4 +438,62 @@ function formatOrderDate(value: string): string {
     dateStyle: "medium",
     timeStyle: "short"
   }).format(new Date(value));
+}
+
+type StoredCustomerProfile = {
+  version: 1;
+  branchId: string;
+  customerName: string;
+  customerWhatsApp: string;
+  customerPhoneCountryCode: string;
+  deviceToken: string;
+  expiresAtUtc: string;
+};
+
+function readCustomerDeviceToken(branchId: string): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const storageKey = `qrave:customer-profile:${branchId}`;
+  try {
+    const rawProfile = window.localStorage.getItem(storageKey);
+    if (!rawProfile) {
+      return null;
+    }
+
+    const parsed: unknown = JSON.parse(rawProfile);
+    if (!isStoredCustomerProfile(parsed) || parsed.branchId !== branchId || Date.parse(parsed.expiresAtUtc) <= Date.now()) {
+      window.localStorage.removeItem(storageKey);
+      return null;
+    }
+
+    return parsed.deviceToken;
+  } catch {
+    try {
+      window.localStorage.removeItem(storageKey);
+    } catch {
+      // Ignore storage failures in restricted browsers.
+    }
+    return null;
+  }
+}
+
+function isStoredCustomerProfile(value: unknown): value is StoredCustomerProfile {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const profile = value as Partial<StoredCustomerProfile>;
+  return (
+    profile.version === 1 &&
+    typeof profile.branchId === "string" &&
+    typeof profile.customerName === "string" &&
+    typeof profile.customerWhatsApp === "string" &&
+    typeof profile.customerPhoneCountryCode === "string" &&
+    typeof profile.deviceToken === "string" &&
+    profile.deviceToken.length === 43 &&
+    typeof profile.expiresAtUtc === "string" &&
+    Number.isFinite(Date.parse(profile.expiresAtUtc))
+  );
 }

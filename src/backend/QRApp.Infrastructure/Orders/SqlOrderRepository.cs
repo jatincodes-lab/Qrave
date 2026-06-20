@@ -46,7 +46,7 @@ public sealed class SqlOrderRepository(INpgsqlConnectionFactory connectionFactor
             order = ReadOrder(reader);
         }
 
-        return order with { Items = await GetItemsByOrderAsync(connection, order.OrderId, cancellationToken) };
+        return order with { Items = await GetItemsByOrderAsync(connection, null, order.OrderId, cancellationToken) };
     }
 
     public async Task<PublicOrderResponse> GetByQrTokenAsync(
@@ -75,7 +75,79 @@ public sealed class SqlOrderRepository(INpgsqlConnectionFactory connectionFactor
             order = ReadOrder(reader);
         }
 
-        return order with { Items = await GetItemsByOrderAsync(connection, order.OrderId, cancellationToken) };
+        return order with { Items = await GetItemsByOrderAsync(connection, null, order.OrderId, cancellationToken) };
+    }
+
+    public async Task<PublicOrderCancelResult> CancelFromQrTokenAsync(
+        string qrToken,
+        Guid orderId,
+        string tokenHash,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = (NpgsqlConnection)connectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        var existing = await GetOrderRecordByQrTokenAsync(connection, transaction, qrToken, orderId, cancellationToken);
+        if (existing is null)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return new PublicOrderCancelResult(PublicOrderCancelResultCode.NotFound, null, null);
+        }
+
+        var hasAccess = await HasValidCustomerDeviceAccessAsync(connection, transaction, existing, tokenHash, cancellationToken);
+        if (!hasAccess)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return new PublicOrderCancelResult(PublicOrderCancelResultCode.Forbidden, null, existing.Order.OrderStatusCode);
+        }
+
+        if (existing.Order.OrderStatusCode == "Cancelled")
+        {
+            var existingItems = await GetItemsByOrderAsync(connection, transaction, orderId, cancellationToken);
+            await transaction.RollbackAsync(cancellationToken);
+            return new PublicOrderCancelResult(
+                PublicOrderCancelResultCode.AlreadyCancelled,
+                existing.Order with { Items = existingItems },
+                existing.Order.OrderStatusCode);
+        }
+
+        if (existing.Order.OrderStatusCode != "Placed")
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return new PublicOrderCancelResult(PublicOrderCancelResultCode.NotCancellable, null, existing.Order.OrderStatusCode);
+        }
+
+        var updated = await TryUpdateOrderToCancelledAsync(connection, transaction, existing, cancellationToken);
+        if (updated is null)
+        {
+            var latest = await GetOrderRecordByQrTokenAsync(connection, transaction, qrToken, orderId, cancellationToken);
+            if (latest?.Order.OrderStatusCode == "Cancelled")
+            {
+                var latestItems = await GetItemsByOrderAsync(connection, transaction, orderId, cancellationToken);
+                await transaction.RollbackAsync(cancellationToken);
+                return new PublicOrderCancelResult(
+                    PublicOrderCancelResultCode.AlreadyCancelled,
+                    latest.Order with { Items = latestItems },
+                    latest.Order.OrderStatusCode);
+            }
+
+            await transaction.RollbackAsync(cancellationToken);
+            return new PublicOrderCancelResult(
+                PublicOrderCancelResultCode.NotCancellable,
+                null,
+                latest?.Order.OrderStatusCode ?? existing.Order.OrderStatusCode);
+        }
+
+        await InsertCancellationHistoryAsync(connection, transaction, updated.Order, reason, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        var items = await GetItemsByOrderAsync(connection, null, updated.Order.OrderId, cancellationToken);
+        return new PublicOrderCancelResult(
+            PublicOrderCancelResultCode.Cancelled,
+            updated.Order with { Items = items },
+            updated.Order.OrderStatusCode);
     }
 
     public async Task<PublicQrPromoCodeValidationResponse> ValidatePromoCodeAsync(
@@ -224,12 +296,163 @@ public sealed class SqlOrderRepository(INpgsqlConnectionFactory connectionFactor
             reader.GetDecimal(reader.GetOrdinal("DiscountAmount")));
     }
 
-    private static async Task<IReadOnlyCollection<PublicOrderItemResponse>> GetItemsByOrderAsync(
+    private static async Task<OrderRecord?> GetOrderRecordByQrTokenAsync(
         NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        string qrToken,
         Guid orderId,
         CancellationToken cancellationToken)
     {
-        await using var command = new NpgsqlCommand(StoredProcedures.PublicOrderGetItemsByOrder, connection)
+        await using var command = new NpgsqlCommand(
+            """
+            SELECT o."OrderId",
+                   o."TenantId",
+                   o."BranchId",
+                   o."TableId",
+                   o."CustomerId",
+                   o."OrderStatusCode",
+                   o."CustomerName",
+                   o."CustomerWhatsApp",
+                   o."Notes",
+                   o."SubtotalAmount",
+                   o."TotalAmount",
+                   o."AppliedBranchOfferId",
+                   o."AppliedOfferTitle",
+                   o."AppliedOfferDiscountAmount",
+                   o."CreatedAtUtc",
+                   o."UpdatedAtUtc"
+            FROM "Orders" o
+            JOIN "BranchTables" bt ON bt."TableId" = o."TableId"
+                AND bt."BranchId" = o."BranchId"
+                AND bt."TenantId" = o."TenantId"
+                AND bt."IsActive"
+            JOIN "Branches" b ON b."BranchId" = o."BranchId"
+                AND b."TenantId" = o."TenantId"
+                AND b."IsActive"
+            WHERE o."OrderId" = @p_orderid
+              AND bt."QrToken" = @p_qrtoken
+              AND public.tenant_public_access_allowed(o."TenantId")
+            """,
+            connection,
+            transaction);
+
+        command.AddString("@QrToken", qrToken, 80);
+        command.AddGuid("@OrderId", orderId);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken) ? ReadOrderRecord(reader) : null;
+    }
+
+    private static async Task<bool> HasValidCustomerDeviceAccessAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        OrderRecord order,
+        string tokenHash,
+        CancellationToken cancellationToken)
+    {
+        if (order.CustomerId is null)
+        {
+            return false;
+        }
+
+        await using var command = new NpgsqlCommand(
+            """
+            SELECT 1
+            FROM "CustomerDeviceAccessTokens" access
+            WHERE access."TenantId" = @p_tenantid
+              AND access."BranchId" = @p_branchid
+              AND access."CustomerId" = @p_customerid
+              AND access."TokenHash" = @p_tokenhash
+              AND access."RevokedAtUtc" IS NULL
+              AND access."ExpiresAtUtc" > public.app_now()
+            LIMIT 1
+            """,
+            connection,
+            transaction);
+
+        command.AddGuid("@TenantId", order.Order.TenantId);
+        command.AddGuid("@BranchId", order.Order.BranchId);
+        command.AddGuid("@CustomerId", order.CustomerId.Value);
+        command.AddString("@TokenHash", tokenHash, 64);
+
+        return await command.ExecuteScalarAsync(cancellationToken) is not null;
+    }
+
+    private static async Task<OrderRecord?> TryUpdateOrderToCancelledAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        OrderRecord order,
+        CancellationToken cancellationToken)
+    {
+        await using var command = new NpgsqlCommand(
+            """
+            UPDATE "Orders"
+            SET "OrderStatusCode" = 'Cancelled',
+                "UpdatedAtUtc" = public.app_now()
+            WHERE "OrderId" = @p_orderid
+              AND "TenantId" = @p_tenantid
+              AND "BranchId" = @p_branchid
+              AND "OrderStatusCode" = 'Placed'
+            RETURNING "OrderId",
+                      "TenantId",
+                      "BranchId",
+                      "TableId",
+                      "CustomerId",
+                      "OrderStatusCode",
+                      "CustomerName",
+                      "CustomerWhatsApp",
+                      "Notes",
+                      "SubtotalAmount",
+                      "TotalAmount",
+                      "AppliedBranchOfferId",
+                      "AppliedOfferTitle",
+                      "AppliedOfferDiscountAmount",
+                      "CreatedAtUtc",
+                      "UpdatedAtUtc"
+            """,
+            connection,
+            transaction);
+
+        command.AddGuid("@OrderId", order.Order.OrderId);
+        command.AddGuid("@TenantId", order.Order.TenantId);
+        command.AddGuid("@BranchId", order.Order.BranchId);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken) ? ReadOrderRecord(reader) : null;
+    }
+
+    private static async Task InsertCancellationHistoryAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        PublicOrderResponse order,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        await using var command = new NpgsqlCommand(
+            """
+            INSERT INTO "OrderStatusHistory"
+                ("OrderStatusHistoryId", "TenantId", "BranchId", "OrderId", "StatusCode", "Reason", "ChangedByUserId")
+            VALUES
+                (gen_random_uuid(), @p_tenantid, @p_branchid, @p_orderid, 'Cancelled', @p_reason, NULL)
+            """,
+            connection,
+            transaction);
+
+        command.AddGuid("@TenantId", order.TenantId);
+        command.AddGuid("@BranchId", order.BranchId);
+        command.AddGuid("@OrderId", order.OrderId);
+        command.AddString("@Reason", reason, 300);
+
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task<IReadOnlyCollection<PublicOrderItemResponse>> GetItemsByOrderAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction? transaction,
+        Guid orderId,
+        CancellationToken cancellationToken)
+    {
+        await using var command = new NpgsqlCommand(StoredProcedures.PublicOrderGetItemsByOrder, connection, transaction)
         {
             CommandType = CommandType.StoredProcedure
         };
@@ -267,6 +490,11 @@ public sealed class SqlOrderRepository(INpgsqlConnectionFactory connectionFactor
             Array.Empty<PublicOrderItemResponse>());
     }
 
+    private static OrderRecord ReadOrderRecord(NpgsqlDataReader reader)
+    {
+        return new OrderRecord(ReadOrder(reader), GetNullableGuid(reader, "CustomerId"));
+    }
+
     private static PublicOrderItemResponse ReadOrderItem(NpgsqlDataReader reader)
     {
         return new PublicOrderItemResponse(
@@ -294,4 +522,6 @@ public sealed class SqlOrderRepository(INpgsqlConnectionFactory connectionFactor
         var ordinal = reader.GetOrdinal(name);
         return reader.IsDBNull(ordinal) ? null : reader.GetGuid(ordinal);
     }
+
+    private sealed record OrderRecord(PublicOrderResponse Order, Guid? CustomerId);
 }

@@ -15,6 +15,7 @@ public static class PublicOrderEndpoints
 
         group.MapPost("/qr/{qrToken}/orders", CreateOrderAsync).AllowAnonymous();
         group.MapGet("/qr/{qrToken}/orders/{orderId:guid}", GetOrderAsync).AllowAnonymous();
+        group.MapPost("/qr/{qrToken}/orders/{orderId:guid}/cancel", CancelOrderAsync).AllowAnonymous();
         group.MapPost("/qr/{qrToken}/promo-code/validate", ValidatePromoCodeAsync).AllowAnonymous();
 
         return app;
@@ -97,6 +98,58 @@ public static class PublicOrderEndpoints
         }
     }
 
+    private static async Task<IResult> CancelOrderAsync(
+        string qrToken,
+        Guid orderId,
+        CancelPublicQrOrderRequest request,
+        HttpContext httpContext,
+        IOrderService orderService,
+        IAdminNotificationService notificationService,
+        IAdminOrderRealtimeNotifier realtimeNotifier,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await orderService.CancelFromQrTokenAsync(qrToken, orderId, ReadCustomerDeviceToken(httpContext), request, cancellationToken);
+            if (!result.IsSuccess)
+            {
+                return ApiProblemResponses.Validation(result.Errors);
+            }
+
+            var cancellation = result.Value!;
+            return cancellation.Code switch
+            {
+                PublicOrderCancelResultCode.Cancelled => await CompleteCancellationAsync(
+                    cancellation.Order!,
+                    notificationService,
+                    realtimeNotifier,
+                    loggerFactory,
+                    cancellationToken),
+                PublicOrderCancelResultCode.AlreadyCancelled => Results.Ok(cancellation.Order),
+                PublicOrderCancelResultCode.NotFound => ApiProblemResponses.NotFound("Order was not found for this QR menu."),
+                PublicOrderCancelResultCode.Forbidden => ApiProblemResponses.Forbidden("This order can only be cancelled from the device used to place it."),
+                PublicOrderCancelResultCode.NotCancellable => ApiProblemResponses.Conflict(
+                    cancellation.CurrentStatusCode is null
+                        ? "This order can no longer be cancelled. Please contact staff."
+                        : $"This order is already {cancellation.CurrentStatusCode}. Please contact staff."),
+                _ => ApiProblemResponses.ServerError("Order could not be cancelled.")
+            };
+        }
+        catch (Exception ex)
+        when (ex is PostgresException)
+        {
+            var postgresException = (PostgresException)ex;
+            loggerFactory.CreateLogger(nameof(PublicOrderEndpoints)).LogWarning(postgresException, "Database rejected public QR order cancellation.");
+            return SqlProblemMapper.ToProblem(postgresException);
+        }
+        catch (Exception ex)
+        {
+            loggerFactory.CreateLogger(nameof(PublicOrderEndpoints)).LogError(ex, "Failed to cancel public QR order.");
+            return ApiProblemResponses.ServerError("Order could not be cancelled.");
+        }
+    }
+
     private static async Task<IResult> ValidatePromoCodeAsync(
         string qrToken,
         ValidatePublicQrPromoCodeRequest request,
@@ -159,10 +212,43 @@ public static class PublicOrderEndpoints
         return id.ToString("N")[^6..].ToUpperInvariant();
     }
 
+    private static async Task<IResult> CompleteCancellationAsync(
+        PublicOrderResponse order,
+        IAdminNotificationService notificationService,
+        IAdminOrderRealtimeNotifier realtimeNotifier,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await notificationService.CreateAsync(
+                order.TenantId,
+                new CreateAdminNotificationRequest(
+                    order.BranchId,
+                    "order-cancelled",
+                    "Order cancelled by customer",
+                    $"Order {ShortId(order.OrderId)} was cancelled by customer.",
+                    "/admin/orders"),
+                cancellationToken);
+        }
+        catch (Exception notificationException)
+        {
+            loggerFactory.CreateLogger(nameof(PublicOrderEndpoints)).LogWarning(notificationException, "Order {OrderId} was cancelled, but its admin notification could not be stored.", order.OrderId);
+        }
+
+        await realtimeNotifier.OrderStatusUpdatedAsync(order, cancellationToken);
+        return Results.Ok(order);
+    }
+
     private static Guid ReadQrSessionId(HttpContext httpContext)
     {
         return Guid.TryParse(httpContext.Request.Headers["X-QR-Session-Id"].FirstOrDefault(), out var qrSessionId)
             ? qrSessionId
             : Guid.Empty;
+    }
+
+    private static string ReadCustomerDeviceToken(HttpContext httpContext)
+    {
+        return httpContext.Request.Headers["X-Customer-Device-Token"].FirstOrDefault() ?? string.Empty;
     }
 }

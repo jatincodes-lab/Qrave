@@ -1,5 +1,7 @@
 using QRApp.Application.Common;
 using QRApp.Shared.Results;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace QRApp.Application.Orders;
@@ -8,6 +10,8 @@ public sealed class OrderService(IOrderRepository repository) : IOrderService
 {
     private const int MinQrTokenLength = 8;
     private const int MaxQrTokenLength = 80;
+    private const int DeviceTokenLength = 43;
+    private const int MaxCancellationReasonLength = 300;
     private static readonly Regex AllowedPhoneCharacters = new(@"^[0-9+\-().\s]+$", RegexOptions.Compiled);
 
     public async Task<OperationResult<PublicOrderResponse>> CreateFromQrTokenAsync(
@@ -64,6 +68,53 @@ public sealed class OrderService(IOrderRepository repository) : IOrderService
 
         var order = await repository.GetByQrTokenAsync(cleanToken, orderId, cancellationToken);
         return OperationResult<PublicOrderResponse>.Success(order);
+    }
+
+    public async Task<OperationResult<PublicOrderCancelResult>> CancelFromQrTokenAsync(
+        string qrToken,
+        Guid orderId,
+        string deviceToken,
+        CancelPublicQrOrderRequest request,
+        CancellationToken cancellationToken)
+    {
+        var cleanToken = TextRules.CleanRequired(qrToken);
+        var cleanDeviceToken = TextRules.CleanRequired(deviceToken);
+        var cleanReason = CleanOptional(request.Reason);
+        var errors = new List<ValidationFailure>();
+
+        if (cleanToken.Length is < MinQrTokenLength or > MaxQrTokenLength)
+        {
+            errors.Add(new ValidationFailure("QrToken", "QR token is invalid."));
+        }
+
+        if (orderId == Guid.Empty)
+        {
+            errors.Add(new ValidationFailure(nameof(orderId), "Order is required."));
+        }
+
+        if (cleanDeviceToken.Length != DeviceTokenLength)
+        {
+            errors.Add(new ValidationFailure(nameof(deviceToken), "Customer access token is invalid."));
+        }
+
+        if (cleanReason?.Length > MaxCancellationReasonLength)
+        {
+            errors.Add(new ValidationFailure(nameof(CancelPublicQrOrderRequest.Reason), "Cancellation reason cannot exceed 300 characters."));
+        }
+
+        if (errors.Count > 0)
+        {
+            return OperationResult<PublicOrderCancelResult>.Failed(errors.ToArray());
+        }
+
+        var result = await repository.CancelFromQrTokenAsync(
+            cleanToken,
+            orderId,
+            HashToken(cleanDeviceToken),
+            cleanReason ?? "Cancelled by customer",
+            cancellationToken);
+
+        return OperationResult<PublicOrderCancelResult>.Success(result);
     }
 
     public async Task<OperationResult<PublicQrPromoCodeValidationResponse>> ValidatePromoCodeAsync(
@@ -190,5 +241,10 @@ public sealed class OrderService(IOrderRepository repository) : IOrderService
     {
         var clean = CleanOptional(value);
         return clean is null ? null : clean.ToUpperInvariant();
+    }
+
+    private static string HashToken(string token)
+    {
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
     }
 }

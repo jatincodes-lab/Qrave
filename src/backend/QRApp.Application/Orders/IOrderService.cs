@@ -15,6 +15,13 @@ public interface IOrderService
         Guid orderId,
         CancellationToken cancellationToken);
 
+    Task<OperationResult<PublicOrderCancelResult>> CancelFromQrTokenAsync(
+        string qrToken,
+        Guid orderId,
+        string deviceToken,
+        CancelPublicQrOrderRequest request,
+        CancellationToken cancellationToken);
+
     Task<OperationResult<PublicQrPromoCodeValidationResponse>> ValidatePromoCodeAsync(
         string qrToken,
         Guid qrSessionId,
