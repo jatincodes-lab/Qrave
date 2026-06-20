@@ -11,7 +11,6 @@ import {
   Plus,
   ReceiptText,
   Search,
-  Send,
   ShoppingCart,
   SlidersHorizontal,
   TicketPercent,
@@ -1112,11 +1111,11 @@ function MenuCategorySection({
   return (
     <section id={`category-${category.menuCategoryId}`} className="scroll-mt-28">
       <div className="flex items-center justify-between pt-1">
-        <h2 className="text-[24px] font-bold leading-[1.3] text-[#00261a]">{category.name}</h2>
-        <p className="text-xs font-bold uppercase tracking-normal text-[#0f3d2e]">{items.length} items</p>
+        <h2 className="text-[22px] font-black leading-[1.25] tracking-tight text-[#001c11]">{category.name}</h2>
+        <p className="rounded-full bg-white px-3 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-[#006d36] shadow-sm">{items.length} items</p>
       </div>
 
-      <div className="mt-3 grid gap-4">
+      <div className="mt-4 grid gap-5">
         {items.map((item) => {
           const variants = item.variants ?? [];
           const hasVariants = variants.length > 0;
@@ -1128,32 +1127,33 @@ function MenuCategorySection({
           const displayPrice = hasVariants ? Math.min(...variants.map((variant) => variant.price)) : item.price;
 
           return (
-            <article key={item.menuItemId} className="grid min-h-[178px] grid-cols-[minmax(0,1fr)_7.25rem] gap-4 rounded-3xl border border-[#c0c8c3]/45 bg-white p-4 shadow-sm">
+            <article key={item.menuItemId} className="grid min-h-[196px] grid-cols-[minmax(0,1fr)_8.5rem] gap-4 rounded-[2rem] border border-[#e4eee8] bg-white p-5 shadow-[0_14px_34px_rgba(0,44,24,0.08)] transition-transform active:scale-[0.99]">
               <div className="flex min-w-0 flex-col">
                 <div className="min-w-0">
-                  <div className="flex min-w-0 items-center gap-2">
+                  <div className="mb-2 flex min-w-0 items-center gap-2">
                     <MenuItemDietIcon dietTypeCode={item.dietTypeCode} />
-                    <h3 className="line-clamp-2 min-w-0 break-words text-[18px] font-bold leading-[1.35] text-[#1c1b1b]">{item.name}</h3>
+                    <span className="text-[10px] font-black uppercase tracking-[0.14em] text-[#006d36]">{item.dietTypeCode === "NonVeg" ? "Non-veg" : item.dietTypeCode === "Unspecified" ? "Chef pick" : item.dietTypeCode}</span>
                   </div>
-                  <p className="mt-2 line-clamp-2 break-words text-sm font-normal leading-5 text-[#414944]">{item.description || "Freshly prepared by the kitchen."}</p>
+                  <h3 className="line-clamp-2 min-w-0 break-words text-[21px] font-black leading-[1.18] tracking-tight text-[#001c11]">{item.name}</h3>
+                  <p className="mt-2 line-clamp-2 break-words text-[13px] font-semibold leading-5 text-[#5a625e]">{item.description || "Freshly prepared by the kitchen."}</p>
                 </div>
 
                 <div className="mt-auto flex min-h-12 flex-wrap items-end justify-between gap-x-3 gap-y-2 pt-3">
-                  <p className="min-w-[5.75rem] flex-1 break-words text-[17px] font-bold leading-5 text-[#234f3f] sm:text-[18px] sm:leading-6">
+                  <p className="min-w-[5.75rem] flex-1 break-words text-[22px] font-black leading-6 text-[#001c11]">
                     {hasVariants ? `From ${formatPrice(displayPrice)}` : formatPrice(displayPrice)}
                   </p>
                   {canOrder ? (
                     hasVariants ? (
                       <button
                         type="button"
-                        className="inline-flex h-10 min-w-[5.5rem] shrink-0 items-center justify-center rounded-xl bg-[#beedd7] px-3 text-xs font-bold uppercase tracking-normal text-[#002116]"
+                        className="inline-flex h-10 min-w-[6rem] shrink-0 items-center justify-center rounded-full bg-[#beedd7] px-4 text-xs font-black uppercase tracking-normal text-[#002116] shadow-sm"
                         onClick={() => onChooseVariant(item, category.name)}
                         aria-label={`Choose variant for ${item.name}`}
                       >
                         {quantity > 0 ? `${quantity} Added` : "Choose"}
                       </button>
                     ) : singleQuantity > 0 ? (
-                      <div className="flex h-10 w-[7.25rem] shrink-0 items-center justify-between overflow-hidden rounded-lg border border-[#cfe1d8] bg-[#f8f9fa]">
+                      <div className="flex h-10 w-[7.25rem] shrink-0 items-center justify-between overflow-hidden rounded-full border border-[#bfe6cf] bg-[#ebfff2] shadow-sm">
                         <button
                           type="button"
                           className="grid h-10 w-9 place-items-center text-[#006d36]"
@@ -1175,7 +1175,7 @@ function MenuCategorySection({
                     ) : (
                       <button
                         type="button"
-                        className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#beedd7] px-3 text-xs font-bold uppercase tracking-normal text-[#002116]"
+                        className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-full bg-[#beedd7] px-5 text-xs font-black uppercase tracking-normal text-[#002116] shadow-sm"
                         onClick={() => onAdd(item, category.name, null)}
                         aria-label={`Add ${item.name}`}
                       >
@@ -1187,7 +1187,7 @@ function MenuCategorySection({
                 </div>
               </div>
 
-              <div className="h-full min-h-[146px]">
+              <div className="h-full min-h-[156px] overflow-hidden rounded-[1.6rem]">
                 <FoodThumb imageAltText={item.imageAltText} imageUrl={item.imageUrl} name={item.name} />
               </div>
             </article>
@@ -1370,7 +1370,7 @@ function CartPage({
   }
 
   return (
-    <section className="min-h-dvh flex-1 bg-[#f8f9fa] px-4 py-5 pb-8">
+    <section className="min-h-dvh flex-1 bg-[#f4f7f6] px-4 py-5 pb-32">
       <div className="mb-5 flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-[#006d36]">
@@ -1385,22 +1385,26 @@ function CartPage({
 
       {cartLines.length > 0 ? (
         <div className="space-y-4">
-          <div className="space-y-3">
+          <section className="overflow-hidden rounded-[1.75rem] border border-[#e1ebe5] bg-white shadow-[0_14px_34px_rgba(0,44,24,0.08)]">
+            <div className="flex items-center justify-between border-b border-[#e6eeea] p-4">
+              <h2 className="text-lg font-black text-[#001c11]">Review items</h2>
+              <span className="text-xs font-black uppercase tracking-[0.12em] text-[#5a625e]">{cartCount} items</span>
+            </div>
+            <div className="divide-y divide-[#e6eeea]">
             {cartLines.map((line) => (
-              <div key={line.cartLineId} className="rounded-2xl border border-[#d9e4df] bg-white p-3 shadow-sm">
-                <div className="grid grid-cols-[4.75rem_1fr_auto] gap-3">
+              <div key={line.cartLineId} className="p-4">
+                <div className="grid grid-cols-[4.25rem_1fr_auto] gap-4">
                   <FoodThumb imageAltText={line.item.imageAltText} imageUrl={line.item.imageUrl} name={line.item.name} compact />
                   <div className="min-w-0">
-                    <p className="line-clamp-2 break-words text-sm font-black text-[#001c11]">{formatCartItemName(line)}</p>
+                    <p className="line-clamp-2 break-words text-[15px] font-black leading-5 text-[#001c11]">{formatCartItemName(line)}</p>
                     <DietTypePill dietTypeCode={line.item.dietTypeCode} compact />
                     <p className="mt-1 text-xs font-semibold text-[#5a625e]">{line.categoryName}</p>
-                    <p className="mt-2 text-sm font-black text-[#006d36]">{formatPrice(getCartLinePrice(line))}</p>
+                    <p className="mt-2 text-sm font-black text-[#001c11]">{formatPrice(getCartLinePrice(line))}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-black text-[#001c11]">x{line.quantity}</span>
+                  <div className="flex flex-col items-end justify-between gap-2">
                     <button
                       type="button"
-                      className="grid h-10 w-10 place-items-center rounded-full border border-[#d9e4df] bg-[#f8f9fa] text-[#414844]"
+                      className="grid h-9 w-9 place-items-center rounded-xl border border-[#bfe6cf] bg-[#f1fbf5] text-[#006d36]"
                       onClick={() => onDecrement(line.cartLineId)}
                       aria-label={`Remove one ${line.item.name}`}
                     >
@@ -1410,12 +1414,13 @@ function CartPage({
                         <Minus className="h-4 w-4" aria-hidden="true" />
                       )}
                     </button>
+                    <span className="rounded-full bg-[#ebfff2] px-3 py-1 text-sm font-black text-[#006d36]">x{line.quantity}</span>
                   </div>
                 </div>
                 <label className="mt-3 block">
-                  <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-on-surface-variant">Item note</span>
+                  <span className="text-[11px] font-black uppercase tracking-[0.12em] text-[#006d36]">Item note</span>
                   <textarea
-                    className="mt-1 min-h-16 w-full resize-none rounded-xl border border-[#d9e4df] bg-[#f8f9fa] px-3 py-2 text-sm outline-none focus:border-[#006d36]"
+                    className="mt-1 min-h-14 w-full resize-none rounded-xl border border-[#e1ebe5] bg-[#f8fbf9] px-3 py-2 text-sm outline-none focus:border-[#006d36]"
                     value={line.itemNote}
                     onChange={(event) => onItemNoteChange(line.cartLineId, event.target.value)}
                     maxLength={200}
@@ -1424,29 +1429,31 @@ function CartPage({
                 </label>
               </div>
             ))}
-          </div>
+            </div>
+            <div className="flex items-center justify-center gap-2 border-t border-[#bfe6cf] bg-[#f1fbf5] p-3 text-xs font-bold text-[#006d36]">
+              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+              Your order will be sent directly to the restaurant.
+            </div>
+          </section>
 
-          <div className="rounded-2xl border border-[#d9e4df] bg-white p-4 shadow-sm">
+          <button type="button" className="flex w-full items-center justify-between rounded-[1.5rem] border-2 border-dashed border-[#bfe6cf] bg-white p-4 text-left shadow-sm transition-transform active:scale-[0.99]" onClick={openPromoDialog}>
+            <span className="flex items-center gap-3">
+              <span className="grid h-11 w-11 place-items-center rounded-full bg-[#f1fbf5] text-[#006d36]">
+                <TicketPercent className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <span>
+                <span className="block text-base font-black text-[#001c11]">{promoCode ? `Code applied: ${promoCode}` : "Apply coupon"}</span>
+                <span className="mt-0.5 block text-xs font-semibold text-[#006d36]">{promoCode ? "Tap to change coupon" : "Check available promo benefits"}</span>
+              </span>
+            </span>
+            <ChevronRight className="h-5 w-5 text-[#006d36]" aria-hidden="true" />
+          </button>
+
+          <div className="rounded-[1.5rem] border border-[#e1ebe5] bg-white p-5 shadow-[0_14px_34px_rgba(0,44,24,0.08)]">
+            <h2 className="mb-4 text-lg font-black text-[#001c11]">Payment summary</h2>
             <div className="flex items-center justify-between text-sm text-[#5a625e]">
               <span>Subtotal</span>
               <span className="font-black text-[#001c11]">{formatPrice(cartTotal)}</span>
-            </div>
-            <div className="mt-3 rounded-xl border border-[#d9e4df] bg-[#f8f9fa] p-3">
-              <div className="flex items-center justify-between gap-3">
-                <span className="flex items-center gap-1 text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant">
-                <TicketPercent className="h-3.5 w-3.5" aria-hidden="true" />
-                  Promo or coupon
-                </span>
-                {promoCode ? (
-                  <button type="button" className="text-xs font-black text-[#9a3d00]" onClick={() => onPromoCodeChange("")}>
-                    Remove
-                  </button>
-                ) : null}
-              </div>
-              <button type="button" className="mt-2 flex w-full items-center justify-between rounded-xl bg-white px-3 py-3 text-left text-sm font-black text-[#001c11]" onClick={openPromoDialog}>
-                <span>{promoCode ? `Code applied: ${promoCode}` : "Have a promo or coupon code?"}</span>
-                <ChevronRight className="h-4 w-4 text-[#006d36]" aria-hidden="true" />
-              </button>
             </div>
             {cartEstimate.discountAmount > 0 ? (
               <div className="mt-2 rounded-xl border border-[#bfe6cf] bg-[#f1fbf5] px-3 py-2">
@@ -1476,9 +1483,14 @@ function CartPage({
               </div>
             ) : null}
             <div className="mt-3 flex items-center justify-between border-t border-[#e6eeea] pt-3">
-              <span className="text-base font-black text-[#001c11]">Total amount</span>
-              <span className="text-xl font-black text-[#006d36]">{formatPrice(cartEstimate.totalAmount)}</span>
+              <span className="text-base font-black text-[#001c11]">Total payable</span>
+              <span className="text-2xl font-black text-[#006d36]">{formatPrice(cartEstimate.totalAmount)}</span>
             </div>
+            {promoCode ? (
+              <button type="button" className="mt-3 text-xs font-black text-[#9a3d00]" onClick={() => onPromoCodeChange("")}>
+                Remove coupon
+              </button>
+            ) : null}
           </div>
 
           {promoDialogOpen ? (
@@ -1563,15 +1575,23 @@ function CartPage({
             </span>
           </label>
 
-          <button
-            type="button"
-            className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#001c11] px-4 text-sm font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={cartCount === 0 || submitState.kind === "submitting"}
-            onClick={onSubmit}
-          >
-            <Send className="h-4 w-4" aria-hidden="true" />
-            {submitState.kind === "submitting" ? "Sending order" : "Place order"}
-          </button>
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#e1ebe5] bg-white/95 px-4 py-3 shadow-[0_-10px_30px_rgba(0,44,24,0.10)] backdrop-blur">
+            <div className="mx-auto flex max-w-md items-center gap-4">
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#5a625e]">Total amount</p>
+                <p className="mt-0.5 text-xl font-black text-[#006d36]">{formatPrice(cartEstimate.totalAmount)}</p>
+              </div>
+              <button
+                type="button"
+                className="inline-flex h-14 min-w-[10rem] items-center justify-center gap-2 rounded-[1.25rem] bg-[#001c11] px-5 text-base font-black text-white shadow-[0_12px_28px_rgba(0,28,17,0.22)] disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={cartCount === 0 || submitState.kind === "submitting"}
+                onClick={onSubmit}
+              >
+                {submitState.kind === "submitting" ? "Sending" : "Place order"}
+                <ChevronRight className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
           </div>
         ) : (
           <div className="flex min-h-[280px] flex-col items-center justify-center rounded-2xl border border-[#d9e4df] bg-white p-5 text-center shadow-sm">
