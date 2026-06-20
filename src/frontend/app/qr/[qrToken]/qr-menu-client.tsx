@@ -218,6 +218,17 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
   }, [currentMenu.qrToken]);
 
   useEffect(() => {
+    if (!recognizedCustomer) {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("view") === "previous-orders") {
+      setActiveView("customerOrders");
+    }
+  }, [recognizedCustomer]);
+
+  useEffect(() => {
     const storedSession = readQrVisitSession(currentMenu.qrToken);
     if (storedSession) {
       if (isQrSessionActive(storedSession, 0)) {
@@ -1880,16 +1891,22 @@ function CustomerPreviousOrdersPage({
                 ))}
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-3">
+              <div className="mt-3 grid grid-cols-3 gap-2">
                 <Link
-                  href={`/qr/${encodeURIComponent(qrToken)}/orders/${encodeURIComponent(order.orderId)}`}
-                  className="inline-flex h-12 items-center justify-center rounded-xl border border-[#d9e4df] bg-white px-4 text-sm font-black text-[#001c11]"
+                  href={`/qr/${encodeURIComponent(qrToken)}/orders/${encodeURIComponent(order.orderId)}?from=previous-orders`}
+                  className="inline-flex h-12 items-center justify-center rounded-xl border border-[#d9e4df] bg-white px-3 text-sm font-black text-[#001c11]"
                 >
                   Track
                 </Link>
+                <Link
+                  href={`/qr/${encodeURIComponent(qrToken)}/orders/${encodeURIComponent(order.orderId)}?from=previous-orders#feedback`}
+                  className="inline-flex h-12 items-center justify-center rounded-xl border border-[#bfe6cf] bg-[#f1fbf5] px-3 text-sm font-black text-[#006d36]"
+                >
+                  Feedback
+                </Link>
                 <button
                   type="button"
-                  className="h-12 rounded-xl bg-[#001c11] px-4 text-sm font-black text-white"
+                  className="h-12 rounded-xl bg-[#001c11] px-3 text-sm font-black text-white"
                   onClick={() => onReorder(order)}
                 >
                   Reorder

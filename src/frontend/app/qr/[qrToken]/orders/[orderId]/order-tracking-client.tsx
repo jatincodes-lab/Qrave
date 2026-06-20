@@ -1,7 +1,6 @@
 "use client";
 
 import { AlertCircle, ArrowLeft, CheckCircle2, Clock3, Loader2, RefreshCw, ReceiptText, Send, Star, Utensils } from "lucide-react";
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "../../../../../components/ui/toast";
 import { ApiError, createPublicOrderFeedback, getPublicOrderFeedback, getPublicQrOrder, type DietTypeCode, type OrderFeedback, type PublicQrMenu, type PublicQrOrder } from "../../../../../lib/api";
@@ -21,6 +20,7 @@ export function OrderTrackingClient({
 }) {
   const { toastError, toastSuccess } = useToast();
   const [order, setOrder] = useState(initialOrder);
+  const [returnTarget, setReturnTarget] = useState<"menu" | "previous-orders">("menu");
   const [feedback, setFeedback] = useState<OrderFeedback | null>(null);
   const [feedbackRating, setFeedbackRating] = useState(5);
   const [feedbackComment, setFeedbackComment] = useState("");
@@ -29,6 +29,16 @@ export function OrderTrackingClient({
   const currentStepIndex = useMemo(() => StatusSteps.findIndex((status) => status === order.orderStatusCode), [order.orderStatusCode]);
   const isCancelled = order.orderStatusCode === "Cancelled";
   const isCompleted = order.orderStatusCode === "Completed";
+  const shouldReturnToPreviousOrders = returnTarget === "previous-orders";
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    setReturnTarget(params.get("from") === "previous-orders" ? "previous-orders" : "menu");
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -48,6 +58,18 @@ export function OrderTrackingClient({
 
     void loadFeedback();
   }, [isCompleted, orderId, qrToken]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || window.location.hash !== "#feedback") {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      document.getElementById("feedback")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
+
+    return () => window.clearTimeout(timer);
+  }, [isCompleted, feedback]);
 
   async function refreshOrder() {
     setIsRefreshing(true);
@@ -87,14 +109,24 @@ export function OrderTrackingClient({
     }
   }
 
+  function handleBack() {
+    if (shouldReturnToPreviousOrders && typeof window !== "undefined" && window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+
+    const menuUrl = `/qr/${encodeURIComponent(qrToken)}`;
+    window.location.assign(shouldReturnToPreviousOrders ? `${menuUrl}?view=previous-orders` : menuUrl);
+  }
+
   return (
     <section className="min-h-dvh flex-1 bg-[#f8f9fa] px-4 py-5 pb-8">
       <header className="mb-5 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <Link href={`/qr/${encodeURIComponent(qrToken)}`} className="inline-flex items-center gap-2 text-sm font-black text-[#006d36]">
+          <button type="button" onClick={handleBack} className="inline-flex items-center gap-2 text-sm font-black text-[#006d36]">
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Menu
-          </Link>
+            {shouldReturnToPreviousOrders ? "Previous orders" : "Menu"}
+          </button>
           <p className="mt-4 text-xs font-black uppercase tracking-[0.18em] text-[#006d36]">Order tracking</p>
           <h1 className="mt-1 truncate text-2xl font-black leading-8 text-[#001c11]">#{shortOrderCode(order.orderId)}</h1>
           <p className="mt-1 text-sm font-semibold text-[#5a625e]">
@@ -190,7 +222,7 @@ export function OrderTrackingClient({
       </div>
 
       {isCompleted ? (
-        <div className="mt-4 rounded-2xl border border-[#d9e4df] bg-white p-4 shadow-sm">
+        <div id="feedback" className="mt-4 scroll-mt-6 rounded-2xl border border-[#d9e4df] bg-white p-4 shadow-sm">
           <div className="flex items-start gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#f1fbf5] text-[#006d36]">
               <Star className="h-5 w-5" aria-hidden="true" />
