@@ -52,3 +52,7 @@ public sealed record PublicOrderResponse(
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc,
     IReadOnlyCollection<PublicOrderItemResponse> Items);
+
+public sealed record PublicOrderCreatedResponse(
+    PublicOrderResponse Order,
+    QRApp.Application.Customers.CustomerDeviceAccessResponse? CustomerAccess);

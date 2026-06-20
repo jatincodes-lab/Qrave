@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Xero Degree DD Puram - QR Menu</title>
+<!-- Material Symbols for Icons -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;family=Be+Vietnam+Pro:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "surface-dim": "#dcd9d9",
+            "tertiary-container": "#323636",
+            "surface-variant": "#e5e2e1",
+            "surface-bright": "#fcf9f8",
+            "on-primary": "#ffffff",
+            "on-primary-container": "#7ba894",
+            "secondary": "#825516",
+            "secondary-container": "#fec178",
+            "on-tertiary-fixed": "#181c1c",
+            "tertiary": "#1d2121",
+            "error-container": "#ffdad6",
+            "background": "#fcf9f8",
+            "primary-fixed-dim": "#a2d1bb",
+            "secondary-fixed-dim": "#f8bb73",
+            "on-secondary-fixed": "#2b1700",
+            "secondary-fixed": "#ffddb9",
+            "on-primary-fixed-variant": "#234f3f",
+            "surface-container-low": "#f6f3f2",
+            "on-primary-fixed": "#002116",
+            "surface-container-highest": "#e5e2e1",
+            "error": "#ba1a1a",
+            "surface": "#fcf9f8",
+            "primary-fixed": "#beedd7",
+            "on-tertiary-fixed-variant": "#434847",
+            "outline-variant": "#c0c8c3",
+            "outline": "#717974",
+            "on-surface-variant": "#414944",
+            "on-tertiary-container": "#9b9f9e",
+            "on-secondary": "#ffffff",
+            "inverse-on-surface": "#f3f0ef",
+            "tertiary-fixed": "#e0e3e2",
+            "primary-container": "#0f3d2e",
+            "surface-tint": "#3b6756",
+            "surface-container": "#f0eded",
+            "on-tertiary": "#ffffff",
+            "on-secondary-fixed-variant": "#663e00",
+            "inverse-primary": "#a2d1bb",
+            "surface-container-high": "#eae7e7",
+            "on-background": "#1c1b1b",
+            "on-surface": "#1c1b1b",
+            "inverse-surface": "#313030",
+            "tertiary-fixed-dim": "#c4c7c6",
+            "primary": "#00261a",
+            "on-error-container": "#93000a",
+            "on-error": "#ffffff",
+            "on-secondary-container": "#784d0d",
+            "surface-container-lowest": "#ffffff"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "stack-gap-md": "16px",
+            "container-margin": "20px",
+            "stack-gap-lg": "32px",
+            "inline-gap": "12px",
+            "stack-gap-sm": "8px"
+          },
+          "fontFamily": {
+            "body-lg": ["Be Vietnam Pro"],
+            "headline-sm": ["Manrope"],
+            "label-bold": ["Manrope"],
+            "headline-md": ["Manrope"],
+            "display-lg": ["Manrope"],
+            "body-sm": ["Be Vietnam Pro"]
+          },
+          "fontSize": {
+            "body-lg": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+            "headline-sm": ["18px", {"lineHeight": "1.4", "fontWeight": "700"}],
+            "label-bold": ["12px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "700"}],
+            "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "700"}],
+            "display-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+            "body-sm": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      display: inline-block;
+      line-height: 1;
+    }
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface font-body-lg overflow-x-hidden pb-24">
+<!-- Shared Component: TopAppBar -->
+<header class="fixed top-0 w-full h-16 z-50 flex justify-between items-center px-container-margin bg-surface-bright dark:bg-inverse-surface border-b border-outline-variant dark:border-outline">
+<div class="flex items-center gap-2">
+<button class="material-symbols-outlined text-primary dark:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-tertiary-container p-2 rounded-full transition-transform active:scale-95">arrow_back</button>
+<div class="flex flex-col">
+<h1 class="text-headline-sm font-headline-sm text-primary dark:text-primary-fixed-dim">XERO DEGREE DD PURAM</h1>
+<p class="text-label-bold font-label-bold text-on-surface-variant">Table 1</p>
+</div>
+</div>
+<button class="material-symbols-outlined text-primary dark:text-primary-fixed-dim hover:bg-surface-container-low dark:hover:bg-tertiary-container p-2 rounded-full transition-transform active:scale-95">shopping_cart</button>
+</header>
+<main class="pt-20 px-container-margin space-y-stack-gap-lg">
+<!-- Welcome Header Card -->
+<div class="flex items-center gap-4 bg-surface-container-lowest p-4 rounded-xl shadow-sm">
+<div class="w-12 h-12 bg-on-primary-container/10 text-on-primary-container flex items-center justify-center rounded-lg">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">storefront</span>
+</div>
+<div>
+<span class="text-label-bold font-label-bold text-on-surface-variant uppercase tracking-widest">TABLE 1</span>
+<h2 class="text-headline-md font-headline-md text-primary">Xero Degree DD Pur...</h2>
+</div>
+<div class="ml-auto">
+<button class="w-10 h-10 bg-primary text-on-primary rounded-full flex items-center justify-center shadow-md active:scale-95 transition-transform">
+<span class="material-symbols-outlined">shopping_cart</span>
+</button>
+</div>
+</div>
+<!-- Search Section -->
+<div class="relative">
+<div class="flex items-center bg-surface-container-low border border-outline-variant rounded-full px-4 h-12 gap-3 transition-colors focus-within:border-primary">
+<span class="material-symbols-outlined text-on-surface-variant">search</span>
+<input class="bg-transparent border-none focus:ring-0 w-full text-body-sm text-on-surface placeholder:text-on-surface-variant/60" placeholder="What are you craving today?" type="text"/>
+<span class="material-symbols-outlined text-on-surface-variant">tune</span>
+</div>
+</div>
+<!-- Filters Section -->
+<div class="flex gap-inline-gap">
+<div class="flex bg-surface-container border border-outline-variant rounded-full p-1 h-10">
+<button class="px-4 text-label-bold font-label-bold rounded-full bg-on-primary-container text-on-primary shadow-sm">VEG</button>
+<button class="px-4 text-label-bold font-label-bold text-on-surface-variant">NON-VEG</button>
+</div>
+<div class="flex items-center gap-2 bg-surface-container-lowest border border-outline-variant rounded-full px-4 h-10 ml-auto">
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">format_list_bulleted</span>
+<span class="text-label-bold font-label-bold">Recommended</span>
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">expand_more</span>
+</div>
+</div>
+<!-- Hero Card: Recommended -->
+<section>
+<div class="relative w-full aspect-[4/3] rounded-3xl overflow-hidden shadow-lg group cursor-pointer transition-transform duration-300 hover:scale-[1.01]">
+<img alt="Recommended White Sauce Pasta" class="w-full h-full object-cover" data-alt="A lush, close-up overhead shot of a creamy white sauce pasta served in a deep ceramic bowl, garnished with freshly cracked black pepper and a sprig of bright green basil. The setting is a minimalist, modern Italian bistro with soft ambient lighting creating a warm and sophisticated dining atmosphere. The color palette features rich creamy tones, deep emerald greens, and soft wood textures, emphasizing a premium culinary experience." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCP3SBrdTnGKArwWRynLcP0FdxGkEDfYtpXNoz_bdXVcxFbNfQTOItqDXIghqmOTPAAr-7sQqQBV88wP5KPLyDHHS8rQcz38FCK_y_uvvpmXdCGvkDK9xgbjwq_qnHSb-nUoOjukQGBdonkVha-OIDzLENRsB6eigUN9cLLOzNFDrSVNZlfgEA09otTnS44MRtcU6ao-m-u1dYyyxhOUm4I4oJDOSb1_z_sNifTSChCsSBcHnsg44Ki2j2AEdf9X6EPDtM1GHMsfIfI"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-6">
+<span class="bg-on-primary-container text-on-primary text-[10px] font-bold px-2 py-1 rounded w-fit mb-2">RECOMMENDED</span>
+<h3 class="text-display-lg font-display-lg text-white mb-1">White sauce pasta</h3>
+<p class="text-body-sm text-white/80">4 dishes available today</p>
+</div>
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border border-white/30">
+<span class="material-symbols-outlined text-white text-4xl" style="font-variation-settings: 'FILL' 1;">restaurant</span>
+</div>
+</div>
+</section>
+<!-- Explore Menu Section -->
+<section class="space-y-stack-gap-md">
+<div class="flex justify-between items-end">
+<h2 class="text-headline-md font-headline-md">Explore Menu</h2>
+<a class="text-on-primary-container text-label-bold font-label-bold" href="#">Full Gallery</a>
+</div>
+<!-- Category Chips -->
+<div class="flex gap-3 overflow-x-auto hide-scrollbar pb-2">
+<button class="bg-on-primary-container text-on-primary px-6 py-2 rounded-full text-label-bold font-label-bold shadow-sm whitespace-nowrap">Pasta</button>
+<button class="bg-surface-container text-on-surface-variant px-6 py-2 rounded-full text-label-bold font-label-bold border border-outline-variant whitespace-nowrap">Pizza</button>
+<button class="bg-surface-container text-on-surface-variant px-6 py-2 rounded-full text-label-bold font-label-bold border border-outline-variant whitespace-nowrap">Coffee</button>
+<button class="bg-surface-container text-on-surface-variant px-6 py-2 rounded-full text-label-bold font-label-bold border border-outline-variant whitespace-nowrap">Burgers</button>
+</div>
+<!-- Category Bento Grid -->
+<div class="grid grid-cols-2 gap-4">
+<!-- Category Card 1 -->
+<div class="relative h-48 rounded-2xl overflow-hidden shadow-sm active:scale-95 transition-all">
+<img alt="Pasta Category" class="w-full h-full object-cover" data-alt="Minimalist category card for pasta showing a professional food photograph of penne pasta with vibrant red sauce and parmesan. The lighting is bright and high-key, using a clean mint white background aesthetic that complements the organic warm colors of the food. The overall mood is modern, fresh, and appetizing, designed for a high-end digital menu." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQBrVty-qObMUzjtExa5E5CWV8Pecme9TH80bCNgL7BD34QlkloXlgcgmtxZlWxrQgmJjVZ4PwebB2zUqtfZ6v3-gw3Vm3ntGnQgM4Cigyb4H6H2riVxK3EfjG7ElOO6-kBdU1APlHae15AOypo3AmqtRuE5nHeUjyolSRqLLp-L4NQPmgyL659i5xoTMoX8CZEOu_wzGj9za9B4v4fbVVl1iJ0dxJ7ayrM8UhMwOaKZsXFgzJm1VfB4f_Nv3IvN_GIblB8Nq1MvOD"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-4">
+<h4 class="text-headline-sm text-white">Pasta</h4>
+<p class="text-label-bold text-white/70">1 items</p>
+</div>
+</div>
+<!-- Category Card 2 -->
+<div class="relative h-48 rounded-2xl overflow-hidden shadow-sm active:scale-95 transition-all">
+<img alt="Pizza Category" class="w-full h-full object-cover" data-alt="Artisanal pizza category visual showing a crisp, wood-fired margarita pizza with bubbling cheese and fresh basil leaves on a rustic stone background. The lighting is warm and directional, highlighting the textures of the crust and melted mozzarella. The scene is framed with plenty of negative space to match a sophisticated and clean modern dining application interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuActR3iG2xnerCbO72hX6h5jNblhVRm4vxkISOnukumhXecSfhwfe8YxT7lyUGm9gTbp6tQB_7eo86X4j_FZ95QSKDVgwhtcY_iMXYk0GT4zgAnpnBdx3eba6lb8ihXoDIgrdi72LF_-gUEEeETxLlkjuts85AtOZsQsSl-EFGmeJhncoBbQe6KAKoG9bwgratNZgCRkmaaZNQOpTIy4npch63H9c3dWsQcFdvv9xJR8Epk0DeEaIdwUAGWLyZCkEw8M8YS2wexV1oC"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-4">
+<h4 class="text-headline-sm text-white">Pizza</h4>
+<p class="text-label-bold text-white/70">2 items</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Call Waiter Card -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-3xl p-6 shadow-sm">
+<div class="flex gap-4 mb-4">
+<div class="w-12 h-12 bg-on-primary-container/10 text-on-primary-container flex items-center justify-center rounded-full">
+<span class="material-symbols-outlined">notifications_active</span>
+</div>
+<div>
+<h3 class="text-headline-sm text-on-surface">Call Waiter</h3>
+<p class="text-body-sm text-on-surface-variant">Staff at your service</p>
+</div>
+</div>
+<div class="space-y-3">
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-xl px-4 py-3 text-body-sm focus:ring-1 focus:ring-primary focus:border-primary" placeholder="Optional note" type="text"/>
+<button class="w-full bg-primary text-on-primary flex items-center justify-center gap-2 py-4 rounded-xl font-bold transition-all active:scale-95 shadow-md">
+<span class="material-symbols-outlined">notifications</span>
+          Call waiter
+        </button>
+</div>
+</section>
+<!-- Item Listing Section -->
+<section class="space-y-stack-gap-lg">
+<div>
+<div class="flex justify-between items-center mb-4">
+<h2 class="text-headline-md font-headline-md">Pasta</h2>
+<span class="text-on-primary-container text-label-bold font-label-bold">1 items</span>
+</div>
+<!-- Menu Item Card -->
+<div class="bg-surface-container-lowest rounded-3xl p-4 shadow-sm flex gap-4 border border-outline-variant/30 hover:shadow-md transition-shadow group">
+<div class="flex-1 flex flex-col justify-between py-1">
+<div>
+<div class="flex items-center gap-2 mb-2">
+<span class="w-3 h-3 border border-green-600 flex items-center justify-center p-[1px]">
+<span class="w-full h-full bg-green-600 rounded-full"></span>
+</span>
+<span class="text-[10px] font-bold text-green-600 tracking-widest">VEG</span>
+</div>
+<h4 class="text-headline-sm text-on-surface group-hover:text-primary transition-colors">White sauce pasta</h4>
+<p class="text-body-sm text-on-surface-variant mt-1">Freshly prepared by the kitchen.</p>
+</div>
+<div class="flex items-center justify-between mt-4">
+<span class="text-headline-sm text-on-primary-container">₹230.00</span>
+<button class="flex items-center gap-2 bg-on-primary-container/20 text-on-primary-container px-4 py-2 rounded-xl font-bold hover:bg-on-primary-container hover:text-on-primary transition-all active:scale-95">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                ADD
+              </button>
+</div>
+</div>
+<div class="w-32 h-32 rounded-2xl overflow-hidden relative">
+<img alt="White Sauce Pasta" class="w-full h-full object-cover" data-alt="Detailed food close-up of white sauce pasta in a shallow bowl. The pasta is perfectly al dente, coated in a silky, creamy bechamel sauce with flecks of black pepper and vibrant green herbs. The lighting is soft and flattering, emphasizing a clean, modern aesthetic with high-key whites and subtle organic shadows. The style is premium commercial food photography, clean and appetising." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBooqSeLSq6xxe_T7_k31EZ3wU4dIK364q8Jc_wJ_P-YyXHBa04V5b0gWeZX1oApayiyFaSDKfG4Rw9RRxGxP1qCPYDB4LU2VglKVhXl6VGoNbJtERRepRVznBp8rMDBKj2q6R-FLj76JQK2AZWau27k5M3edmKTRqmDTohcLZCViU-gYVgbv6GWzVCP1hZvp8aWrYx5AKCyE7UVYoL0K2_4-hqUMyoU3SfhtN2lUZ7_AhR3dV8rE7W3NBGW85Sw2emCzsuRtyKEpd2"/>
+<div class="absolute inset-0 bg-gradient-to-br from-white/10 to-black/10"></div>
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 backdrop-blur p-2 rounded-full shadow-sm">
+<span class="text-label-bold font-extrabold text-on-surface">WS</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Pizza Section -->
+<div>
+<div class="flex justify-between items-center mb-4">
+<h2 class="text-headline-md font-headline-md">Pizza</h2>
+<span class="text-on-primary-container text-label-bold font-label-bold">2 items</span>
+</div>
+<div class="space-y-4">
+<!-- Pizza Item 1 -->
+<div class="bg-surface-container-lowest rounded-3xl p-4 shadow-sm flex gap-4 border border-outline-variant/30 group">
+<div class="flex-1 flex flex-col justify-between py-1">
+<div>
+<div class="flex items-center gap-2 mb-2">
+<span class="w-3 h-3 border border-green-600 flex items-center justify-center p-[1px]">
+<span class="w-full h-full bg-green-600 rounded-full"></span>
+</span>
+<span class="text-[10px] font-bold text-green-600 tracking-widest">VEG</span>
+</div>
+<h4 class="text-headline-sm text-on-surface group-hover:text-primary transition-colors">Margarita Pizza</h4>
+<p class="text-body-sm text-on-surface-variant mt-1">Freshly prepared by the kitchen.</p>
+</div>
+<div class="flex items-center justify-between mt-4">
+<span class="text-headline-sm text-on-primary-container">₹270.00</span>
+<button class="flex items-center gap-2 bg-on-primary-container/20 text-on-primary-container px-4 py-2 rounded-xl font-bold hover:bg-on-primary-container hover:text-on-primary transition-all active:scale-95">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                  ADD
+                </button>
+</div>
+</div>
+<div class="w-32 h-32 rounded-2xl overflow-hidden relative">
+<img alt="Margarita Pizza" class="w-full h-full object-cover" data-alt="A classic Margarita pizza close-up, showcasing melted mozzarella, vibrant red tomato sauce, and fresh basil leaves on a perfectly charred, artisanal crust. The photograph uses a bright, high-contrast light-mode style with a focus on fresh ingredients and high-quality textures. The setting is a clean, modern kitchen surface, emphasizing cleanliness and premium culinary standards." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCcCdHYVIsxCi2poFtip1Lfpd9lFF2DwwkLQQ_DzSetHkXyIujlTvGydZgrhu6O3oWT8kUn5RwIK4MkzPEWtLWZ0DRELy174KT63I4Yyj1IjrcpV_4MmLKfIbnmai6W4RuBkxHG9yfVJw0v2639nINwsE6YstoXQFa-6gf5DLbmysjP6H-hlSe1qDKqIK6Om5EmzMdCXU910T3WD29bhAN9Sg1IFe-zXcxhWBpz6kz37VJRFzHQkHcclSe-uXy3f_t_H8RyYRnIm5WZ"/>
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 backdrop-blur p-2 rounded-full shadow-sm">
+<span class="text-label-bold font-extrabold text-on-surface">MP</span>
+</div>
+</div>
+</div>
+<!-- Pizza Item 2 -->
+<div class="bg-surface-container-lowest rounded-3xl p-4 shadow-sm flex gap-4 border border-outline-variant/30 group">
+<div class="flex-1 flex flex-col justify-between py-1">
+<div>
+<div class="flex items-center gap-2 mb-2">
+<span class="w-3 h-3 border border-green-600 flex items-center justify-center p-[1px]">
+<span class="w-full h-full bg-green-600 rounded-full"></span>
+</span>
+<span class="text-[10px] font-bold text-green-600 tracking-widest">VEG</span>
+</div>
+<h4 class="text-headline-sm text-on-surface group-hover:text-primary transition-colors">Veg Farm House Pizza</h4>
+<p class="text-body-sm text-on-surface-variant mt-1">Freshly prepared by the kitchen.</p>
+</div>
+<div class="flex items-center justify-between mt-4">
+<span class="text-headline-sm text-on-primary-container">₹310.00</span>
+<button class="flex items-center gap-2 bg-on-primary-container/20 text-on-primary-container px-4 py-2 rounded-xl font-bold hover:bg-on-primary-container hover:text-on-primary transition-all active:scale-95">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                  ADD
+                </button>
+</div>
+</div>
+<div class="w-32 h-32 rounded-2xl overflow-hidden relative">
+<img alt="Veg Farm House Pizza" class="w-full h-full object-cover" data-alt="A hearty veggie farm house pizza loaded with colorful bell peppers, sweet corn, mushrooms, and black olives. The cheese is golden and stretchy, captured in a bright and airy dining environment. The overall aesthetic is one of fresh, healthy ingredients served in a modern cafe. The color palette is vibrant with greens, yellows, and reds against a soft white background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAMQwQrcDe7PqDblcZxKzqZa6LDv4UC1zGFk_1QZbiAb8RUpFOu1gJ2ciR6GMK9s11qPG7nHSmlLMC7w-XsLTC6iwgsTlenRxY_xITJg0-YgVWsVF6l_XWjDP6LkbNLiTbLkCUibGhyPxAMQZmz0LXd13Zog6GhjZgHZ-8T8EjmsysnqWA2uyxJYcUIuTGUjrVre27yvyoPLsoHVemW6KM7r6NOxQlBfCO87zIReGnC_lABsy9Am2ps-mEuAAtyN-xz_JQwqR53hCgw"/>
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/80 backdrop-blur p-2 rounded-full shadow-sm">
+<span class="text-label-bold font-extrabold text-on-surface">VF</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Sticky Menu FAB -->
+<button class="fixed bottom-24 right-container-margin w-14 h-14 bg-primary text-on-primary rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-3xl">menu</span>
+</button>
+<!-- Shared Component: BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-center py-stack-gap-sm bg-surface dark:bg-surface-container-highest shadow-lg rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-primary dark:text-primary-fixed-dim font-bold transition-all duration-300 translate-y-[-2px]" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">restaurant_menu</span>
+<span class="text-label-bold font-label-bold">Menu</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined">search</span>
+<span class="text-label-bold font-label-bold">Search</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined">notifications_active</span>
+<span class="text-label-bold font-label-bold">Waiter</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-surface-variant hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined">shopping_bag</span>
+<span class="text-label-bold font-label-bold">Cart</span>
+</a>
+</nav>
+<script>
+    // Micro-interactions and interactions logic
+    document.querySelectorAll('button, a').forEach(elem => {
+      elem.addEventListener('click', (e) => {
+        // Prevent default only for hash links for demo
+        if(elem.getAttribute('href') === '#') e.preventDefault();
+        
+        // Haptic feel via scale is handled by Tailwind classes mostly,
+        // but we can add some logic here for cart state etc.
+      });
+    });
+
+    // Intersection observer for sticky nav shadow
+    const header = document.querySelector('header');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 20) {
+        header.classList.add('shadow-md');
+      } else {
+        header.classList.remove('shadow-md');
+      }
+    });
+  </script>
+</body></html>

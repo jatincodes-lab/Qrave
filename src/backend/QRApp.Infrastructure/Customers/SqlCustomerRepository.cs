@@ -7,20 +7,70 @@ namespace QRApp.Infrastructure.Customers;
 
 public sealed class SqlCustomerRepository(INpgsqlConnectionFactory connectionFactory) : ICustomerRepository
 {
-    public async Task<PublicCustomerLookupResponse?> LookupPublicCustomerAsync(
+    public async Task<bool> CreateDeviceAccessAsync(
         string qrToken,
         string customerWhatsApp,
+        string tokenHash,
+        DateTime expiresAtUtc,
         CancellationToken cancellationToken)
     {
         await using var connection = (NpgsqlConnection)connectionFactory.CreateConnection();
         await connection.OpenAsync(cancellationToken);
-        await using var command = new NpgsqlCommand(StoredProcedures.PublicCustomerLookupByQrToken, connection)
-        {
-            CommandType = CommandType.StoredProcedure
-        };
+        await using var command = new NpgsqlCommand(
+            """
+            INSERT INTO "CustomerDeviceAccessTokens"
+                ("CustomerDeviceAccessTokenId", "TenantId", "BranchId", "CustomerId", "TokenHash", "ExpiresAtUtc")
+            SELECT gen_random_uuid(), c."TenantId", c."BranchId", c."CustomerId", @TokenHash, @ExpiresAtUtc
+            FROM "Customers" c
+            JOIN "BranchTables" bt ON bt."BranchId" = c."BranchId" AND bt."TenantId" = c."TenantId"
+            WHERE bt."QrToken" = @QrToken
+              AND bt."IsActive"
+              AND c."WhatsAppNumber" = @CustomerWhatsApp
+            RETURNING 1
+            """,
+            connection);
 
         command.AddString("@QrToken", qrToken, 80);
         command.AddString("@CustomerWhatsApp", customerWhatsApp, 32);
+        command.AddString("@TokenHash", tokenHash, 64);
+        command.Parameters.AddWithValue("@ExpiresAtUtc", expiresAtUtc);
+        return await command.ExecuteScalarAsync(cancellationToken) is not null;
+    }
+
+    public async Task<PublicCustomerLookupResponse?> GetByDeviceAccessAsync(
+        string qrToken,
+        string tokenHash,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = (NpgsqlConnection)connectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand(
+            """
+            SELECT c."CustomerId", c."Name", c."WhatsAppNumber", c."MarketingConsent", c."VisitCount",
+                   COUNT(o."OrderId")::integer "TotalOrderCount",
+                   COALESCE(SUM(o."TotalAmount"), 0) "TotalOrderValue",
+                   COALESCE(c."LastVisitAtUtc", c."CreatedAtUtc") "LastVisitAtUtc"
+            FROM "CustomerDeviceAccessTokens" access
+            JOIN "Customers" c ON c."CustomerId" = access."CustomerId"
+            LEFT JOIN "Orders" o ON o."CustomerId" = c."CustomerId"
+            WHERE access."TokenHash" = @TokenHash
+              AND access."RevokedAtUtc" IS NULL
+              AND access."ExpiresAtUtc" > public.app_now()
+              AND EXISTS (
+                  SELECT 1
+                  FROM "BranchTables" bt
+                  WHERE bt."QrToken" = @QrToken
+                    AND bt."BranchId" = access."BranchId"
+                    AND bt."TenantId" = access."TenantId"
+                    AND bt."IsActive"
+                    AND public.tenant_public_access_allowed(bt."TenantId")
+              )
+            GROUP BY c."CustomerId"
+            """,
+            connection);
+
+        command.AddString("@QrToken", qrToken, 80);
+        command.AddString("@TokenHash", tokenHash, 64);
 
         PublicCustomerLookupResponse customer;
         await using (var reader = await command.ExecuteReaderAsync(cancellationToken))

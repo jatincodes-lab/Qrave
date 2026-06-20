@@ -494,6 +494,16 @@ export type PublicQrOrder = {
   items: PublicQrOrderItem[];
 };
 
+export type CustomerDeviceAccess = {
+  token: string;
+  expiresAtUtc: string;
+};
+
+export type PublicQrOrderCreated = {
+  order: PublicQrOrder;
+  customerAccess: CustomerDeviceAccess | null;
+};
+
 export type OrderFeedback = {
   orderFeedbackId: string;
   tenantId: string;
@@ -966,8 +976,8 @@ export async function createPublicQrSession(qrToken: string): Promise<PublicQrSe
   });
 }
 
-export async function createPublicQrOrder(qrToken: string, qrSessionId: string, input: CreatePublicQrOrderInput): Promise<PublicQrOrder> {
-  return request<PublicQrOrder>(`/api/v1/public/qr/${encodeURIComponent(qrToken)}/orders`, {
+export async function createPublicQrOrder(qrToken: string, qrSessionId: string, input: CreatePublicQrOrderInput): Promise<PublicQrOrderCreated> {
+  return request<PublicQrOrderCreated>(`/api/v1/public/qr/${encodeURIComponent(qrToken)}/orders`, {
     method: "POST",
     body: input,
     headers: {
@@ -1010,9 +1020,12 @@ export async function createPublicOrderFeedback(qrToken: string, orderId: string
   });
 }
 
-export async function lookupPublicCustomer(qrToken: string, whatsapp: string): Promise<PublicCustomerLookup | null> {
-  const customer = await request<PublicCustomerLookup | undefined>(`/api/v1/public/qr/${encodeURIComponent(qrToken)}/customers/lookup?whatsapp=${encodeURIComponent(whatsapp)}`, {
+export async function getPublicCustomerByDevice(qrToken: string, deviceToken: string): Promise<PublicCustomerLookup | null> {
+  const customer = await request<PublicCustomerLookup | undefined>(`/api/v1/public/qr/${encodeURIComponent(qrToken)}/customers/me`, {
     method: "GET",
+    headers: {
+      "X-Customer-Device-Token": deviceToken
+    },
     requireAuth: false
   });
 

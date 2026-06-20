@@ -26,3 +26,7 @@ public sealed record PublicCustomerRecentOrderItemResponse(
     string? ItemNote,
     string DietTypeCode,
     int Quantity);
+
+public sealed record CustomerDeviceAccessResponse(
+    string Token,
+    DateTime ExpiresAtUtc);

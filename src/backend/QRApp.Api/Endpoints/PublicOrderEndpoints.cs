@@ -1,6 +1,7 @@
 using Npgsql;
 using QRApp.Api.Errors;
 using QRApp.Api.Hubs;
+using QRApp.Application.Customers;
 using QRApp.Application.Notifications;
 using QRApp.Application.Orders;
 
@@ -24,6 +25,7 @@ public static class PublicOrderEndpoints
         CreatePublicQrOrderRequest request,
         HttpContext httpContext,
         IOrderService orderService,
+        ICustomerService customerService,
         IAdminNotificationService notificationService,
         IAdminOrderRealtimeNotifier realtimeNotifier,
         ILoggerFactory loggerFactory,
@@ -56,7 +58,30 @@ public static class PublicOrderEndpoints
             }
 
             await realtimeNotifier.OrderCreatedAsync(order, cancellationToken);
-            return Results.Created($"/api/v1/public/orders/{order.OrderId}", order);
+
+            CustomerDeviceAccessResponse? customerAccess = null;
+            if (!string.IsNullOrWhiteSpace(order.CustomerWhatsApp))
+            {
+                try
+                {
+                    var accessResult = await customerService.CreateDeviceAccessAsync(qrToken, order.CustomerWhatsApp, cancellationToken);
+                    if (accessResult.IsSuccess)
+                    {
+                        customerAccess = accessResult.Value;
+                    }
+                }
+                catch (Exception accessException)
+                {
+                    loggerFactory.CreateLogger(nameof(PublicOrderEndpoints)).LogWarning(
+                        accessException,
+                        "Order {OrderId} was created, but returning-customer access could not be issued.",
+                        order.OrderId);
+                }
+            }
+
+            return Results.Created(
+                $"/api/v1/public/orders/{order.OrderId}",
+                new PublicOrderCreatedResponse(order, customerAccess));
         }
         catch (Exception ex)
         when (ex is PostgresException)

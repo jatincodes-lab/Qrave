@@ -28,8 +28,8 @@ import {
   createWaiterCall,
   createPublicQrSession,
   createPublicQrOrder,
+  getPublicCustomerByDevice,
   getPublicQrMenu,
-  lookupPublicCustomer,
   validatePublicQrPromoCode,
   type CreatePublicQrOrderInput,
   type DietTypeCode,
@@ -51,6 +51,16 @@ type CartLine = {
   variant: PublicQrMenuItem["variants"][number] | null;
   itemNote: string;
   quantity: number;
+};
+
+type StoredCustomerProfile = {
+  version: 1;
+  branchId: string;
+  customerName: string;
+  customerWhatsApp: string;
+  customerPhoneCountryCode: string;
+  deviceToken: string;
+  expiresAtUtc: string;
 };
 
 type StoredQrMenuDraft = {
@@ -151,7 +161,6 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
   const [marketingConsent, setMarketingConsent] = useState(false);
   const [recognizedCustomer, setRecognizedCustomer] = useState<PublicCustomerLookup | null>(null);
   const [isCustomerLookupLoading, setIsCustomerLookupLoading] = useState(false);
-  const [lastLookupWhatsApp, setLastLookupWhatsApp] = useState("");
   const [notes, setNotes] = useState("");
   const [promoCode, setPromoCode] = useState("");
   const [qrSessionState, setQrSessionState] = useState<QrSessionState>({ kind: "loading" });
@@ -263,6 +272,43 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
   }, [qrSessionState, sessionTick]);
 
   useEffect(() => {
+    const profile = readCustomerProfile(currentMenu.branchId);
+    if (!profile) {
+      return;
+    }
+
+    setCustomerName(normalizeStoredText(profile.customerName, 120));
+    setCustomerWhatsApp(normalizeStoredText(profile.customerWhatsApp, 40));
+    setCustomerPhoneCountryCode(normalizeStoredCountryCode(profile.customerPhoneCountryCode));
+    setIsCustomerLookupLoading(true);
+
+    let isActive = true;
+    getPublicCustomerByDevice(currentMenu.qrToken, profile.deviceToken)
+      .then((customer) => {
+        if (!isActive) {
+          return;
+        }
+
+        setRecognizedCustomer(customer);
+        if (!customer) {
+          clearCustomerProfile(currentMenu.branchId);
+        }
+      })
+      .catch(() => {
+        // Keep the remembered profile during temporary API or network failures.
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsCustomerLookupLoading(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [currentMenu.branchId, currentMenu.qrToken]);
+
+  useEffect(() => {
     if (isDraftRestored) {
       return;
     }
@@ -303,51 +349,6 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
       cartLines: toStoredCartLines(cart)
     });
   }, [cart, currentMenu.qrToken, customerName, customerPhoneCountryCode, customerWhatsApp, isDraftRestored, marketingConsent, notes]);
-
-  useEffect(() => {
-    const cleanWhatsApp = customerWhatsApp.trim();
-    const phoneValidation = validatePhone(cleanWhatsApp, "WhatsApp number", false);
-
-    if (!cleanWhatsApp || !phoneValidation.isValid) {
-      setRecognizedCustomer(null);
-      setIsCustomerLookupLoading(false);
-      return;
-    }
-
-    if (cleanWhatsApp === lastLookupWhatsApp) {
-      return;
-    }
-
-    let isActive = true;
-    const timer = window.setTimeout(async () => {
-      setIsCustomerLookupLoading(true);
-      try {
-        const customer = await lookupPublicCustomer(currentMenu.qrToken, cleanWhatsApp);
-        if (!isActive) {
-          return;
-        }
-
-        setRecognizedCustomer(customer);
-        setLastLookupWhatsApp(cleanWhatsApp);
-        if (customer?.name && customerName.trim().length === 0) {
-          setCustomerName(customer.name);
-        }
-      } catch {
-        if (isActive) {
-          setRecognizedCustomer(null);
-        }
-      } finally {
-        if (isActive) {
-          setIsCustomerLookupLoading(false);
-        }
-      }
-    }, 450);
-
-    return () => {
-      isActive = false;
-      window.clearTimeout(timer);
-    };
-  }, [currentMenu.qrToken, customerName, customerWhatsApp, lastLookupWhatsApp]);
 
   function addItem(item: PublicQrMenuItem, categoryName: string, variant: PublicQrMenuItem["variants"][number] | null = null) {
     if (!canOrder) {
@@ -521,7 +522,25 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
     setSubmitState({ kind: "submitting" });
 
     try {
-      const order = await createPublicQrOrder(currentMenu.qrToken, qrSession.qrSessionId, input);
+      const created = await createPublicQrOrder(currentMenu.qrToken, qrSession.qrSessionId, input);
+      const order = created.order;
+      if (created.customerAccess && order.customerWhatsApp) {
+        writeCustomerProfile(currentMenu.branchId, {
+          version: 1,
+          branchId: currentMenu.branchId,
+          customerName: order.customerName ?? "",
+          customerWhatsApp: order.customerWhatsApp,
+          customerPhoneCountryCode: normalizeStoredCountryCode(customerPhoneCountryCode),
+          deviceToken: created.customerAccess.token,
+          expiresAtUtc: created.customerAccess.expiresAtUtc
+        });
+
+        try {
+          setRecognizedCustomer(await getPublicCustomerByDevice(currentMenu.qrToken, created.customerAccess.token));
+        } catch {
+          // The order succeeded; history can be loaded on the next visit.
+        }
+      }
       clearQrMenuDraft(currentMenu.qrToken);
       setCart({});
       setNotes("");
@@ -555,6 +574,16 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
     }
 
     returnToMenu();
+  }
+
+  function forgetRememberedCustomer() {
+    clearCustomerProfile(currentMenu.branchId);
+    setRecognizedCustomer(null);
+    setCustomerName("");
+    setCustomerWhatsApp("");
+    setCustomerPhoneCountryCode("IN");
+    setActiveView("menu");
+    toastSuccess("Remembered customer details were removed from this device.");
   }
 
   async function submitWaiterCall() {
@@ -596,6 +625,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
         tableName={currentMenu.tableName}
         onBack={handleHeaderBack}
         onCartOpen={() => setActiveView("cart")}
+        onCustomerOrdersOpen={recognizedCustomer ? () => setActiveView("customerOrders") : null}
       />
 
       {activeView === "customerOrders" ? (
@@ -604,6 +634,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
           menuItemById={menuItemById}
           qrToken={currentMenu.qrToken}
           onBackToCart={() => setActiveView("cart")}
+          onForgetCustomer={forgetRememberedCustomer}
           onReorder={(order) => {
             addRecentOrderToCart(order);
             setActiveView("cart");
@@ -749,17 +780,19 @@ function QrPageHeader({
   cartCount,
   onBack,
   onCartOpen,
+  onCustomerOrdersOpen,
   tableName
 }: {
   branchName: string;
   cartCount: number;
   onBack: () => void;
   onCartOpen: () => void;
+  onCustomerOrdersOpen: (() => void) | null;
   tableName: string;
 }) {
   return (
     <header className="sticky top-0 z-30 border-b border-[#e6eeea] bg-white/95 px-4 py-3 backdrop-blur">
-      <div className="grid h-10 grid-cols-[40px_1fr_40px] items-center">
+      <div className="grid h-10 grid-cols-[40px_1fr_auto] items-center">
         <button type="button" className="grid h-10 w-10 place-items-center rounded-full text-[#001c11]" onClick={onBack} aria-label="Back">
           <ArrowLeft className="h-5 w-5" aria-hidden="true" />
         </button>
@@ -767,14 +800,27 @@ function QrPageHeader({
           <h1 className="truncate text-[15px] font-black uppercase tracking-normal text-[#001c11]">{branchName}</h1>
           <p className="mt-0.5 truncate text-[11px] font-semibold text-[#5a625e]">{tableName}</p>
         </div>
-        <button type="button" onClick={onCartOpen} className="relative grid h-10 w-10 place-items-center rounded-full bg-[#001c11] text-white shadow-sm" aria-label="Open cart">
-          <ShoppingCart className="h-4 w-4" aria-hidden="true" />
-          {cartCount > 0 ? (
-            <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#83fba5] px-1 text-[10px] font-black leading-none text-[#00210c]">
-              {cartCount > 99 ? "99+" : cartCount}
-            </span>
+        <div className="flex items-center gap-2">
+          {onCustomerOrdersOpen ? (
+            <button
+              type="button"
+              onClick={onCustomerOrdersOpen}
+              className="grid h-10 w-10 place-items-center rounded-full border border-[#d9e4df] bg-white text-[#001c11] shadow-sm"
+              aria-label="Open my orders"
+              title="My orders"
+            >
+              <ReceiptText className="h-4 w-4" aria-hidden="true" />
+            </button>
           ) : null}
-        </button>
+          <button type="button" onClick={onCartOpen} className="relative grid h-10 w-10 place-items-center rounded-full bg-[#001c11] text-white shadow-sm" aria-label="Open cart">
+            <ShoppingCart className="h-4 w-4" aria-hidden="true" />
+            {cartCount > 0 ? (
+              <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#83fba5] px-1 text-[10px] font-black leading-none text-[#00210c]">
+                {cartCount > 99 ? "99+" : cartCount}
+              </span>
+            ) : null}
+          </button>
+        </div>
       </div>
     </header>
   );
@@ -1676,12 +1722,14 @@ function CustomerPreviousOrdersPage({
   menuItemById,
   qrToken,
   onBackToCart,
+  onForgetCustomer,
   onReorder
 }: {
   customer: PublicCustomerLookup | null;
   menuItemById: Map<string, PublicQrMenuItem>;
   qrToken: string;
   onBackToCart: () => void;
+  onForgetCustomer: () => void;
   onReorder: (order: PublicCustomerRecentOrder) => void;
 }) {
   const orders = customer?.recentOrders ?? [];
@@ -1708,9 +1756,20 @@ function CustomerPreviousOrdersPage({
 
       {customer ? (
         <div className="mb-4 rounded-2xl border border-[#bfe6cf] bg-[#f1fbf5] p-4 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-[#006d36]">Welcome back</p>
-          <p className="mt-1 text-lg font-black text-[#001c11]">{customer.name ?? "Customer"}</p>
-          <p className="mt-1 text-sm font-semibold text-[#5a625e]">{customer.whatsAppNumber}</p>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-[#006d36]">Welcome back</p>
+              <p className="mt-1 truncate text-lg font-black text-[#001c11]">{customer.name ?? "Customer"}</p>
+              <p className="mt-1 text-sm font-semibold text-[#5a625e]">{maskPhoneNumber(customer.whatsAppNumber)}</p>
+            </div>
+            <button
+              type="button"
+              className="shrink-0 rounded-lg border border-[#bfe6cf] bg-white px-3 py-2 text-xs font-black text-[#00552a]"
+              onClick={onForgetCustomer}
+            >
+              Forget me
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -2122,6 +2181,82 @@ function getQrMenuDraftKey(qrToken: string): string {
   return `qrave:qr-menu-draft:${qrToken}`;
 }
 
+function getCustomerProfileKey(branchId: string): string {
+  return `qrave:customer-profile:${branchId}`;
+}
+
+function readCustomerProfile(branchId: string): StoredCustomerProfile | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const storageKey = getCustomerProfileKey(branchId);
+  try {
+    const rawProfile = window.localStorage.getItem(storageKey);
+    if (!rawProfile) {
+      return null;
+    }
+
+    const parsed: unknown = JSON.parse(rawProfile);
+    if (!isStoredCustomerProfile(parsed) || parsed.branchId !== branchId || Date.parse(parsed.expiresAtUtc) <= Date.now()) {
+      window.localStorage.removeItem(storageKey);
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    try {
+      window.localStorage.removeItem(storageKey);
+    } catch {
+      // Ignore storage failures in restricted browsers.
+    }
+    return null;
+  }
+}
+
+function writeCustomerProfile(branchId: string, profile: StoredCustomerProfile) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(getCustomerProfileKey(branchId), JSON.stringify(profile));
+  } catch {
+    // Remembering the customer is optional; checkout must remain usable.
+  }
+}
+
+function clearCustomerProfile(branchId: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(getCustomerProfileKey(branchId));
+  } catch {
+    // Ignore storage failures in restricted browsers.
+  }
+}
+
+function isStoredCustomerProfile(value: unknown): value is StoredCustomerProfile {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const profile = value as Partial<StoredCustomerProfile>;
+  return (
+    profile.version === 1 &&
+    typeof profile.branchId === "string" &&
+    typeof profile.customerName === "string" &&
+    typeof profile.customerWhatsApp === "string" &&
+    typeof profile.customerPhoneCountryCode === "string" &&
+    typeof profile.deviceToken === "string" &&
+    profile.deviceToken.length === 43 &&
+    typeof profile.expiresAtUtc === "string" &&
+    Number.isFinite(Date.parse(profile.expiresAtUtc))
+  );
+}
+
 function getQrVisitSessionKey(qrToken: string): string {
   return `qrave:qr-visit-session:${qrToken}`;
 }
@@ -2450,6 +2585,15 @@ function formatOrderDate(value: string): string {
     dateStyle: "medium",
     timeStyle: "short"
   }).format(new Date(value));
+}
+
+function maskPhoneNumber(value: string): string {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length <= 4) {
+    return value;
+  }
+
+  return `${"•".repeat(Math.min(6, digits.length - 4))}${digits.slice(-4)}`;
 }
 
 function formatPrice(price: number): string {
