@@ -906,10 +906,12 @@ BEGIN
     IF item_row."OrderItemId" IS NULL THEN PERFORM public.raise_app_error(51713); END IF;
     SELECT COALESCE(SUM(req."RequestedQuantity"),0)::integer INTO pending_quantity FROM "OrderItemCancellationRequests" req WHERE req."OrderItemId"=p_orderitemid AND req."StatusCode"='Pending';
     IF p_cancelquantity > (item_row."Quantity" - item_row."CancelledQuantity" + pending_quantity) THEN PERFORM public.raise_app_error(51711); END IF;
-    INSERT INTO "OrderItemCancellationRequests" ("OrderItemCancellationRequestId","TenantId","BranchId","OrderId","OrderItemId","RequestedQuantity","Reason")
-    VALUES (gen_random_uuid(),ctx."TenantId",ctx."BranchId",p_orderid,p_orderitemid,p_cancelquantity,btrim(p_reason))
-    ON CONFLICT ("TenantId","BranchId","OrderItemId") WHERE "StatusCode"='Pending'
-    DO UPDATE SET "RequestedQuantity"=EXCLUDED."RequestedQuantity","Reason"=EXCLUDED."Reason","RequestedAtUtc"=public.app_now();
+    UPDATE "OrderItemCancellationRequests" req SET "RequestedQuantity"=p_cancelquantity,"Reason"=btrim(p_reason),"RequestedAtUtc"=public.app_now()
+    WHERE req."TenantId"=ctx."TenantId" AND req."BranchId"=ctx."BranchId" AND req."OrderItemId"=p_orderitemid AND req."StatusCode"='Pending';
+    IF NOT FOUND THEN
+        INSERT INTO "OrderItemCancellationRequests" ("OrderItemCancellationRequestId","TenantId","BranchId","OrderId","OrderItemId","RequestedQuantity","Reason")
+        VALUES (gen_random_uuid(),ctx."TenantId",ctx."BranchId",p_orderid,p_orderitemid,p_cancelquantity,btrim(p_reason));
+    END IF;
     RETURN QUERY SELECT * FROM public.publicorder_select(p_orderid);
 END;
 $$;
@@ -919,14 +921,14 @@ RETURNS TABLE("OrderId" uuid,"TenantId" uuid,"BranchId" uuid,"TableId" uuid,"Tab
 LANGUAGE plpgsql AS $$
 DECLARE req record;
 BEGIN
-    SELECT * INTO req FROM "OrderItemCancellationRequests" WHERE "TenantId"=p_tenantid AND "BranchId"=p_branchid AND "OrderItemCancellationRequestId"=p_requestid FOR UPDATE;
+    SELECT reqrow.* INTO req FROM "OrderItemCancellationRequests" reqrow WHERE reqrow."TenantId"=p_tenantid AND reqrow."BranchId"=p_branchid AND reqrow."OrderItemCancellationRequestId"=p_requestid FOR UPDATE;
     IF req."OrderItemCancellationRequestId" IS NULL THEN PERFORM public.raise_app_error(51718); END IF;
     IF req."StatusCode" <> 'Pending' THEN PERFORM public.raise_app_error(51715); END IF;
     IF p_decision NOT IN ('Approved','Rejected') THEN PERFORM public.raise_app_error(51719); END IF;
     IF p_decision='Rejected' AND NULLIF(btrim(p_reason),'') IS NULL THEN PERFORM public.raise_app_error(51712); END IF;
     IF length(COALESCE(btrim(p_reason),'')) > 300 THEN PERFORM public.raise_app_error(51712); END IF;
     IF p_decision='Approved' THEN PERFORM * FROM public.adminorder_cancelitem(p_tenantid,p_branchid,req."OrderId",req."OrderItemId",req."RequestedQuantity",req."Reason",p_changedbyuserid); END IF;
-    UPDATE "OrderItemCancellationRequests" SET "StatusCode"=p_decision,"RespondedAtUtc"=public.app_now(),"RespondedByUserId"=p_changedbyuserid,"ResponseReason"=NULLIF(btrim(p_reason),'') WHERE "OrderItemCancellationRequestId"=p_requestid;
+    UPDATE "OrderItemCancellationRequests" reqrow SET "StatusCode"=p_decision,"RespondedAtUtc"=public.app_now(),"RespondedByUserId"=p_changedbyuserid,"ResponseReason"=NULLIF(btrim(p_reason),'') WHERE reqrow."OrderItemCancellationRequestId"=p_requestid;
     RETURN QUERY SELECT * FROM public.adminorder_getlistbybranch(p_tenantid,p_branchid,true) a WHERE a."OrderId"=req."OrderId";
 END;
 $$;
