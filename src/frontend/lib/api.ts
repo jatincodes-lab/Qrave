@@ -601,6 +601,8 @@ export type AdminOrder = {
   appliedOfferDiscountAmount: number;
   createdAtUtc: string;
   updatedAtUtc: string | null;
+  closedAtUtc: string | null;
+  latestReason: string | null;
   items: AdminOrderItem[];
 };
 

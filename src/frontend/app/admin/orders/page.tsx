@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import type { HubConnection } from "@microsoft/signalr";
-import { Ban, ClipboardList, Loader2, Printer, ReceiptText, RefreshCw, Store, Users, X } from "lucide-react";
+import { Ban, CalendarDays, ClipboardList, Clock3, Loader2, Printer, ReceiptText, RefreshCw, Search, Store, Users, X } from "lucide-react";
 import { AdminShell } from "../../../components/admin-shell";
 import { EmptyBranchState, MetricCard, PageError, PageLoading } from "../../../components/admin-page-common";
 import { Badge } from "../../../components/ui/badge";
@@ -69,6 +69,8 @@ type OrderActionDialogState = {
   reason: string;
 };
 
+type OrderHistoryStatusFilter = "all" | "Completed" | "Cancelled";
+
 export default function AdminOrdersPage() {
   const workspace = useAdminWorkspace();
   const [orders, setOrders] = useState<AdminOrder[]>([]);
@@ -76,6 +78,10 @@ export default function AdminOrdersPage() {
   const [billingSettings, setBillingSettings] = useState<BranchBillingSettings | null>(null);
   const [billDialog, setBillDialog] = useState<BillDialogState | null>(null);
   const [orderAction, setOrderAction] = useState<OrderActionDialogState | null>(null);
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyStatus, setHistoryStatus] = useState<OrderHistoryStatusFilter>("all");
+  const [historyFromDate, setHistoryFromDate] = useState("");
+  const [historyToDate, setHistoryToDate] = useState("");
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   const [liveState, setLiveState] = useState<"connecting" | "live" | "offline">("offline");
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -83,6 +89,18 @@ export default function AdminOrdersPage() {
   const waiterCallsRef = useRef<WaiterCall[]>([]);
 
   const activeOrders = useMemo(() => orders.filter((order) => !["Completed", "Cancelled"].includes(order.orderStatusCode)), [orders]);
+  const closedOrders = useMemo(
+    () =>
+      orders
+        .filter((order) => ["Completed", "Cancelled"].includes(order.orderStatusCode))
+        .sort((a, b) => orderClosedTimestamp(b) - orderClosedTimestamp(a)),
+    [orders]
+  );
+  const filteredClosedOrders = useMemo(
+    () => closedOrders.filter((order) => matchesOrderHistoryFilters(order, historySearch, historyStatus, historyFromDate, historyToDate)),
+    [closedOrders, historyFromDate, historySearch, historyStatus, historyToDate]
+  );
+  const cancelledOrderCount = useMemo(() => closedOrders.filter((order) => order.orderStatusCode === "Cancelled").length, [closedOrders]);
   const activeCalls = useMemo(() => waiterCalls.filter((call) => !["Resolved", "Cancelled"].includes(call.statusCode)), [waiterCalls]);
   const totalOpenValue = useMemo(() => activeOrders.reduce((total, order) => total + order.totalAmount, 0), [activeOrders]);
 
@@ -157,7 +175,7 @@ export default function AdminOrdersPage() {
       return;
     }
 
-    if (event.orderStatusCode === "Placed" || !patchOrderStatus(event.orderId, event.orderStatusCode)) {
+    if (event.orderStatusCode === "Placed" || event.orderStatusCode === "Cancelled" || event.orderStatusCode === "Completed" || !patchOrderStatus(event.orderId, event.orderStatusCode)) {
       void loadOrders(branchId, { silent: true });
     }
   }
@@ -508,10 +526,11 @@ export default function AdminOrdersPage() {
           <EmptyBranchState />
         ) : (
           <>
-            <section className="grid gap-4 md:grid-cols-3">
+            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <MetricCard icon={<ClipboardList size={20} />} label="Active orders" value={isLoadingOrders ? "..." : String(activeOrders.length)} />
               <MetricCard icon={<Store size={20} />} label="Open value" value={isLoadingOrders ? "..." : formatMoney(totalOpenValue)} />
               <MetricCard icon={<Users size={20} />} label="Waiter calls" value={isLoadingOrders ? "..." : String(activeCalls.length)} />
+              <MetricCard icon={<Ban size={20} />} label="Cancelled" value={isLoadingOrders ? "..." : String(cancelledOrderCount)} />
             </section>
 
             <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
@@ -547,6 +566,20 @@ export default function AdminOrdersPage() {
                 </CardContent>
               </Card>
             </section>
+
+            <OrderHistorySection
+              closedOrders={closedOrders}
+              filteredOrders={filteredClosedOrders}
+              fromDate={historyFromDate}
+              isLoading={isLoadingOrders}
+              onFromDateChange={setHistoryFromDate}
+              onSearchChange={setHistorySearch}
+              onStatusChange={setHistoryStatus}
+              onToDateChange={setHistoryToDate}
+              search={historySearch}
+              status={historyStatus}
+              toDate={historyToDate}
+            />
           </>
         )}
       </div>
@@ -630,6 +663,140 @@ function OrderCard({
           </Button>
         ) : null}
       </div>
+    </article>
+  );
+}
+
+function OrderHistorySection({
+  closedOrders,
+  filteredOrders,
+  fromDate,
+  isLoading,
+  onFromDateChange,
+  onSearchChange,
+  onStatusChange,
+  onToDateChange,
+  search,
+  status,
+  toDate
+}: {
+  closedOrders: AdminOrder[];
+  filteredOrders: AdminOrder[];
+  fromDate: string;
+  isLoading: boolean;
+  onFromDateChange: (value: string) => void;
+  onSearchChange: (value: string) => void;
+  onStatusChange: (value: OrderHistoryStatusFilter) => void;
+  onToDateChange: (value: string) => void;
+  search: string;
+  status: OrderHistoryStatusFilter;
+  toDate: string;
+}) {
+  const hasFilters = Boolean(search.trim() || fromDate || toDate || status !== "all");
+
+  return (
+    <Card>
+      <CardHeader className="gap-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <CardTitle>Order history</CardTitle>
+            <CardDescription>Completed and cancelled orders for the selected branch.</CardDescription>
+          </div>
+          <Badge variant="secondary" className="w-fit">{filteredOrders.length} of {closedOrders.length}</Badge>
+        </div>
+        <div className="grid gap-2 md:grid-cols-[minmax(12rem,1fr)_11rem_10rem_10rem]">
+          <label className="grid gap-1.5">
+            <span className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wide text-on-surface-variant">
+              <Search size={13} />
+              Search
+            </span>
+            <Input value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="Order, table, customer, item..." />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wide text-on-surface-variant">
+              <Clock3 size={13} />
+              Status
+            </span>
+            <select value={status} onChange={(event) => onStatusChange(event.target.value as OrderHistoryStatusFilter)} className="h-10 rounded-md border border-input bg-background px-3 text-sm font-semibold text-on-surface outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/15">
+              <option value="all">All closed</option>
+              <option value="Completed">Completed</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </label>
+          <label className="grid gap-1.5">
+            <span className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wide text-on-surface-variant">
+              <CalendarDays size={13} />
+              From
+            </span>
+            <Input type="date" value={fromDate} onChange={(event) => onFromDateChange(event.target.value)} />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wide text-on-surface-variant">
+              <CalendarDays size={13} />
+              To
+            </span>
+            <Input type="date" value={toDate} onChange={(event) => onToDateChange(event.target.value)} />
+          </label>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <PageLoading />
+        ) : closedOrders.length === 0 ? (
+          <EmptyPanel title="No closed orders" text="Completed and cancelled orders will appear here." />
+        ) : filteredOrders.length === 0 ? (
+          <EmptyPanel title="No matching orders" text={hasFilters ? "Adjust the history filters to see more closed orders." : "No closed orders match this view."} />
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {filteredOrders.map((order) => <ClosedOrderCard key={order.orderId} order={order} />)}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ClosedOrderCard({ order }: { order: AdminOrder }) {
+  const isCancelled = order.orderStatusCode === "Cancelled";
+  const closedAt = getOrderClosedAt(order);
+  const reason = order.latestReason?.trim();
+
+  return (
+    <article className={`rounded-xl border bg-white p-4 ${isCancelled ? "border-destructive/25" : "border-outline-variant/70"}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-extrabold text-on-surface">{order.tableName} - #{shortOrderCode(order.orderId)}</p>
+          <p className="mt-1 truncate text-xs text-on-surface-variant">{order.customerName || order.customerWhatsApp || "Guest"}</p>
+        </div>
+        <Badge variant={isCancelled ? "outline" : "secondary"} className={isCancelled ? "border-destructive/30 text-destructive" : undefined}>
+          {order.orderStatusCode}
+        </Badge>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-3 rounded-lg bg-surface-container-low p-3 text-xs">
+        <div>
+          <p className="font-bold uppercase tracking-wide text-on-surface-variant">{isCancelled ? "Cancelled" : "Completed"}</p>
+          <p className="mt-1 font-extrabold text-on-surface">{formatAdminDate(closedAt)}</p>
+        </div>
+        <div className="text-right">
+          <p className="font-bold uppercase tracking-wide text-on-surface-variant">Value</p>
+          <p className="mt-1 font-extrabold text-primary">{formatMoney(order.totalAmount)}</p>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2 text-xs">
+        <span className="rounded-full bg-surface-container-low px-2.5 py-1 font-bold text-on-surface-variant">{order.items.length} line items</span>
+        <span className="rounded-full bg-surface-container-low px-2.5 py-1 font-bold text-on-surface-variant">Placed {formatCompactDate(order.createdAtUtc)}</span>
+      </div>
+
+      {reason ? (
+        <div className="mt-3 rounded-lg border border-outline-variant/60 bg-white px-3 py-2">
+          <p className="text-[11px] font-black uppercase tracking-wide text-on-surface-variant">Reason</p>
+          <p className="mt-1 break-words text-xs font-semibold leading-5 text-on-surface">{reason}</p>
+        </div>
+      ) : isCancelled ? (
+        <p className="mt-3 rounded-lg border border-outline-variant/50 bg-surface-container-low px-3 py-2 text-xs font-semibold text-on-surface-variant">No cancellation reason was captured.</p>
+      ) : null}
     </article>
   );
 }
@@ -1031,10 +1198,81 @@ function shortOrderCode(orderId: string): string {
   return orderId.replaceAll("-", "").slice(0, 8).toUpperCase();
 }
 
+function matchesOrderHistoryFilters(
+  order: AdminOrder,
+  search: string,
+  status: OrderHistoryStatusFilter,
+  fromDate: string,
+  toDate: string
+): boolean {
+  if (status !== "all" && order.orderStatusCode !== status) {
+    return false;
+  }
+
+  const closedAt = new Date(getOrderClosedAt(order));
+  const from = parseHistoryDate(fromDate, false);
+  const to = parseHistoryDate(toDate, true);
+  if (from && closedAt < from) {
+    return false;
+  }
+
+  if (to && closedAt > to) {
+    return false;
+  }
+
+  const query = search.trim().toLowerCase();
+  if (!query) {
+    return true;
+  }
+
+  const haystack = [
+    order.orderId,
+    shortOrderCode(order.orderId),
+    order.tableName,
+    order.customerName,
+    order.customerWhatsApp,
+    order.orderStatusCode,
+    order.notes,
+    order.latestReason,
+    ...order.items.map((item) => `${item.menuItemName} ${item.variantName ?? ""} ${item.itemNote ?? ""}`)
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(query);
+}
+
+function parseHistoryDate(value: string, endOfDay: boolean): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(`${value}T${endOfDay ? "23:59:59.999" : "00:00:00"}`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function orderClosedTimestamp(order: AdminOrder): number {
+  return new Date(getOrderClosedAt(order)).getTime();
+}
+
+function getOrderClosedAt(order: AdminOrder): string {
+  return order.closedAtUtc ?? order.updatedAtUtc ?? order.createdAtUtc;
+}
+
 function formatAdminDate(value: string): string {
   return new Intl.DateTimeFormat("en-IN", {
     dateStyle: "medium",
     timeStyle: "short"
+  }).format(new Date(value));
+}
+
+function formatCompactDate(value: string): string {
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit"
   }).format(new Date(value));
 }
 

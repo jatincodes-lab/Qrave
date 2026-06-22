@@ -133,6 +133,8 @@ public sealed class SqlAdminOrderRepository(INpgsqlConnectionFactory connectionF
             reader.GetDecimal(reader.GetOrdinal("AppliedOfferDiscountAmount")),
             reader.GetDateTime(reader.GetOrdinal("CreatedAtUtc")),
             reader.IsDBNull(reader.GetOrdinal("UpdatedAtUtc")) ? null : reader.GetDateTime(reader.GetOrdinal("UpdatedAtUtc")),
+            GetNullableDateTime(reader, "ClosedAtUtc"),
+            GetNullableString(reader, "LatestReason"),
             items);
     }
 
@@ -162,5 +164,11 @@ public sealed class SqlAdminOrderRepository(INpgsqlConnectionFactory connectionF
     {
         var ordinal = reader.GetOrdinal(name);
         return reader.IsDBNull(ordinal) ? null : reader.GetGuid(ordinal);
+    }
+
+    private static DateTime? GetNullableDateTime(NpgsqlDataReader reader, string name)
+    {
+        var ordinal = reader.GetOrdinal(name);
+        return reader.IsDBNull(ordinal) ? null : reader.GetDateTime(ordinal);
     }
 }

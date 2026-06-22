@@ -109,7 +109,7 @@ export default function AdminReportsPage() {
     }
 
     const rows = [
-      ["Order", "Table", "Customer", "WhatsApp", "Status", "Placed At", "Ready At", "Items", "Value"],
+      ["Order", "Table", "Customer", "WhatsApp", "Status", "Placed At", "Status Time", "Reason", "Items", "Value"],
       ...orders.map((order) => [
         shortOrderCode(order.orderId),
         order.tableName,
@@ -117,7 +117,8 @@ export default function AdminReportsPage() {
         order.customerWhatsApp || "",
         order.orderStatusCode,
         formatDateTime(order.createdAtUtc),
-        formatDateTime(order.readyAtUtc),
+        formatOrderStatusTime(order),
+        order.latestReason || "",
         String(order.itemCount),
         String(order.totalAmount)
       ])
@@ -259,7 +260,7 @@ function OrderHistoryTable({ orders }: { orders: OrderReportListItem[] }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[760px] text-left text-xs">
+      <table className="w-full min-w-[980px] text-left text-xs">
         <thead className="bg-surface-container-low text-[11px] uppercase text-on-surface-variant">
           <tr>
             <th className="px-4 py-3">Order</th>
@@ -267,7 +268,8 @@ function OrderHistoryTable({ orders }: { orders: OrderReportListItem[] }) {
             <th className="px-3 py-3">Customer</th>
             <th className="px-3 py-3">Status</th>
             <th className="px-3 py-3">Placed</th>
-            <th className="px-3 py-3">Ready</th>
+            <th className="px-3 py-3">Status time</th>
+            <th className="px-3 py-3">Reason</th>
             <th className="px-3 py-3 text-right">Items</th>
             <th className="px-4 py-3 text-right">Value</th>
           </tr>
@@ -283,7 +285,10 @@ function OrderHistoryTable({ orders }: { orders: OrderReportListItem[] }) {
               </td>
               <td className="px-3 py-3"><StatusBadge status={order.orderStatusCode} /></td>
               <td className="px-3 py-3 font-semibold text-on-surface-variant">{formatDateTime(order.createdAtUtc)}</td>
-              <td className="px-3 py-3 font-semibold text-on-surface-variant">{formatDateTime(order.readyAtUtc)}</td>
+              <td className="px-3 py-3 font-semibold text-on-surface-variant">{formatOrderStatusTime(order)}</td>
+              <td className="px-3 py-3">
+                <p className="max-w-[14rem] break-words font-semibold leading-5 text-on-surface-variant">{order.latestReason || "-"}</p>
+              </td>
               <td className="px-3 py-3 text-right font-black text-on-surface">{order.itemCount}</td>
               <td className="px-4 py-3 text-right font-black text-on-surface">{formatMoney(order.totalAmount)}</td>
             </tr>
@@ -376,6 +381,35 @@ function formatDateTime(value: string | null): string {
     hour: "2-digit",
     minute: "2-digit"
   }).format(new Date(value));
+}
+
+function formatOrderStatusTime(order: OrderReportListItem): string {
+  let statusTime: string | null;
+  switch (order.orderStatusCode) {
+    case "Accepted":
+      statusTime = order.acceptedAtUtc;
+      break;
+    case "Preparing":
+      statusTime = order.preparingAtUtc;
+      break;
+    case "Ready":
+      statusTime = order.readyAtUtc;
+      break;
+    case "Served":
+      statusTime = order.servedAtUtc;
+      break;
+    case "Completed":
+      statusTime = order.completedAtUtc;
+      break;
+    case "Cancelled":
+      statusTime = order.cancelledAtUtc;
+      break;
+    default:
+      statusTime = order.createdAtUtc;
+      break;
+  }
+
+  return formatDateTime(statusTime ?? order.updatedAtUtc ?? order.createdAtUtc);
 }
 
 function todayInputValue(offsetDays = 0): string {

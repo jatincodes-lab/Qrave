@@ -478,12 +478,64 @@ CREATE OR REPLACE FUNCTION public.publicorder_getbyqrtoken(p_qrtoken text,p_orde
 RETURNS TABLE("OrderId" uuid,"TenantId" uuid,"BranchId" uuid,"TableId" uuid,"OrderStatusCode" varchar,"CustomerName" varchar,"CustomerWhatsApp" varchar,"Notes" varchar,"SubtotalAmount" numeric,"TotalAmount" numeric,"AppliedBranchOfferId" uuid,"AppliedOfferTitle" varchar,"AppliedOfferDiscountAmount" numeric,"CreatedAtUtc" timestamptz,"UpdatedAtUtc" timestamptz)
 LANGUAGE plpgsql AS $$ BEGIN IF NOT EXISTS (SELECT 1 FROM "Orders" o JOIN "BranchTables" bt ON bt."TableId"=o."TableId" WHERE o."OrderId"=p_orderid AND bt."QrToken"=p_qrtoken) THEN PERFORM public.raise_app_error(51709); END IF; RETURN QUERY SELECT * FROM public.publicorder_select(p_orderid); END; $$;
 
+DROP FUNCTION IF EXISTS public.adminorder_updatestatus(uuid,uuid,uuid,text,text,uuid);
+DROP FUNCTION IF EXISTS public.adminorder_getlistbybranch(uuid,uuid,boolean);
 CREATE OR REPLACE FUNCTION public.adminorder_getlistbybranch(p_tenantid uuid,p_branchid uuid,p_includecompleted boolean)
-RETURNS TABLE("OrderId" uuid,"TenantId" uuid,"BranchId" uuid,"TableId" uuid,"TableName" varchar,"OrderStatusCode" varchar,"CustomerName" varchar,"CustomerWhatsApp" varchar,"Notes" varchar,"SubtotalAmount" numeric,"TotalAmount" numeric,"AppliedBranchOfferId" uuid,"AppliedOfferTitle" varchar,"AppliedOfferDiscountAmount" numeric,"CreatedAtUtc" timestamptz,"UpdatedAtUtc" timestamptz)
-LANGUAGE sql STABLE AS $$ SELECT o."OrderId",o."TenantId",o."BranchId",o."TableId",bt."Name",o."OrderStatusCode",o."CustomerName",o."CustomerWhatsApp",o."Notes",o."SubtotalAmount",o."TotalAmount",o."AppliedBranchOfferId",o."AppliedOfferTitle",o."AppliedOfferDiscountAmount",o."CreatedAtUtc",o."UpdatedAtUtc" FROM "Orders" o JOIN "BranchTables" bt ON bt."TableId"=o."TableId" WHERE o."TenantId"=p_tenantid AND o."BranchId"=p_branchid AND (p_includecompleted OR o."OrderStatusCode" NOT IN ('Completed','Cancelled','Served')) ORDER BY o."CreatedAtUtc" DESC LIMIT 200; $$;
+RETURNS TABLE("OrderId" uuid,"TenantId" uuid,"BranchId" uuid,"TableId" uuid,"TableName" varchar,"OrderStatusCode" varchar,"CustomerName" varchar,"CustomerWhatsApp" varchar,"Notes" varchar,"SubtotalAmount" numeric,"TotalAmount" numeric,"AppliedBranchOfferId" uuid,"AppliedOfferTitle" varchar,"AppliedOfferDiscountAmount" numeric,"CreatedAtUtc" timestamptz,"UpdatedAtUtc" timestamptz,"ClosedAtUtc" timestamptz,"LatestReason" varchar)
+LANGUAGE sql STABLE AS $$
+WITH status_rollup AS (
+    SELECT
+        h."OrderId",
+        MAX(h."CreatedAtUtc") FILTER (WHERE h."StatusCode" IN ('Completed','Cancelled')) AS "ClosedAtUtc"
+    FROM "OrderStatusHistory" h
+    WHERE h."TenantId"=p_tenantid AND h."BranchId"=p_branchid
+    GROUP BY h."OrderId"
+),
+status_reason AS (
+    SELECT DISTINCT ON (h."OrderId",h."StatusCode")
+        h."OrderId",
+        h."StatusCode",
+        NULLIF(btrim(h."Reason"), '')::varchar AS "LatestReason"
+    FROM "OrderStatusHistory" h
+    WHERE h."TenantId"=p_tenantid
+      AND h."BranchId"=p_branchid
+      AND NULLIF(btrim(h."Reason"), '') IS NOT NULL
+    ORDER BY h."OrderId",h."StatusCode",h."CreatedAtUtc" DESC
+)
+SELECT
+    o."OrderId",
+    o."TenantId",
+    o."BranchId",
+    o."TableId",
+    bt."Name",
+    o."OrderStatusCode",
+    o."CustomerName",
+    o."CustomerWhatsApp",
+    o."Notes",
+    o."SubtotalAmount",
+    o."TotalAmount",
+    o."AppliedBranchOfferId",
+    o."AppliedOfferTitle",
+    o."AppliedOfferDiscountAmount",
+    o."CreatedAtUtc",
+    o."UpdatedAtUtc",
+    sr."ClosedAtUtc",
+    latest_reason."LatestReason"
+FROM "Orders" o
+JOIN "BranchTables" bt ON bt."TableId"=o."TableId"
+LEFT JOIN status_rollup sr ON sr."OrderId"=o."OrderId"
+LEFT JOIN status_reason latest_reason ON latest_reason."OrderId"=o."OrderId" AND latest_reason."StatusCode"=o."OrderStatusCode"
+WHERE o."TenantId"=p_tenantid
+  AND o."BranchId"=p_branchid
+  AND (p_includecompleted OR o."OrderStatusCode" NOT IN ('Completed','Cancelled','Served'))
+ORDER BY CASE WHEN o."OrderStatusCode" IN ('Completed','Cancelled') THEN 1 ELSE 0 END,
+         COALESCE(sr."ClosedAtUtc",o."CreatedAtUtc") DESC,
+         o."CreatedAtUtc" DESC
+LIMIT 500;
+$$;
 CREATE OR REPLACE FUNCTION public.adminorder_getitemsbybranch(p_tenantid uuid,p_branchid uuid) RETURNS TABLE("OrderItemId" uuid,"OrderId" uuid,"MenuItemId" uuid,"MenuItemVariantId" uuid,"MenuItemName" varchar,"VariantName" varchar,"ItemNote" varchar,"DietTypeCode" varchar,"UnitPrice" numeric,"Quantity" integer,"LineTotal" numeric) LANGUAGE sql STABLE AS $$ SELECT oi."OrderItemId",oi."OrderId",oi."MenuItemId",oi."MenuItemVariantId",oi."MenuItemName",oi."VariantName",oi."ItemNote",oi."DietTypeCode",oi."UnitPrice",oi."Quantity",oi."LineTotal" FROM "OrderItems" oi JOIN "Orders" o ON o."OrderId"=oi."OrderId" WHERE oi."TenantId"=p_tenantid AND oi."BranchId"=p_branchid ORDER BY oi."RowId"; $$;
 CREATE OR REPLACE FUNCTION public.adminorder_updatestatus(p_tenantid uuid,p_branchid uuid,p_orderid uuid,p_orderstatuscode text,p_reason text,p_changedbyuserid uuid)
-RETURNS TABLE("OrderId" uuid,"TenantId" uuid,"BranchId" uuid,"TableId" uuid,"TableName" varchar,"OrderStatusCode" varchar,"CustomerName" varchar,"CustomerWhatsApp" varchar,"Notes" varchar,"SubtotalAmount" numeric,"TotalAmount" numeric,"AppliedBranchOfferId" uuid,"AppliedOfferTitle" varchar,"AppliedOfferDiscountAmount" numeric,"CreatedAtUtc" timestamptz,"UpdatedAtUtc" timestamptz)
+RETURNS TABLE("OrderId" uuid,"TenantId" uuid,"BranchId" uuid,"TableId" uuid,"TableName" varchar,"OrderStatusCode" varchar,"CustomerName" varchar,"CustomerWhatsApp" varchar,"Notes" varchar,"SubtotalAmount" numeric,"TotalAmount" numeric,"AppliedBranchOfferId" uuid,"AppliedOfferTitle" varchar,"AppliedOfferDiscountAmount" numeric,"CreatedAtUtc" timestamptz,"UpdatedAtUtc" timestamptz,"ClosedAtUtc" timestamptz,"LatestReason" varchar)
 LANGUAGE plpgsql AS $$
 DECLARE old_status text;
 BEGIN
@@ -659,11 +711,21 @@ WITH status_rollup AS (
         MIN(h."CreatedAtUtc") FILTER (WHERE h."StatusCode"='Ready') AS "ReadyAtUtc",
         MIN(h."CreatedAtUtc") FILTER (WHERE h."StatusCode"='Served') AS "ServedAtUtc",
         MIN(h."CreatedAtUtc") FILTER (WHERE h."StatusCode"='Completed') AS "CompletedAtUtc",
-        MAX(h."CreatedAtUtc") FILTER (WHERE h."StatusCode" IN ('Cancelled','Void')) AS "CancelledAtUtc",
-        (array_agg(NULLIF(btrim(h."Reason"), '') ORDER BY h."CreatedAtUtc" DESC) FILTER (WHERE NULLIF(btrim(h."Reason"), '') IS NOT NULL))[1]::varchar AS "LatestReason"
+        MAX(h."CreatedAtUtc") FILTER (WHERE h."StatusCode" IN ('Cancelled','Void')) AS "CancelledAtUtc"
     FROM "OrderStatusHistory" h
     WHERE h."TenantId"=p_tenantid
     GROUP BY h."OrderId"
+),
+status_reason AS (
+    SELECT DISTINCT ON (h."OrderId",h."StatusCode")
+        h."OrderId",
+        h."StatusCode",
+        NULLIF(btrim(h."Reason"), '')::varchar AS "LatestReason"
+    FROM "OrderStatusHistory" h
+    WHERE h."TenantId"=p_tenantid
+      AND (p_branchid IS NULL OR h."BranchId"=p_branchid)
+      AND NULLIF(btrim(h."Reason"), '') IS NOT NULL
+    ORDER BY h."OrderId",h."StatusCode",h."CreatedAtUtc" DESC
 ),
 base_orders AS (
     SELECT
@@ -685,7 +747,7 @@ base_orders AS (
         sr."ServedAtUtc",
         sr."CompletedAtUtc",
         sr."CancelledAtUtc",
-        sr."LatestReason",
+        latest_reason."LatestReason",
         CASE
             WHEN lower(COALESCE(p_statuscode,'')) IN ('cancelled','void') THEN COALESCE(sr."CancelledAtUtc",o."UpdatedAtUtc",o."CreatedAtUtc")
             WHEN lower(COALESCE(p_statuscode,''))='completed' THEN COALESCE(sr."CompletedAtUtc",o."UpdatedAtUtc",o."CreatedAtUtc")
@@ -695,6 +757,7 @@ base_orders AS (
     JOIN "Branches" b ON b."BranchId"=o."BranchId"
     JOIN "BranchTables" bt ON bt."TableId"=o."TableId"
     LEFT JOIN status_rollup sr ON sr."OrderId"=o."OrderId"
+    LEFT JOIN status_reason latest_reason ON latest_reason."OrderId"=o."OrderId" AND latest_reason."StatusCode"=o."OrderStatusCode"
     WHERE o."TenantId"=p_tenantid
       AND (p_branchid IS NULL OR o."BranchId"=p_branchid)
       AND (p_statuscode IS NULL OR lower(o."OrderStatusCode")=lower(p_statuscode))

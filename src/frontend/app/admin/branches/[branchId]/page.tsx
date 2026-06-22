@@ -436,7 +436,7 @@ export default function AdminBranchDetailPage() {
         getBranchOffers(branchId),
         getBranchTables(branchId),
         getBranchOrderSettings(branchId),
-        getAdminOrders(branchId),
+        getAdminOrders(branchId, true),
         getWaiterCalls(branchId)
       ]);
 
@@ -473,7 +473,7 @@ export default function AdminBranchDetailPage() {
 
     try {
       const [orderResponse, waiterCallResponse] = await Promise.all([
-        getAdminOrders(branchId),
+        getAdminOrders(branchId, true),
         getWaiterCalls(branchId)
       ]);
       const newOrderIds = orderResponse
@@ -2285,20 +2285,24 @@ function KitchenOrderCard({
 }
 
 function ClosedOrderRow({ order }: { order: AdminOrder }) {
+  const isCancelled = order.orderStatusCode === "Cancelled";
+  const reason = order.latestReason?.trim();
+
   return (
     <div className="rounded-lg border border-outline-variant/30 bg-white px-3 py-2">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-bold text-on-surface">#{shortId(order.orderId)} · {order.tableName}</p>
-          <p className="mt-0.5 text-xs text-on-surface-variant">{formatDateTime(order.updatedAtUtc ?? order.createdAtUtc)}</p>
+          <p className="mt-0.5 text-xs text-on-surface-variant">{formatDateTime(order.closedAtUtc ?? order.updatedAtUtc ?? order.createdAtUtc)}</p>
         </div>
         <Badge
-          variant={order.orderStatusCode === "Cancelled" ? "outline" : "secondary"}
-          className={order.orderStatusCode === "Cancelled" ? "border-destructive/30 text-destructive" : undefined}
+          variant={isCancelled ? "outline" : "secondary"}
+          className={isCancelled ? "border-destructive/30 text-destructive" : undefined}
         >
           {order.orderStatusCode}
         </Badge>
       </div>
+      {reason ? <p className="mt-2 line-clamp-2 text-xs font-medium leading-5 text-on-surface-variant">{reason}</p> : null}
     </div>
   );
 }
@@ -2861,7 +2865,7 @@ function matchesOrderHistoryFilters(
     return false;
   }
 
-  const closedAt = parseUtcDate(order.updatedAtUtc ?? order.createdAtUtc);
+  const closedAt = parseUtcDate(order.closedAtUtc ?? order.updatedAtUtc ?? order.createdAtUtc);
   if (fromDate && closedAt < new Date(`${fromDate}T00:00:00`)) {
     return false;
   }
@@ -2882,6 +2886,7 @@ function matchesOrderHistoryFilters(
     order.customerName,
     order.customerWhatsApp,
     order.orderStatusCode,
+    order.latestReason,
     ...order.items.map((item) => item.menuItemName)
   ]
     .filter(Boolean)

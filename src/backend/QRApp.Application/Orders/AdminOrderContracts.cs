@@ -30,6 +30,8 @@ public sealed record AdminOrderResponse(
     decimal AppliedOfferDiscountAmount,
     DateTime CreatedAtUtc,
     DateTime? UpdatedAtUtc,
+    DateTime? ClosedAtUtc,
+    string? LatestReason,
     IReadOnlyCollection<AdminOrderItemResponse> Items);
 
 public sealed record UpdateAdminOrderStatusRequest(string OrderStatusCode, string? Reason = null);
