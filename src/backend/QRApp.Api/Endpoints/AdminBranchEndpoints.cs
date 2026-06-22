@@ -12,7 +12,7 @@ public static class AdminBranchEndpoints
 {
     public static IEndpointRouteBuilder MapAdminBranchEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/admin").RequireAuthorization();
+        var group = app.MapGroup("/api/v1/admin").RequireAuthorization().RequireAssignedBranchAccess();
 
         group.MapPost("/branches", CreateBranchAsync);
         group.MapGet("/branches", GetBranchesAsync);
@@ -36,6 +36,11 @@ public static class AdminBranchEndpoints
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
+        if (tenantContext.BranchId.HasValue)
+        {
+            return ApiProblemResponses.Forbidden("Branch-assigned staff cannot create new branches.");
+        }
+
         try
         {
             var result = await branchService.CreateAsync(tenantContext.TenantId, request, cancellationToken);

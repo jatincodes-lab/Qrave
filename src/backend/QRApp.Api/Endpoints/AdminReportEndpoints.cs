@@ -31,9 +31,14 @@ public static class AdminReportEndpoints
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
+        if (AdminBranchAccess.ValidateRequestedBranch(branchId, tenantContext) is { } forbidden)
+        {
+            return forbidden;
+        }
+
         try
         {
-            return Results.Ok(await service.GetOrderSummaryAsync(tenantContext.TenantId, ToFilter(branchId, dateFrom, dateTo, status, search), cancellationToken));
+            return Results.Ok(await service.GetOrderSummaryAsync(tenantContext.TenantId, ToFilter(AdminBranchAccess.ScopeBranchFilter(branchId, tenantContext), dateFrom, dateTo, status, search), cancellationToken));
         }
         catch (Exception ex) when (ex is PostgresException)
         {
@@ -54,9 +59,14 @@ public static class AdminReportEndpoints
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
+        if (AdminBranchAccess.ValidateRequestedBranch(branchId, tenantContext) is { } forbidden)
+        {
+            return forbidden;
+        }
+
         try
         {
-            return Results.Ok(await service.GetOrdersAsync(tenantContext.TenantId, ToFilter(branchId, dateFrom, dateTo, status, search), cancellationToken));
+            return Results.Ok(await service.GetOrdersAsync(tenantContext.TenantId, ToFilter(AdminBranchAccess.ScopeBranchFilter(branchId, tenantContext), dateFrom, dateTo, status, search), cancellationToken));
         }
         catch (Exception ex) when (ex is PostgresException)
         {
@@ -75,7 +85,13 @@ public static class AdminReportEndpoints
     {
         try
         {
-            return Results.Ok(await service.GetOrderDetailAsync(tenantContext.TenantId, orderId, cancellationToken));
+            var order = await service.GetOrderDetailAsync(tenantContext.TenantId, orderId, cancellationToken);
+            if (AdminBranchAccess.ValidateRequestedBranch(order.Order.BranchId, tenantContext) is { } forbidden)
+            {
+                return forbidden;
+            }
+
+            return Results.Ok(order);
         }
         catch (Exception ex) when (ex is PostgresException)
         {
@@ -96,9 +112,14 @@ public static class AdminReportEndpoints
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
+        if (AdminBranchAccess.ValidateRequestedBranch(branchId, tenantContext) is { } forbidden)
+        {
+            return forbidden;
+        }
+
         try
         {
-            return Results.Ok(await service.GetItemsAsync(tenantContext.TenantId, ToFilter(branchId, dateFrom, dateTo, status, search), cancellationToken));
+            return Results.Ok(await service.GetItemsAsync(tenantContext.TenantId, ToFilter(AdminBranchAccess.ScopeBranchFilter(branchId, tenantContext), dateFrom, dateTo, status, search), cancellationToken));
         }
         catch (Exception ex) when (ex is PostgresException)
         {
@@ -119,9 +140,14 @@ public static class AdminReportEndpoints
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
+        if (AdminBranchAccess.ValidateRequestedBranch(branchId, tenantContext) is { } forbidden)
+        {
+            return forbidden;
+        }
+
         try
         {
-            return Results.Ok(await service.GetCustomersAsync(tenantContext.TenantId, ToFilter(branchId, dateFrom, dateTo, status, search), cancellationToken));
+            return Results.Ok(await service.GetCustomersAsync(tenantContext.TenantId, ToFilter(AdminBranchAccess.ScopeBranchFilter(branchId, tenantContext), dateFrom, dateTo, status, search), cancellationToken));
         }
         catch (Exception ex) when (ex is PostgresException)
         {

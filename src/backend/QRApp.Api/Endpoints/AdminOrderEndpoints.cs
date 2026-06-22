@@ -12,7 +12,7 @@ public static class AdminOrderEndpoints
 {
     public static IEndpointRouteBuilder MapAdminOrderEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/admin").RequireAuthorization();
+        var group = app.MapGroup("/api/v1/admin").RequireAuthorization().RequireAssignedBranchAccess();
 
         group.MapGet("/branches/{branchId:guid}/orders", GetOrdersAsync);
         group.MapPut("/branches/{branchId:guid}/orders/{orderId:guid}/status", UpdateStatusAsync);

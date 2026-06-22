@@ -9,7 +9,7 @@ public static class AdminMenuEndpoints
 {
     public static IEndpointRouteBuilder MapAdminMenuEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/admin").RequireAuthorization();
+        var group = app.MapGroup("/api/v1/admin").RequireAuthorization().RequireAssignedBranchAccess();
 
         group.MapPost("/branches/{branchId:guid}/menu-categories", CreateCategoryAsync);
         group.MapGet("/branches/{branchId:guid}/menu-categories", GetCategoriesAsync);

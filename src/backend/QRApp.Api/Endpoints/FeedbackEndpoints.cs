@@ -94,9 +94,14 @@ public static class FeedbackEndpoints
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
+        if (AdminBranchAccess.ValidateRequestedBranch(branchId, tenantContext) is { } forbidden)
+        {
+            return forbidden;
+        }
+
         try
         {
-            var feedback = await service.GetAdminListAsync(tenantContext.TenantId, branchId, cancellationToken);
+            var feedback = await service.GetAdminListAsync(tenantContext.TenantId, AdminBranchAccess.ScopeBranchFilter(branchId, tenantContext), cancellationToken);
             return Results.Ok(feedback);
         }
         catch (Exception ex) when (ex is PostgresException)

@@ -26,9 +26,14 @@ public static class AdminNotificationEndpoints
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
+        if (AdminBranchAccess.ValidateRequestedBranch(branchId, tenantContext) is { } forbidden)
+        {
+            return forbidden;
+        }
+
         try
         {
-            var notifications = await service.GetListAsync(tenantContext.TenantId, branchId, cancellationToken);
+            var notifications = await service.GetListAsync(tenantContext.TenantId, AdminBranchAccess.ScopeBranchFilter(branchId, tenantContext), cancellationToken);
             return Results.Ok(notifications);
         }
         catch (Exception ex)
@@ -49,6 +54,15 @@ public static class AdminNotificationEndpoints
     {
         try
         {
+            if (tenantContext.BranchId.HasValue)
+            {
+                var visibleNotifications = await service.GetListAsync(tenantContext.TenantId, tenantContext.BranchId.Value, cancellationToken);
+                if (!visibleNotifications.Any(notification => notification.AdminNotificationId == notificationId))
+                {
+                    return ApiProblemResponses.Forbidden("Your account is assigned to a different branch.");
+                }
+            }
+
             await service.MarkReadAsync(tenantContext.TenantId, notificationId, cancellationToken);
             return Results.NoContent();
         }
@@ -68,9 +82,14 @@ public static class AdminNotificationEndpoints
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
+        if (AdminBranchAccess.ValidateRequestedBranch(branchId, tenantContext) is { } forbidden)
+        {
+            return forbidden;
+        }
+
         try
         {
-            await service.MarkAllReadAsync(tenantContext.TenantId, branchId, cancellationToken);
+            await service.MarkAllReadAsync(tenantContext.TenantId, AdminBranchAccess.ScopeBranchFilter(branchId, tenantContext), cancellationToken);
             return Results.NoContent();
         }
         catch (Exception ex)
@@ -90,9 +109,14 @@ public static class AdminNotificationEndpoints
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
+        if (AdminBranchAccess.ValidateRequestedBranch(branchId, tenantContext) is { } forbidden)
+        {
+            return forbidden;
+        }
+
         try
         {
-            var results = await service.SearchAsync(tenantContext.TenantId, branchId, q, cancellationToken);
+            var results = await service.SearchAsync(tenantContext.TenantId, AdminBranchAccess.ScopeBranchFilter(branchId, tenantContext), q, cancellationToken);
             return Results.Ok(results);
         }
         catch (Exception ex)

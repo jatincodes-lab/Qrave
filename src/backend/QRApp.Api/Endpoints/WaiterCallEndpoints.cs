@@ -14,7 +14,7 @@ public static class WaiterCallEndpoints
         var publicGroup = app.MapGroup("/api/v1/public").AllowAnonymous();
         publicGroup.MapPost("/qr/{qrToken}/waiter-calls", CreateAsync);
 
-        var adminGroup = app.MapGroup("/api/v1/admin").RequireAuthorization();
+        var adminGroup = app.MapGroup("/api/v1/admin").RequireAuthorization().RequireAssignedBranchAccess();
         adminGroup.MapGet("/branches/{branchId:guid}/waiter-calls", GetListAsync);
         adminGroup.MapPut("/branches/{branchId:guid}/waiter-calls/{waiterCallId:guid}/status", UpdateStatusAsync);
 

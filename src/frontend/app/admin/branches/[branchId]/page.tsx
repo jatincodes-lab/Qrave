@@ -83,7 +83,7 @@ import {
   type OrderStatusCode,
   type WaiterCallStatusCode
 } from "../../../../lib/api";
-import { clearAccessToken, getAccessToken } from "../../../../lib/auth";
+import { clearAccessToken, getAccessToken, getCurrentBranchId } from "../../../../lib/auth";
 import { AdminOrderRealtimeEvent, AdminWaiterCallRealtimeEvent, createAdminOrderConnection, stopConnection } from "../../../../lib/realtime";
 import {
   firstInvalid,
@@ -301,6 +301,12 @@ export default function AdminBranchDetailPage() {
   useEffect(() => {
     if (!getAccessToken()) {
       router.replace("/admin/login");
+      return;
+    }
+
+    const assignedBranchId = getCurrentBranchId();
+    if (assignedBranchId && assignedBranchId !== branchId) {
+      router.replace(`/admin/branches/${assignedBranchId}`);
       return;
     }
 

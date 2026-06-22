@@ -9,7 +9,7 @@ public static class AdminTableEndpoints
 {
     public static IEndpointRouteBuilder MapAdminTableEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/admin").RequireAuthorization();
+        var group = app.MapGroup("/api/v1/admin").RequireAuthorization().RequireAssignedBranchAccess();
 
         group.MapPost("/branches/{branchId:guid}/tables", CreateTableAsync);
         group.MapGet("/branches/{branchId:guid}/tables", GetTablesAsync);

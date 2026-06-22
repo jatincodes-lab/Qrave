@@ -25,9 +25,14 @@ public static class AdminCampaignEndpoints
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
+        if (AdminBranchAccess.ValidateRequestedBranch(branchId, tenantContext) is { } forbidden)
+        {
+            return forbidden;
+        }
+
         try
         {
-            return Results.Ok(await service.GetListAsync(tenantContext.TenantId, branchId, cancellationToken));
+            return Results.Ok(await service.GetListAsync(tenantContext.TenantId, AdminBranchAccess.ScopeBranchFilter(branchId, tenantContext), cancellationToken));
         }
         catch (Exception ex) when (ex is PostgresException)
         {
@@ -45,9 +50,14 @@ public static class AdminCampaignEndpoints
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
+        if (AdminBranchAccess.ValidateRequestedBranch(branchId, tenantContext) is { } forbidden)
+        {
+            return forbidden;
+        }
+
         try
         {
-            var result = await service.PreviewRecipientsAsync(tenantContext.TenantId, branchId, targetSegment, cancellationToken);
+            var result = await service.PreviewRecipientsAsync(tenantContext.TenantId, AdminBranchAccess.ScopeBranchFilter(branchId, tenantContext), targetSegment, cancellationToken);
             if (!result.IsSuccess)
             {
                 return ApiProblemResponses.Validation(result.Errors);
@@ -70,9 +80,18 @@ public static class AdminCampaignEndpoints
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
+        if (AdminBranchAccess.ValidateRequestedBranch(request.BranchId, tenantContext) is { } forbidden)
+        {
+            return forbidden;
+        }
+
+        var scopedRequest = tenantContext.BranchId.HasValue
+            ? request with { BranchId = tenantContext.BranchId.Value }
+            : request;
+
         try
         {
-            var result = await service.CreateAsync(tenantContext.TenantId, request, cancellationToken);
+            var result = await service.CreateAsync(tenantContext.TenantId, scopedRequest, cancellationToken);
             if (!result.IsSuccess)
             {
                 return ApiProblemResponses.Validation(result.Errors);
