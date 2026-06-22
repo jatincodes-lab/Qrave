@@ -777,7 +777,7 @@ BEGIN
     SELECT ob.* INTO bill_row FROM "OrderBills" ob WHERE ob."TenantId"=p_tenantid AND ob."BranchId"=p_branchid AND ob."OrderId"=p_orderid FOR UPDATE;
     IF bill_row."OrderBillId" IS NOT NULL AND bill_row."PaymentStatusCode" <> 'Unpaid' THEN PERFORM public.raise_app_error(51714); END IF;
 
-    UPDATE "OrderItems" SET "CancelledQuantity"="CancelledQuantity" + p_cancelquantity,"CancelledReason"=btrim(p_reason),"CancelledAtUtc"=public.app_now(),"CancelledByUserId"=p_changedbyuserid WHERE "OrderItemId"=p_orderitemid;
+    UPDATE "OrderItems" oi SET "CancelledQuantity"=oi."CancelledQuantity" + p_cancelquantity,"CancelledReason"=btrim(p_reason),"CancelledAtUtc"=public.app_now(),"CancelledByUserId"=p_changedbyuserid WHERE oi."OrderItemId"=p_orderitemid;
     SELECT COALESCE(round(SUM(oi."UnitPrice" * (oi."Quantity" - oi."CancelledQuantity")),2),0) INTO active_subtotal FROM "OrderItems" oi WHERE oi."TenantId"=p_tenantid AND oi."BranchId"=p_branchid AND oi."OrderId"=p_orderid;
 
     IF order_row."AppliedBranchOfferId" IS NOT NULL AND active_subtotal > 0 THEN
@@ -801,12 +801,12 @@ BEGIN
     rounding_amount := CASE WHEN billing."RoundingMode" IN ('NearestRupee','Nearest') THEN round(total_before_rounding) - total_before_rounding ELSE 0 END;
     payable_total := round(total_before_rounding + rounding_amount,2);
 
-    UPDATE "Orders" SET "SubtotalAmount"=active_subtotal,"AppliedOfferDiscountAmount"=discount,"TotalAmount"=payable_total,"OrderStatusCode"=CASE WHEN active_subtotal <= 0 THEN 'Cancelled' ELSE "OrderStatusCode" END,"UpdatedAtUtc"=public.app_now() WHERE "OrderId"=p_orderid;
+    UPDATE "Orders" o SET "SubtotalAmount"=active_subtotal,"AppliedOfferDiscountAmount"=discount,"TotalAmount"=payable_total,"OrderStatusCode"=CASE WHEN active_subtotal <= 0 THEN 'Cancelled' ELSE o."OrderStatusCode" END,"UpdatedAtUtc"=public.app_now() WHERE o."OrderId"=p_orderid;
     IF active_subtotal <= 0 THEN
         INSERT INTO "OrderStatusHistory" ("OrderStatusHistoryId","TenantId","BranchId","OrderId","StatusCode","Reason","ChangedByUserId") VALUES (gen_random_uuid(),p_tenantid,p_branchid,p_orderid,'Cancelled',btrim(p_reason),p_changedbyuserid);
     END IF;
     IF bill_row."OrderBillId" IS NOT NULL THEN
-        UPDATE "OrderBills" SET "SubtotalAmount"=active_subtotal,"DiscountAmount"=discount,"TaxableAmount"=taxable,"TaxAmount"=tax,"ServiceChargeAmount"=service_charge,"RoundingAmount"=rounding_amount,"TotalAmount"=payable_total,"UpdatedAtUtc"=public.app_now() WHERE "OrderBillId"=bill_row."OrderBillId";
+        UPDATE "OrderBills" ob SET "SubtotalAmount"=active_subtotal,"DiscountAmount"=discount,"TaxableAmount"=taxable,"TaxAmount"=tax,"ServiceChargeAmount"=service_charge,"RoundingAmount"=rounding_amount,"TotalAmount"=payable_total,"UpdatedAtUtc"=public.app_now() WHERE ob."OrderBillId"=bill_row."OrderBillId";
     END IF;
 
     RETURN QUERY SELECT * FROM public.adminorder_getlistbybranch(p_tenantid,p_branchid,true) a WHERE a."OrderId"=p_orderid;
