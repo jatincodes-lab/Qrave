@@ -16,6 +16,7 @@ public static class PublicOrderEndpoints
         group.MapPost("/qr/{qrToken}/orders", CreateOrderAsync).AllowAnonymous();
         group.MapGet("/qr/{qrToken}/orders/{orderId:guid}", GetOrderAsync).AllowAnonymous();
         group.MapPost("/qr/{qrToken}/orders/{orderId:guid}/cancel", CancelOrderAsync).AllowAnonymous();
+        group.MapPost("/qr/{qrToken}/orders/{orderId:guid}/items/{orderItemId:guid}/cancel-request", RequestItemCancellationAsync).AllowAnonymous();
         group.MapPost("/qr/{qrToken}/promo-code/validate", ValidatePromoCodeAsync).AllowAnonymous();
 
         return app;
@@ -176,6 +177,61 @@ public static class PublicOrderEndpoints
         {
             loggerFactory.CreateLogger(nameof(PublicOrderEndpoints)).LogError(ex, "Failed to validate public QR promo code.");
             return ApiProblemResponses.ServerError("Promo code could not be validated.");
+        }
+    }
+
+    private static async Task<IResult> RequestItemCancellationAsync(
+        string qrToken,
+        Guid orderId,
+        Guid orderItemId,
+        RequestPublicOrderItemCancellationRequest request,
+        HttpContext httpContext,
+        IOrderService orderService,
+        IAdminNotificationService notificationService,
+        IAdminOrderRealtimeNotifier realtimeNotifier,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await orderService.RequestItemCancellationAsync(qrToken, orderId, orderItemId, ReadCustomerDeviceToken(httpContext), request, cancellationToken);
+            if (!result.IsSuccess)
+            {
+                return ApiProblemResponses.Validation(result.Errors);
+            }
+
+            var order = result.Value!;
+            try
+            {
+                await notificationService.CreateAsync(
+                    order.TenantId,
+                    new CreateAdminNotificationRequest(
+                        order.BranchId,
+                        "order-item-cancel-requested",
+                        "Item cancellation requested",
+                        $"Order {ShortId(order.OrderId)} has an item cancellation request.",
+                        "/admin/orders"),
+                    cancellationToken);
+            }
+            catch (Exception notificationException)
+            {
+                loggerFactory.CreateLogger(nameof(PublicOrderEndpoints)).LogWarning(notificationException, "Order {OrderId} item cancellation request was created, but its admin notification could not be stored.", orderId);
+            }
+
+            await realtimeNotifier.OrderStatusUpdatedAsync(order, cancellationToken);
+            return Results.Ok(order);
+        }
+        catch (Exception ex)
+        when (ex is PostgresException)
+        {
+            var postgresException = (PostgresException)ex;
+            loggerFactory.CreateLogger(nameof(PublicOrderEndpoints)).LogWarning(postgresException, "Database rejected public QR item cancellation request.");
+            return SqlProblemMapper.ToProblem(postgresException);
+        }
+        catch (Exception ex)
+        {
+            loggerFactory.CreateLogger(nameof(PublicOrderEndpoints)).LogError(ex, "Failed to request public QR item cancellation.");
+            return ApiProblemResponses.ServerError("Item cancellation could not be requested.");
         }
     }
 

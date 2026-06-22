@@ -1,9 +1,9 @@
 "use client";
 
-import { AlertCircle, ArrowLeft, CheckCircle2, Clock3, Loader2, RefreshCw, ReceiptText, Send, Star, Utensils } from "lucide-react";
+import { AlertCircle, ArrowLeft, CheckCircle2, Clock3, Loader2, RefreshCw, ReceiptText, Send, Star, Utensils, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "../../../../../components/ui/toast";
-import { ApiError, cancelPublicQrOrder, createPublicOrderFeedback, getPublicOrderFeedback, getPublicQrOrder, type DietTypeCode, type OrderFeedback, type PublicQrMenu, type PublicQrOrder } from "../../../../../lib/api";
+import { ApiError, cancelPublicQrOrder, createPublicOrderFeedback, getPublicOrderFeedback, getPublicQrOrder, requestPublicOrderItemCancellation, type DietTypeCode, type OrderFeedback, type PublicQrMenu, type PublicQrOrder, type PublicQrOrderItem } from "../../../../../lib/api";
 
 const StatusSteps = ["Placed", "Accepted", "Preparing", "Ready", "Served"] as const;
 
@@ -30,11 +30,14 @@ export function OrderTrackingClient({
   const [customerDeviceToken, setCustomerDeviceToken] = useState<string | null>(null);
   const [isCancelPanelOpen, setIsCancelPanelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [itemCancelRequest, setItemCancelRequest] = useState<{ item: PublicQrOrderItem; quantity: string; reason: string } | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [savingItemRequestId, setSavingItemRequestId] = useState<string | null>(null);
   const currentStepIndex = useMemo(() => StatusSteps.findIndex((status) => status === order.orderStatusCode), [order.orderStatusCode]);
   const isCancelled = order.orderStatusCode === "Cancelled";
   const isCompleted = order.orderStatusCode === "Completed";
   const canCancelOrder = order.orderStatusCode === "Placed";
+  const canRequestItemCancellation = ["Placed", "Accepted", "Preparing"].includes(order.orderStatusCode);
   const shouldReturnToPreviousOrders = returnTarget === "previous-orders";
   const shouldShowFeedback = isCompleted || isFeedbackRequested;
 
@@ -148,6 +151,52 @@ export function OrderTrackingClient({
       }
     } finally {
       setIsCancelling(false);
+    }
+  }
+
+  async function submitItemCancellationRequest() {
+    if (!itemCancelRequest) {
+      return;
+    }
+
+    if (!customerDeviceToken) {
+      toastError("This order can only be changed from the device used to place it.");
+      return;
+    }
+
+    const quantity = Number(itemCancelRequest.quantity);
+    const reason = itemCancelRequest.reason.trim();
+
+    if (!Number.isInteger(quantity) || quantity <= 0 || quantity > itemCancelRequest.item.quantity) {
+      toastError("Cancellation quantity is invalid.");
+      return;
+    }
+
+    if (!reason) {
+      toastError("Cancellation reason is required.");
+      return;
+    }
+
+    setSavingItemRequestId(itemCancelRequest.item.orderItemId);
+    try {
+      const updated = await requestPublicOrderItemCancellation(qrToken, orderId, itemCancelRequest.item.orderItemId, customerDeviceToken, {
+        quantity,
+        reason
+      });
+      setOrder(updated);
+      setItemCancelRequest(null);
+      toastSuccess("Cancellation request sent to staff.");
+    } catch (caught) {
+      if (caught instanceof ApiError && caught.status === 403) {
+        toastError("This order can only be changed from the device used to place it.");
+      } else if (caught instanceof ApiError && caught.status === 409) {
+        toastError(caught.message || "This item can no longer be cancelled.");
+        await refreshOrder();
+      } else {
+        toastError(caught instanceof ApiError ? caught.message : "Could not request item cancellation.");
+      }
+    } finally {
+      setSavingItemRequestId(null);
     }
   }
 
@@ -299,6 +348,21 @@ export function OrderTrackingClient({
                   {item.quantity} x {formatPrice(item.unitPrice)}
                 </p>
                 {item.itemNote ? <p className="mt-1 rounded-lg bg-[#f8f9fa] px-2 py-1 text-xs font-semibold text-[#5a625e]">{item.itemNote}</p> : null}
+                {item.pendingCancellationRequestId ? (
+                  <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-black text-amber-900">
+                    Cancellation requested for {item.pendingCancellationQuantity} item{item.pendingCancellationQuantity === 1 ? "" : "s"}
+                  </p>
+                ) : canRequestItemCancellation ? (
+                  <button
+                    type="button"
+                    onClick={() => setItemCancelRequest({ item, quantity: "1", reason: "" })}
+                    disabled={!customerDeviceToken}
+                    className="mt-2 inline-flex h-8 items-center gap-1 rounded-lg border border-red-100 bg-white px-2 text-xs font-black text-red-700 disabled:opacity-50"
+                  >
+                    <X className="h-3.5 w-3.5" aria-hidden="true" />
+                    Request cancel
+                  </button>
+                ) : null}
               </div>
               <p className="text-sm font-black text-[#001c11]">{formatPrice(item.lineTotal)}</p>
             </div>
@@ -379,6 +443,47 @@ export function OrderTrackingClient({
               </button>
             </div>
           )}
+        </div>
+      ) : null}
+
+      {itemCancelRequest ? (
+        <div className="fixed inset-0 z-50 grid place-items-end bg-black/45 px-4 py-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-xl">
+            <p className="text-base font-black text-[#001c11]">Request item cancellation</p>
+            <p className="mt-1 text-sm font-semibold text-[#5a625e]">{formatOrderItemName(itemCancelRequest.item.menuItemName, itemCancelRequest.item.variantName)}</p>
+            <div className="mt-4 grid gap-3">
+              <label className="grid gap-1 text-xs font-black uppercase text-[#5a625e]">
+                Quantity
+                <input
+                  type="number"
+                  min={1}
+                  max={itemCancelRequest.item.quantity}
+                  value={itemCancelRequest.quantity}
+                  onChange={(event) => setItemCancelRequest({ ...itemCancelRequest, quantity: event.target.value })}
+                  className="h-11 rounded-xl border border-[#d9e4df] px-3 text-sm font-black text-[#001c11] outline-none focus:border-[#006d36]"
+                />
+              </label>
+              <label className="grid gap-1 text-xs font-black uppercase text-[#5a625e]">
+                Reason
+                <textarea
+                  value={itemCancelRequest.reason}
+                  onChange={(event) => setItemCancelRequest({ ...itemCancelRequest, reason: event.target.value })}
+                  maxLength={300}
+                  placeholder="Required, for example: ordered by mistake"
+                  className="min-h-24 resize-none rounded-xl border border-[#d9e4df] px-3 py-3 text-sm font-semibold text-[#001c11] outline-none focus:border-[#006d36]"
+                />
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setItemCancelRequest(null)} disabled={savingItemRequestId === itemCancelRequest.item.orderItemId} className="h-11 rounded-xl border border-[#d9e4df] text-sm font-black text-[#001c11]">
+                  Keep item
+                </button>
+                <button type="button" onClick={() => void submitItemCancellationRequest()} disabled={savingItemRequestId === itemCancelRequest.item.orderItemId} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-red-600 text-sm font-black text-white disabled:opacity-60">
+                  {savingItemRequestId === itemCancelRequest.item.orderItemId ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+                  Send request
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       ) : null}
     </section>

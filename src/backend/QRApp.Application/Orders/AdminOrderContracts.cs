@@ -16,7 +16,11 @@ public sealed record AdminOrderItemResponse(
     int ActiveQuantity,
     decimal ActiveLineTotal,
     string? CancelledReason,
-    DateTime? CancelledAtUtc);
+    DateTime? CancelledAtUtc,
+    Guid? PendingCancellationRequestId,
+    int? PendingCancellationQuantity,
+    string? PendingCancellationReason,
+    DateTime? PendingCancellationRequestedAtUtc);
 
 public sealed record AdminOrderResponse(
     Guid OrderId,
@@ -42,3 +46,5 @@ public sealed record AdminOrderResponse(
 public sealed record UpdateAdminOrderStatusRequest(string OrderStatusCode, string? Reason = null);
 
 public sealed record CancelAdminOrderItemRequest(int Quantity, string? Reason);
+
+public sealed record RespondAdminOrderItemCancellationRequest(string Decision, string? Reason = null);

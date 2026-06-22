@@ -8,6 +8,7 @@ CREATE INDEX IF NOT EXISTS "IX_BranchOffers_BranchId_IsActive_DisplayOrder" ON "
 CREATE INDEX IF NOT EXISTS "IX_BranchTables_QrToken_IsActive" ON "BranchTables" ("QrToken", "IsActive") INCLUDE ("TableId", "TenantId", "BranchId", "Name");
 CREATE INDEX IF NOT EXISTS "IX_Orders_TenantId_BranchId_CreatedAtUtc" ON "Orders" ("TenantId", "BranchId", "CreatedAtUtc" DESC) INCLUDE ("TableId", "OrderStatusCode", "TotalAmount");
 CREATE INDEX IF NOT EXISTS "IX_OrderItems_OrderId" ON "OrderItems" ("OrderId") INCLUDE ("MenuItemId", "Quantity", "LineTotal");
+CREATE UNIQUE INDEX IF NOT EXISTS "UX_OrderItemCancellationRequests_PendingItem" ON "OrderItemCancellationRequests" ("TenantId", "BranchId", "OrderItemId") WHERE "StatusCode" = 'Pending';
 CREATE INDEX IF NOT EXISTS "IX_OrderStatusHistory_OrderId_CreatedAtUtc" ON "OrderStatusHistory" ("OrderId", "CreatedAtUtc" DESC);
 CREATE INDEX IF NOT EXISTS "IX_WaiterCalls_BranchId_Status_CreatedAtUtc" ON "WaiterCalls" ("BranchId", "StatusCode", "CreatedAtUtc" DESC);
 CREATE INDEX IF NOT EXISTS "IX_Customers_TenantId_BranchId_LastVisitAtUtc" ON "Customers" ("TenantId", "BranchId", "LastVisitAtUtc" DESC);

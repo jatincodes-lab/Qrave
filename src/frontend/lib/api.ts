@@ -457,6 +457,11 @@ export type CancelPublicQrOrderInput = {
   reason: string | null;
 };
 
+export type RequestPublicOrderItemCancellationInput = {
+  quantity: number;
+  reason: string;
+};
+
 export type PublicQrPromoCodeValidation = {
   promoCode: string;
   branchOfferId: string;
@@ -477,6 +482,10 @@ export type PublicQrOrderItem = {
   unitPrice: number;
   quantity: number;
   lineTotal: number;
+  pendingCancellationRequestId: string | null;
+  pendingCancellationQuantity: number | null;
+  pendingCancellationReason: string | null;
+  pendingCancellationRequestedAtUtc: string | null;
 };
 
 export type PublicQrOrder = {
@@ -587,6 +596,10 @@ export type AdminOrderItem = {
   activeLineTotal: number;
   cancelledReason: string | null;
   cancelledAtUtc: string | null;
+  pendingCancellationRequestId: string | null;
+  pendingCancellationQuantity: number | null;
+  pendingCancellationReason: string | null;
+  pendingCancellationRequestedAtUtc: string | null;
 };
 
 export type AdminOrder = {
@@ -1027,6 +1040,21 @@ export async function cancelPublicQrOrder(qrToken: string, orderId: string, devi
   });
 }
 
+export async function requestPublicOrderItemCancellation(
+  qrToken: string,
+  orderId: string,
+  orderItemId: string,
+  deviceToken: string,
+  input: RequestPublicOrderItemCancellationInput
+): Promise<PublicQrOrder> {
+  return request<PublicQrOrder>(`/api/v1/public/qr/${encodeURIComponent(qrToken)}/orders/${encodeURIComponent(orderId)}/items/${encodeURIComponent(orderItemId)}/cancel-request`, {
+    method: "POST",
+    body: input,
+    headers: { "X-Customer-Device-Token": deviceToken },
+    requireAuth: false
+  });
+}
+
 export async function getPublicOrderFeedback(qrToken: string, orderId: string): Promise<OrderFeedback | null> {
   return request<OrderFeedback | null>(`/api/v1/public/qr/${encodeURIComponent(qrToken)}/orders/${encodeURIComponent(orderId)}/feedback`, {
     method: "GET",
@@ -1289,6 +1317,19 @@ export async function cancelAdminOrderItem(
   return request<AdminOrder>(`/api/v1/admin/branches/${branchId}/orders/${orderId}/items/${orderItemId}/cancel`, {
     method: "POST",
     body: { quantity, reason },
+    requireAuth: true
+  });
+}
+
+export async function respondAdminOrderItemCancellationRequest(
+  branchId: string,
+  requestId: string,
+  decision: "Approved" | "Rejected",
+  reason: string | null = null
+): Promise<AdminOrder> {
+  return request<AdminOrder>(`/api/v1/admin/branches/${branchId}/orders/item-cancellation-requests/${requestId}/response`, {
+    method: "POST",
+    body: { decision, reason },
     requireAuth: true
   });
 }

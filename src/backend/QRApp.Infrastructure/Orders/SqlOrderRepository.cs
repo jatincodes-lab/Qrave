@@ -296,6 +296,43 @@ public sealed class SqlOrderRepository(INpgsqlConnectionFactory connectionFactor
             reader.GetDecimal(reader.GetOrdinal("DiscountAmount")));
     }
 
+    public async Task<PublicOrderResponse> RequestItemCancellationAsync(
+        string qrToken,
+        Guid orderId,
+        Guid orderItemId,
+        string tokenHash,
+        int quantity,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = (NpgsqlConnection)connectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand(StoredProcedures.PublicOrderRequestItemCancellation, connection)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+
+        command.AddString("@QrToken", qrToken, 80);
+        command.AddGuid("@OrderId", orderId);
+        command.AddGuid("@OrderItemId", orderItemId);
+        command.AddInt("@CancelQuantity", quantity);
+        command.AddString("@Reason", reason, 300);
+        command.AddString("@TokenHash", tokenHash, 64);
+
+        PublicOrderResponse order;
+        await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
+        {
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                throw new DataException("PublicOrder_RequestItemCancellation did not return an order row.");
+            }
+
+            order = ReadOrder(reader);
+        }
+
+        return order with { Items = await GetItemsByOrderAsync(connection, null, order.OrderId, cancellationToken) };
+    }
+
     private static async Task<OrderRecord?> GetOrderRecordByQrTokenAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
@@ -508,7 +545,11 @@ public sealed class SqlOrderRepository(INpgsqlConnectionFactory connectionFactor
             reader.GetString(reader.GetOrdinal("DietTypeCode")),
             reader.GetDecimal(reader.GetOrdinal("UnitPrice")),
             reader.GetInt32(reader.GetOrdinal("Quantity")),
-            reader.GetDecimal(reader.GetOrdinal("LineTotal")));
+            reader.GetDecimal(reader.GetOrdinal("LineTotal")),
+            GetNullableGuid(reader, "PendingCancellationRequestId"),
+            GetNullableInt(reader, "PendingCancellationQuantity"),
+            GetNullableString(reader, "PendingCancellationReason"),
+            GetNullableDateTime(reader, "PendingCancellationRequestedAtUtc"));
     }
 
     private static string? GetNullableString(NpgsqlDataReader reader, string name)
@@ -521,6 +562,18 @@ public sealed class SqlOrderRepository(INpgsqlConnectionFactory connectionFactor
     {
         var ordinal = reader.GetOrdinal(name);
         return reader.IsDBNull(ordinal) ? null : reader.GetGuid(ordinal);
+    }
+
+    private static int? GetNullableInt(NpgsqlDataReader reader, string name)
+    {
+        var ordinal = reader.GetOrdinal(name);
+        return reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
+    }
+
+    private static DateTime? GetNullableDateTime(NpgsqlDataReader reader, string name)
+    {
+        var ordinal = reader.GetOrdinal(name);
+        return reader.IsDBNull(ordinal) ? null : reader.GetDateTime(ordinal);
     }
 
     private sealed record OrderRecord(PublicOrderResponse Order, Guid? CustomerId);

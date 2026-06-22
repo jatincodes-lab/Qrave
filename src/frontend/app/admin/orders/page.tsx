@@ -18,6 +18,7 @@ import {
   getBranchBillingSettings,
   getOrderBill,
   getWaiterCalls,
+  respondAdminOrderItemCancellationRequest,
   updateAdminOrderStatus,
   updateOrderBillPaymentStatus,
   updateOrderBillRefundStatus,
@@ -78,6 +79,13 @@ type ItemActionDialogState = {
   reason: string;
 };
 
+type ItemCancellationRequestActionState = {
+  order: AdminOrder;
+  item: AdminOrderItem;
+  decision: "Approved" | "Rejected";
+  reason: string;
+};
+
 type OrderHistoryStatusFilter = "all" | "Completed" | "Cancelled";
 type OrdersViewTab = "active" | "history";
 
@@ -89,6 +97,7 @@ export default function AdminOrdersPage() {
   const [billDialog, setBillDialog] = useState<BillDialogState | null>(null);
   const [orderAction, setOrderAction] = useState<OrderActionDialogState | null>(null);
   const [itemAction, setItemAction] = useState<ItemActionDialogState | null>(null);
+  const [itemRequestAction, setItemRequestAction] = useState<ItemCancellationRequestActionState | null>(null);
   const [historySearch, setHistorySearch] = useState("");
   const [historyStatus, setHistoryStatus] = useState<OrderHistoryStatusFilter>("all");
   const [historyFromDate, setHistoryFromDate] = useState("");
@@ -341,6 +350,41 @@ export default function AdminOrdersPage() {
       workspace.handleApiError(caught);
     } finally {
       setSavingKey(null);
+    }
+  }
+
+  async function respondToItemCancellationRequest(order: AdminOrder, item: AdminOrderItem, decision: "Approved" | "Rejected", reason: string | null = null): Promise<boolean> {
+    if (!workspace.selectedBranch || !item.pendingCancellationRequestId) {
+      return false;
+    }
+
+    setSavingKey(item.pendingCancellationRequestId);
+    try {
+      const updated = await respondAdminOrderItemCancellationRequest(workspace.selectedBranch.branchId, item.pendingCancellationRequestId, decision, reason);
+      setOrdersSynced((current) => current.map((currentOrder) => (currentOrder.orderId === updated.orderId ? updated : currentOrder)));
+      return true;
+    } catch (caught) {
+      workspace.handleApiError(caught);
+      return false;
+    } finally {
+      setSavingKey(null);
+    }
+  }
+
+  async function confirmItemRequestAction() {
+    if (!itemRequestAction) {
+      return;
+    }
+
+    const reason = itemRequestAction.reason.trim();
+    if (itemRequestAction.decision === "Rejected" && !reason) {
+      workspace.setWorkspaceError("Rejection reason is required.");
+      return;
+    }
+
+    const wasUpdated = await respondToItemCancellationRequest(itemRequestAction.order, itemRequestAction.item, itemRequestAction.decision, reason || null);
+    if (wasUpdated) {
+      setItemRequestAction(null);
     }
   }
 
@@ -606,7 +650,23 @@ export default function AdminOrdersPage() {
                     ) : activeOrders.length === 0 ? (
                       <EmptyPanel title="No active orders" text="New QR orders will appear here." />
                     ) : (
-                      activeOrders.map((order) => <OrderCard key={order.orderId} order={order} savingKey={savingKey} onBill={openBill} onCancelItem={requestCancelOrderItem} onMove={requestMoveOrder} />)
+                      activeOrders.map((order) => (
+                        <OrderCard
+                          key={order.orderId}
+                          order={order}
+                          savingKey={savingKey}
+                          onBill={openBill}
+                          onCancelItem={requestCancelOrderItem}
+                          onMove={requestMoveOrder}
+                          onRespondCancellationRequest={(cardOrder, item, decision) => {
+                            if (decision === "Approved") {
+                              void respondToItemCancellationRequest(cardOrder, item, "Approved");
+                            } else {
+                              setItemRequestAction({ order: cardOrder, item, decision: "Rejected", reason: "" });
+                            }
+                          }}
+                        />
+                      ))
                     )}
                   </CardContent>
                 </Card>
@@ -675,6 +735,15 @@ export default function AdminOrdersPage() {
           onConfirm={confirmItemAction}
         />
       ) : null}
+      {itemRequestAction ? (
+        <ItemRequestActionDialog
+          action={itemRequestAction}
+          savingKey={savingKey}
+          onChange={setItemRequestAction}
+          onClose={() => setItemRequestAction(null)}
+          onConfirm={confirmItemRequestAction}
+        />
+      ) : null}
     </AdminShell>
   );
 }
@@ -736,13 +805,15 @@ function OrderCard({
   savingKey,
   onBill,
   onCancelItem,
-  onMove
+  onMove,
+  onRespondCancellationRequest
 }: {
   order: AdminOrder;
   savingKey: string | null;
   onBill: (order: AdminOrder) => void;
   onCancelItem: (order: AdminOrder, item: AdminOrderItem) => void;
   onMove: (order: AdminOrder, status: OrderStatusCode) => void;
+  onRespondCancellationRequest: (order: AdminOrder, item: AdminOrderItem, decision: "Approved" | "Rejected") => void;
 }) {
   const nextStatus = OrderNextStatus[order.orderStatusCode as OrderStatusCode];
   const canCancelItems = !["Completed", "Cancelled"].includes(order.orderStatusCode);
@@ -778,10 +849,25 @@ function OrderCard({
               </span>
               {cancelledQuantity > 0 ? <span className="ml-2 font-bold text-destructive">{cancelledQuantity} cancelled</span> : null}
               {item.itemNote ? <span className="ml-2 font-bold text-primary">Note: {item.itemNote}</span> : null}
+              {item.pendingCancellationRequestId ? (
+                <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-950">
+                  <p className="font-extrabold">Customer requested {item.pendingCancellationQuantity} cancellation{item.pendingCancellationQuantity === 1 ? "" : "s"}</p>
+                  {item.pendingCancellationReason ? <p className="mt-1 text-[11px] font-semibold">Reason: {item.pendingCancellationReason}</p> : null}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Button type="button" size="sm" className="h-8 px-2" disabled={savingKey === item.pendingCancellationRequestId} onClick={() => onRespondCancellationRequest(order, item, "Approved")}>
+                      {savingKey === item.pendingCancellationRequestId ? <Loader2 size={13} className="animate-spin" /> : null}
+                      Approve
+                    </Button>
+                    <Button type="button" size="sm" variant="outline" className="h-8 px-2 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={savingKey === item.pendingCancellationRequestId} onClick={() => onRespondCancellationRequest(order, item, "Rejected")}>
+                      Reject
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </div>
             <div className="flex items-center gap-2 sm:justify-end">
               <span className="font-bold text-on-surface">{formatMoney(item.activeLineTotal ?? item.lineTotal)}</span>
-              {canCancelItems && activeQuantity > 0 ? (
+              {canCancelItems && activeQuantity > 0 && !item.pendingCancellationRequestId ? (
                 <Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={savingKey === item.orderItemId} onClick={() => onCancelItem(order, item)}>
                   {savingKey === item.orderItemId ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />}
                   Cancel item
@@ -1370,6 +1456,77 @@ function ItemActionDialog({
           <Button type="button" variant="destructive" onClick={onConfirm} disabled={isSaving || isQuantityInvalid || reasonLength === 0 || reasonLength > 300} className="w-full sm:w-auto">
             {isSaving ? <Loader2 size={16} className="animate-spin" /> : <X size={16} />}
             Confirm cancel
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ItemRequestActionDialog({
+  action,
+  savingKey,
+  onChange,
+  onClose,
+  onConfirm
+}: {
+  action: ItemCancellationRequestActionState;
+  savingKey: string | null;
+  onChange: (action: ItemCancellationRequestActionState) => void;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const isSaving = savingKey === action.item.pendingCancellationRequestId;
+  const reasonLength = action.reason.trim().length;
+
+  return (
+    <Dialog>
+      <DialogContent className="max-w-lg overflow-hidden bg-white p-0">
+        <div className="border-b border-outline-variant/60 bg-surface-container-low px-5 py-4">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <span className="grid h-9 w-9 place-items-center rounded-full bg-destructive/10 text-destructive">
+                <X size={18} />
+              </span>
+              Reject cancellation request
+            </DialogTitle>
+            <DialogDescription>The customer request will stay in history as rejected.</DialogDescription>
+          </DialogHeader>
+        </div>
+
+        <div className="grid gap-4 p-5">
+          <div className="rounded-lg border border-outline-variant/70 bg-surface-container-low p-4">
+            <p className="break-words text-sm font-extrabold text-on-surface">{formatAdminOrderItemName(action.item.menuItemName, action.item.variantName)}</p>
+            <p className="mt-1 text-xs text-on-surface-variant">
+              Requested quantity: {action.item.pendingCancellationQuantity ?? 0}
+            </p>
+            {action.item.pendingCancellationReason ? <p className="mt-2 text-xs font-semibold text-on-surface">Customer reason: {action.item.pendingCancellationReason}</p> : null}
+          </div>
+
+          <div className="grid gap-1.5">
+            <div className="flex items-center justify-between gap-3">
+              <Label htmlFor="reject-item-request-reason">Rejection reason</Label>
+              <span className={`text-xs font-bold ${reasonLength > 300 ? "text-destructive" : "text-on-surface-variant"}`}>{reasonLength}/300</span>
+            </div>
+            <textarea
+              id="reject-item-request-reason"
+              value={action.reason}
+              onChange={(event) => onChange({ ...action, reason: event.target.value })}
+              placeholder="Required, for example: item is already preparing"
+              maxLength={320}
+              autoFocus
+              className="min-h-28 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm text-on-surface shadow-sm outline-none transition-colors placeholder:text-on-surface-variant/70 focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-2 border-t border-outline-variant/60 bg-white px-5 py-4 sm:flex sm:flex-row sm:justify-end">
+          <Button type="button" variant="outline" onClick={onClose} disabled={isSaving} className="w-full sm:w-auto">
+            Keep pending
+          </Button>
+          <Button type="button" variant="destructive" onClick={onConfirm} disabled={isSaving || reasonLength === 0 || reasonLength > 300} className="w-full sm:w-auto">
+            {isSaving ? <Loader2 size={16} className="animate-spin" /> : <X size={16} />}
+            Reject request
           </Button>
         </div>
       </DialogContent>

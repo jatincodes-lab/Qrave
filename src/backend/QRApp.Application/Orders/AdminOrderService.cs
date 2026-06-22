@@ -16,6 +16,12 @@ public sealed class AdminOrderService(IAdminOrderRepository repository) : IAdmin
         "Cancelled"
     };
 
+    private static readonly HashSet<string> AllowedRequestDecisions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Approved",
+        "Rejected"
+    };
+
     public Task<IReadOnlyCollection<AdminOrderResponse>> GetListByBranchAsync(
         Guid tenantId,
         Guid branchId,
@@ -87,6 +93,39 @@ public sealed class AdminOrderService(IAdminOrderRepository repository) : IAdmin
         }
 
         var order = await repository.CancelItemAsync(tenantId, branchId, orderId, orderItemId, request.Quantity, reason, changedByUserId, cancellationToken);
+        return OperationResult<AdminOrderResponse>.Success(order);
+    }
+
+    public async Task<OperationResult<AdminOrderResponse>> RespondItemCancellationRequestAsync(
+        Guid tenantId,
+        Guid branchId,
+        Guid requestId,
+        RespondAdminOrderItemCancellationRequest request,
+        Guid changedByUserId,
+        CancellationToken cancellationToken)
+    {
+        var decision = TextRules.CleanRequired(request.Decision);
+        if (!AllowedRequestDecisions.Contains(decision))
+        {
+            return OperationResult<AdminOrderResponse>.Failed(
+                new ValidationFailure(nameof(RespondAdminOrderItemCancellationRequest.Decision), "Cancellation request decision is invalid."));
+        }
+
+        var reason = TextRules.CleanOptional(request.Reason);
+        if (string.Equals(decision, "Rejected", StringComparison.OrdinalIgnoreCase) && string.IsNullOrWhiteSpace(reason))
+        {
+            return OperationResult<AdminOrderResponse>.Failed(
+                new ValidationFailure(nameof(RespondAdminOrderItemCancellationRequest.Reason), "Rejection reason is required."));
+        }
+
+        if (reason?.Length > 300)
+        {
+            return OperationResult<AdminOrderResponse>.Failed(
+                new ValidationFailure(nameof(RespondAdminOrderItemCancellationRequest.Reason), "Response reason cannot exceed 300 characters."));
+        }
+
+        var normalized = AllowedRequestDecisions.First(item => string.Equals(item, decision, StringComparison.OrdinalIgnoreCase));
+        var order = await repository.RespondItemCancellationRequestAsync(tenantId, branchId, requestId, normalized, reason, changedByUserId, cancellationToken);
         return OperationResult<AdminOrderResponse>.Success(order);
     }
 }

@@ -17,6 +17,8 @@ public sealed record ValidatePublicQrPromoCodeRequest(
 
 public sealed record CancelPublicQrOrderRequest(string? Reason = null);
 
+public sealed record RequestPublicOrderItemCancellationRequest(int Quantity, string? Reason);
+
 public enum PublicOrderCancelResultCode
 {
     Cancelled,
@@ -49,7 +51,11 @@ public sealed record PublicOrderItemResponse(
     string DietTypeCode,
     decimal UnitPrice,
     int Quantity,
-    decimal LineTotal);
+    decimal LineTotal,
+    Guid? PendingCancellationRequestId,
+    int? PendingCancellationQuantity,
+    string? PendingCancellationReason,
+    DateTime? PendingCancellationRequestedAtUtc);
 
 public sealed record PublicOrderResponse(
     Guid OrderId,

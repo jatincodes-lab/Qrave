@@ -17,6 +17,7 @@ public static class AdminOrderEndpoints
         group.MapGet("/branches/{branchId:guid}/orders", GetOrdersAsync);
         group.MapPut("/branches/{branchId:guid}/orders/{orderId:guid}/status", UpdateStatusAsync);
         group.MapPost("/branches/{branchId:guid}/orders/{orderId:guid}/items/{orderItemId:guid}/cancel", CancelItemAsync);
+        group.MapPost("/branches/{branchId:guid}/orders/item-cancellation-requests/{requestId:guid}/response", RespondItemCancellationRequestAsync);
         group.MapGet("/branches/{branchId:guid}/orders/{orderId:guid}/bill", GetBillAsync);
         group.MapPost("/branches/{branchId:guid}/orders/{orderId:guid}/bill", GenerateBillAsync);
         group.MapPut("/branches/{branchId:guid}/orders/{orderId:guid}/bill/payment-status", UpdateBillPaymentStatusAsync);
@@ -161,6 +162,59 @@ public static class AdminOrderEndpoints
         {
             loggerFactory.CreateLogger(nameof(AdminOrderEndpoints)).LogError(ex, "Failed to cancel item {OrderItemId} for order {OrderId}.", orderItemId, orderId);
             return ApiProblemResponses.ServerError("Order item could not be cancelled.");
+        }
+    }
+
+    private static async Task<IResult> RespondItemCancellationRequestAsync(
+        Guid branchId,
+        Guid requestId,
+        RespondAdminOrderItemCancellationRequest request,
+        ITenantContext tenantContext,
+        IAdminOrderService service,
+        IAdminNotificationService notificationService,
+        IAdminOrderRealtimeNotifier realtimeNotifier,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await service.RespondItemCancellationRequestAsync(tenantContext.TenantId, branchId, requestId, request, tenantContext.UserId, cancellationToken);
+            if (!result.IsSuccess)
+            {
+                return ApiProblemResponses.Validation(result.Errors);
+            }
+
+            try
+            {
+                await notificationService.CreateAsync(
+                    tenantContext.TenantId,
+                    new CreateAdminNotificationRequest(
+                        branchId,
+                        "order-item-cancel-request-responded",
+                        "Cancellation request updated",
+                        $"Item cancellation request was {request.Decision}.",
+                        "/admin/orders"),
+                    cancellationToken);
+            }
+            catch (Exception notificationException)
+            {
+                loggerFactory.CreateLogger(nameof(AdminOrderEndpoints)).LogWarning(notificationException, "Item cancellation request {RequestId} was updated, but its admin notification could not be stored.", requestId);
+            }
+
+            await realtimeNotifier.OrderStatusUpdatedAsync(result.Value!, cancellationToken);
+            return Results.Ok(result.Value);
+        }
+        catch (Exception ex)
+        when (ex is PostgresException)
+        {
+            var postgresException = (PostgresException)ex;
+            loggerFactory.CreateLogger(nameof(AdminOrderEndpoints)).LogWarning(postgresException, "Database rejected item cancellation request response for request {RequestId}.", requestId);
+            return SqlProblemMapper.ToProblem(postgresException);
+        }
+        catch (Exception ex)
+        {
+            loggerFactory.CreateLogger(nameof(AdminOrderEndpoints)).LogError(ex, "Failed to respond to item cancellation request {RequestId}.", requestId);
+            return ApiProblemResponses.ServerError("Item cancellation request could not be updated.");
         }
     }
 

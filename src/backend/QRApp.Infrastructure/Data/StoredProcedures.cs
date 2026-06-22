@@ -50,6 +50,7 @@ internal static class StoredProcedures
     public const string PublicOrderCreateFromQrToken = "public.publicorder_createfromqrtoken";
     public const string PublicOrderGetByQrToken = "public.publicorder_getbyqrtoken";
     public const string PublicOrderGetItemsByOrder = "public.publicorder_getitemsbyorder";
+    public const string PublicOrderRequestItemCancellation = "public.publicorder_requestitemcancellation";
     public const string OrderFeedbackCreateFromQrToken = "public.orderfeedback_createfromqrtoken";
     public const string OrderFeedbackGetByQrToken = "public.orderfeedback_getbyqrtoken";
     public const string AdminFeedbackGetList = "public.adminfeedback_getlist";
@@ -60,6 +61,7 @@ internal static class StoredProcedures
     public const string AdminOrderGetItemsByBranch = "public.adminorder_getitemsbybranch";
     public const string AdminOrderUpdateStatus = "public.adminorder_updatestatus";
     public const string AdminOrderCancelItem = "public.adminorder_cancelitem";
+    public const string AdminOrderRespondItemCancellationRequest = "public.adminorder_responditemcancellationrequest";
     public const string BranchBillingSettingsGetByBranch = "public.branchbillingsettings_getbybranch";
     public const string BranchBillingSettingsSave = "public.branchbillingsettings_save";
     public const string OrderBillGetByOrder = "public.orderbill_getbyorder";

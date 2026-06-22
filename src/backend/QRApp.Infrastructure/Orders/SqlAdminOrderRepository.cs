@@ -131,6 +131,47 @@ public sealed class SqlAdminOrderRepository(INpgsqlConnectionFactory connectionF
         };
     }
 
+    public async Task<AdminOrderResponse> RespondItemCancellationRequestAsync(
+        Guid tenantId,
+        Guid branchId,
+        Guid requestId,
+        string decision,
+        string? reason,
+        Guid changedByUserId,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = (NpgsqlConnection)connectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand(StoredProcedures.AdminOrderRespondItemCancellationRequest, connection)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+
+        command.AddGuid("@TenantId", tenantId);
+        command.AddGuid("@BranchId", branchId);
+        command.AddGuid("@RequestId", requestId);
+        command.AddString("@Decision", decision, 32);
+        command.AddString("@Reason", reason, 300);
+        command.AddGuid("@ChangedByUserId", changedByUserId);
+
+        AdminOrderResponse order;
+        await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
+        {
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                throw new DataException("AdminOrder_RespondItemCancellationRequest did not return an order row.");
+            }
+
+            order = ReadOrder(reader, Array.Empty<AdminOrderItemResponse>());
+        }
+
+        var itemsByOrderId = await GetItemsByBranchAsync(connection, tenantId, branchId, cancellationToken);
+        return order with
+        {
+            Items = itemsByOrderId.TryGetValue(order.OrderId, out var items) ? items : Array.Empty<AdminOrderItemResponse>()
+        };
+    }
+
     private static async Task<Dictionary<Guid, AdminOrderItemResponse[]>> GetItemsByBranchAsync(
         NpgsqlConnection connection,
         Guid tenantId,
@@ -199,7 +240,11 @@ public sealed class SqlAdminOrderRepository(INpgsqlConnectionFactory connectionF
             reader.GetInt32(reader.GetOrdinal("ActiveQuantity")),
             reader.GetDecimal(reader.GetOrdinal("ActiveLineTotal")),
             GetNullableString(reader, "CancelledReason"),
-            GetNullableDateTime(reader, "CancelledAtUtc"));
+            GetNullableDateTime(reader, "CancelledAtUtc"),
+            GetNullableGuid(reader, "PendingCancellationRequestId"),
+            GetNullableInt(reader, "PendingCancellationQuantity"),
+            GetNullableString(reader, "PendingCancellationReason"),
+            GetNullableDateTime(reader, "PendingCancellationRequestedAtUtc"));
     }
 
     private static string? GetNullableString(NpgsqlDataReader reader, string name)
@@ -218,5 +263,11 @@ public sealed class SqlAdminOrderRepository(INpgsqlConnectionFactory connectionF
     {
         var ordinal = reader.GetOrdinal(name);
         return reader.IsDBNull(ordinal) ? null : reader.GetDateTime(ordinal);
+    }
+
+    private static int? GetNullableInt(NpgsqlDataReader reader, string name)
+    {
+        var ordinal = reader.GetOrdinal(name);
+        return reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
     }
 }

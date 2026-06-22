@@ -117,6 +117,62 @@ public sealed class OrderService(IOrderRepository repository) : IOrderService
         return OperationResult<PublicOrderCancelResult>.Success(result);
     }
 
+    public async Task<OperationResult<PublicOrderResponse>> RequestItemCancellationAsync(
+        string qrToken,
+        Guid orderId,
+        Guid orderItemId,
+        string deviceToken,
+        RequestPublicOrderItemCancellationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var cleanToken = TextRules.CleanRequired(qrToken);
+        var cleanDeviceToken = TextRules.CleanRequired(deviceToken);
+        var cleanReason = CleanOptional(request.Reason);
+        var errors = new List<ValidationFailure>();
+
+        if (cleanToken.Length is < MinQrTokenLength or > MaxQrTokenLength)
+        {
+            errors.Add(new ValidationFailure("QrToken", "QR token is invalid."));
+        }
+
+        if (orderId == Guid.Empty)
+        {
+            errors.Add(new ValidationFailure(nameof(orderId), "Order is required."));
+        }
+
+        if (orderItemId == Guid.Empty)
+        {
+            errors.Add(new ValidationFailure(nameof(orderItemId), "Order item is required."));
+        }
+
+        if (cleanDeviceToken.Length != DeviceTokenLength)
+        {
+            errors.Add(new ValidationFailure(nameof(deviceToken), "Customer access token is invalid."));
+        }
+
+        if (request.Quantity <= 0)
+        {
+            errors.Add(new ValidationFailure(nameof(RequestPublicOrderItemCancellationRequest.Quantity), "Cancellation quantity must be greater than zero."));
+        }
+
+        if (string.IsNullOrWhiteSpace(cleanReason))
+        {
+            errors.Add(new ValidationFailure(nameof(RequestPublicOrderItemCancellationRequest.Reason), "Cancellation reason is required."));
+        }
+        else if (cleanReason.Length > MaxCancellationReasonLength)
+        {
+            errors.Add(new ValidationFailure(nameof(RequestPublicOrderItemCancellationRequest.Reason), "Cancellation reason cannot exceed 300 characters."));
+        }
+
+        if (errors.Count > 0)
+        {
+            return OperationResult<PublicOrderResponse>.Failed(errors.ToArray());
+        }
+
+        var order = await repository.RequestItemCancellationAsync(cleanToken, orderId, orderItemId, HashToken(cleanDeviceToken), request.Quantity, cleanReason!, cancellationToken);
+        return OperationResult<PublicOrderResponse>.Success(order);
+    }
+
     public async Task<OperationResult<PublicQrPromoCodeValidationResponse>> ValidatePromoCodeAsync(
         string qrToken,
         Guid qrSessionId,
