@@ -638,7 +638,7 @@ function OrdersTabs({
 
   return (
     <section className="rounded-xl border border-outline-variant/70 bg-white p-1.5 shadow-sm">
-      <div className="grid gap-1.5 sm:grid-cols-2" role="tablist" aria-label="Orders view">
+      <div className="grid grid-cols-2 gap-1.5" role="tablist" aria-label="Orders view">
         {tabs.map((tab) => {
           const isSelected = selectedTab === tab.value;
 
@@ -648,7 +648,7 @@ function OrdersTabs({
               type="button"
               role="tab"
               aria-selected={isSelected}
-              className={`flex h-12 items-center justify-center gap-2 rounded-lg px-3 text-sm font-extrabold transition-colors ${
+              className={`flex h-12 min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 text-sm font-extrabold transition-colors sm:gap-2 sm:px-3 ${
                 isSelected
                   ? "bg-primary text-on-primary shadow-sm"
                   : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container"
@@ -656,7 +656,7 @@ function OrdersTabs({
               onClick={() => onSelect(tab.value)}
             >
               {tab.icon}
-              <span>{tab.label}</span>
+              <span className="min-w-0 truncate">{tab.label}</span>
               <span
                 className={`rounded-full px-2 py-0.5 text-xs ${
                   isSelected ? "bg-white/20 text-on-primary" : "bg-white text-on-surface"
