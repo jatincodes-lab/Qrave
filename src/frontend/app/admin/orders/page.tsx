@@ -1094,12 +1094,12 @@ function BillDialog({
                   <div className="flex items-center justify-between gap-3 border-b border-outline-variant/40 px-4 py-3">
                     <div>
                       <p className="text-sm font-extrabold text-on-surface">Order items</p>
-                      <p className="mt-0.5 text-xs text-on-surface-variant">{state.order.items.length} line items</p>
+                <p className="mt-0.5 text-xs text-on-surface-variant">{getActiveAdminOrderItems(state.order).length} billable line items</p>
                     </div>
                     <Badge variant="outline">{state.order.orderStatusCode}</Badge>
                   </div>
                   <div className="divide-y divide-outline-variant/30">
-                    {state.order.items.map((item) => (
+                    {getActiveAdminOrderItems(state.order).map((item) => (
                       <div key={item.orderItemId} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3">
                         <div className="min-w-0">
                           <p className="break-words text-sm font-bold text-on-surface">{formatAdminOrderItemName(item.menuItemName, item.variantName)}</p>
@@ -1329,7 +1329,7 @@ function OrderActionDialog({
             <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
               <div>
                 <p className="text-xs font-bold uppercase tracking-normal text-on-surface-variant">Items</p>
-                <p className="mt-1 font-extrabold text-on-surface">{action.order.items.length}</p>
+                <p className="mt-1 font-extrabold text-on-surface">{getActiveAdminOrderItems(action.order).length}</p>
               </div>
               <div className="text-right">
                 <p className="text-xs font-bold uppercase tracking-normal text-on-surface-variant">Value</p>
@@ -1580,6 +1580,10 @@ function getCancelledItemQuantity(item: AdminOrderItem): number {
 
 function getActiveItemQuantity(item: AdminOrderItem): number {
   return Math.max(0, item.activeQuantity ?? item.quantity - getCancelledItemQuantity(item));
+}
+
+function getActiveAdminOrderItems(order: AdminOrder): AdminOrderItem[] {
+  return order.items.filter((item) => getActiveItemQuantity(item) > 0);
 }
 
 function DietTypeBadge({ dietTypeCode }: { dietTypeCode: DietTypeCode }) {

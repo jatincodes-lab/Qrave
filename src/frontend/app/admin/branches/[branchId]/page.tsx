@@ -2250,10 +2250,10 @@ function KitchenOrderCard({
       </div>
 
       <div className="mt-3 divide-y divide-outline-variant/30 border-t border-outline-variant/30">
-        {order.items.map((item) => (
+        {order.items.filter((item) => getActiveOrderItemQuantity(item) > 0).map((item) => (
           <div key={item.orderItemId} className="flex items-center justify-between gap-3 py-2 text-sm">
             <span className="min-w-0 break-words font-semibold text-on-surface">{formatAdminOrderItemName(item.menuItemName, item.variantName)}</span>
-            <span className="shrink-0 text-on-surface-variant">x{item.quantity}</span>
+            <span className="shrink-0 text-on-surface-variant">x{getActiveOrderItemQuantity(item)}</span>
           </div>
         ))}
       </div>
@@ -2894,6 +2894,10 @@ function matchesOrderHistoryFilters(
     .toLowerCase();
 
   return haystack.includes(query);
+}
+
+function getActiveOrderItemQuantity(item: AdminOrder["items"][number]): number {
+  return Math.max(0, item.activeQuantity ?? item.quantity - Math.max(0, item.cancelledQuantity ?? 0));
 }
 
 function playKitchenAlert(): void {

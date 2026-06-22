@@ -343,19 +343,24 @@ function buildTopItems(orders: AdminOrder[]): TopItemDatum[] {
   orders
     .filter((order) => order.orderStatusCode !== "Cancelled")
     .flatMap((order) => order.items)
+    .filter((item) => getActiveItemQuantity(item) > 0)
     .forEach((item) => {
       const name = item.variantName ? `${item.menuItemName} - ${item.variantName}` : item.menuItemName;
       const existing = totals.get(name) ?? { name, quantity: 0, value: 0 };
       totals.set(name, {
         name,
-        quantity: existing.quantity + item.quantity,
-        value: existing.value + item.lineTotal
+        quantity: existing.quantity + getActiveItemQuantity(item),
+        value: existing.value + (item.activeLineTotal ?? item.lineTotal)
       });
     });
 
   return [...totals.values()]
     .sort((left, right) => right.quantity - left.quantity || right.value - left.value)
     .slice(0, 6);
+}
+
+function getActiveItemQuantity(item: AdminOrder["items"][number]): number {
+  return Math.max(0, item.activeQuantity ?? item.quantity - Math.max(0, item.cancelledQuantity ?? 0));
 }
 
 function buildDonutSegments(data: ChartDatum[], total: number) {

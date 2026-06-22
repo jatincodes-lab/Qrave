@@ -641,7 +641,7 @@ SELECT
     bo."CustomerWhatsApp",
     bo."Notes",
     bo."TotalAmount",
-    COUNT(oi."OrderItemId")::integer,
+    COUNT(oi."OrderItemId") FILTER (WHERE (oi."Quantity" - COALESCE(oi."CancelledQuantity",0)) > 0)::integer,
     bo."CreatedAtUtc",
     bo."UpdatedAtUtc",
     bo."AcceptedAtUtc",
@@ -837,6 +837,26 @@ LANGUAGE sql STABLE AS $$
     WHERE o."TenantId"=p_tenantid AND (p_branchid IS NULL OR o."BranchId"=p_branchid) AND (oi."Quantity" - oi."CancelledQuantity") > 0
     GROUP BY oi."MenuItemName",oi."VariantName"
     ORDER BY SUM(round(oi."UnitPrice" * (oi."Quantity" - oi."CancelledQuantity"),2)) DESC;
+$$;
+
+CREATE OR REPLACE FUNCTION public.report_orderitemsbyorder(p_tenantid uuid,p_orderid uuid)
+RETURNS TABLE("OrderItemId" uuid,"MenuItemId" uuid,"MenuItemVariantId" uuid,"MenuItemName" varchar,"VariantName" varchar,"ItemNote" varchar,"DietTypeCode" varchar,"UnitPrice" numeric,"Quantity" integer,"LineTotal" numeric)
+LANGUAGE sql STABLE AS $$
+    SELECT oi."OrderItemId",
+           oi."MenuItemId",
+           oi."MenuItemVariantId",
+           oi."MenuItemName",
+           oi."VariantName",
+           oi."ItemNote",
+           oi."DietTypeCode",
+           oi."UnitPrice",
+           (oi."Quantity" - COALESCE(oi."CancelledQuantity",0))::integer,
+           round(oi."UnitPrice" * (oi."Quantity" - COALESCE(oi."CancelledQuantity",0)),2)
+    FROM "OrderItems" oi
+    WHERE oi."TenantId"=p_tenantid
+      AND oi."OrderId"=p_orderid
+      AND (oi."Quantity" - COALESCE(oi."CancelledQuantity",0)) > 0
+    ORDER BY oi."RowId";
 $$;
 """;
 
