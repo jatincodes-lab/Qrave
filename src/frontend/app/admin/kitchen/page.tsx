@@ -7,7 +7,7 @@ import { AdminShell } from "../../../components/admin-shell";
 import { EmptyBranchState, MetricCard, PageError, PageLoading } from "../../../components/admin-page-common";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
-import { getAdminOrders, updateAdminOrderStatus, type AdminOrder, type BranchListItem, type DietTypeCode, type OrderStatusCode } from "../../../lib/api";
+import { getAdminOrders, updateAdminOrderStatus, type AdminOrder, type AdminOrderItem, type BranchListItem, type DietTypeCode, type OrderStatusCode } from "../../../lib/api";
 import { useAdminWorkspace } from "../../../lib/admin-workspace";
 import { createAdminOrderConnection, stopConnection, type AdminOrderRealtimeEvent } from "../../../lib/realtime";
 
@@ -133,9 +133,8 @@ export default function AdminKitchenPage() {
         window.setTimeout(() => setNewOrderNotice(false), 7_000);
       }
 
-      if (event.orderStatusCode === "Accepted" || !patchOrderStatus(event.orderId, event.orderStatusCode)) {
-        void loadOrders(branchId, { silent: true });
-      }
+      patchOrderStatus(event.orderId, event.orderStatusCode);
+      void loadOrders(branchId, { silent: true });
     }
   }
 
@@ -329,6 +328,7 @@ function KitchenTicket({
 }) {
   const nextStatus = KitchenNextStatus[order.orderStatusCode as OrderStatusCode];
   const minutesWaiting = Math.max(0, Math.round((Date.now() - new Date(order.createdAtUtc).getTime()) / 60000));
+  const activeItems = getKitchenActiveItems(order);
 
   return (
     <article className="rounded-lg border border-outline-variant/70 bg-white p-4 shadow-sm">
@@ -341,15 +341,17 @@ function KitchenTicket({
       </div>
 
       <div className="mt-4 divide-y divide-outline-variant/40 rounded-lg border border-outline-variant/50">
-        {order.items.map((item) => (
+        {activeItems.length > 0 ? activeItems.map((item) => (
           <div key={item.orderItemId} className="grid gap-1 p-3">
             <p className="text-sm font-extrabold text-on-surface">
-              {item.quantity}x {formatKitchenItemName(item.menuItemName, item.variantName)}
+              {getKitchenActiveQuantity(item)}x {formatKitchenItemName(item.menuItemName, item.variantName)}
             </p>
             <DietTypeBadge dietTypeCode={item.dietTypeCode} />
             {item.itemNote ? <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-950">Note: {item.itemNote}</p> : null}
           </div>
-        ))}
+        )) : (
+          <div className="p-3 text-xs font-bold text-on-surface-variant">All items on this ticket were cancelled.</div>
+        )}
       </div>
 
       {order.notes ? <p className="mt-3 rounded-lg bg-surface-container-low p-3 text-xs font-semibold text-on-surface-variant">Order note: {order.notes}</p> : null}
@@ -371,6 +373,14 @@ function KitchenTicket({
 
 function formatKitchenItemName(name: string, variantName: string | null): string {
   return variantName ? `${name} - ${variantName}` : name;
+}
+
+function getKitchenActiveQuantity(item: AdminOrderItem): number {
+  return Math.max(0, item.activeQuantity ?? item.quantity - Math.max(0, item.cancelledQuantity ?? 0));
+}
+
+function getKitchenActiveItems(order: AdminOrder): AdminOrderItem[] {
+  return order.items.filter((item) => getKitchenActiveQuantity(item) > 0);
 }
 
 function DietTypeBadge({ dietTypeCode }: { dietTypeCode: DietTypeCode }) {
@@ -417,11 +427,12 @@ function escapeHtml(value: string): string {
 
 function buildKotPrintHtml(branch: BranchListItem, order: AdminOrder): string {
   const branchAddress = [branch.addressLine1, branch.addressLine2, branch.city, branch.state, branch.postalCode].filter(Boolean).join(", ");
-  const rows = order.items.length > 0
-    ? order.items
+  const activeItems = getKitchenActiveItems(order);
+  const rows = activeItems.length > 0
+    ? activeItems
         .map(
           (item) => `<div class="item">
-            <div class="qty">${item.quantity}x</div>
+            <div class="qty">${getKitchenActiveQuantity(item)}x</div>
             <div class="details">
               <p>${escapeHtml(`${formatKitchenItemName(item.menuItemName, item.variantName)}${formatDietTypeSuffix(item.dietTypeCode)}`)}</p>
               ${item.itemNote ? `<strong>NOTE: ${escapeHtml(item.itemNote)}</strong>` : ""}
