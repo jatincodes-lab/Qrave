@@ -329,6 +329,7 @@ CREATE TABLE IF NOT EXISTS "AdminNotifications" (
     "TypeCode" varchar(40) NOT NULL,
     "Title" varchar(160) NOT NULL,
     "Message" varchar(500) NOT NULL,
+    "TargetUrl" varchar(500) NOT NULL DEFAULT '/admin',
     "EntityType" varchar(80) NULL,
     "EntityId" uuid NULL,
     "IsRead" boolean NOT NULL DEFAULT false,

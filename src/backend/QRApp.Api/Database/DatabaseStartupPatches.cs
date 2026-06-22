@@ -92,6 +92,9 @@ CREATE INDEX IF NOT EXISTS "IX_SuperAdminAuditEntries_TenantId_CreatedAtUtc" ON 
 CREATE INDEX IF NOT EXISTS "IX_SuperAdminAuditEntries_CreatedAtUtc" ON "SuperAdminAuditEntries" ("CreatedAtUtc" DESC);
 CREATE INDEX IF NOT EXISTS "IX_SuperAdminInternalNotes_TenantId_CreatedAtUtc" ON "SuperAdminInternalNotes" ("TenantId", "CreatedAtUtc" DESC);
 
+ALTER TABLE "AdminNotifications"
+ADD COLUMN IF NOT EXISTS "TargetUrl" varchar(500) NOT NULL DEFAULT '/admin';
+
 DROP FUNCTION IF EXISTS public.publicorder_getitemsbyorder(uuid);
 
 CREATE OR REPLACE FUNCTION public.tenant_public_access_allowed(p_tenantid uuid)
