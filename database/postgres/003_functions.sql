@@ -648,8 +648,140 @@ CREATE OR REPLACE FUNCTION public.publiccustomer_lookupbyqrtoken(p_qrtoken text,
 CREATE OR REPLACE FUNCTION public.publiccustomer_recentordersbycustomer(p_customerid uuid) RETURNS TABLE("OrderId" uuid,"CreatedAtUtc" timestamptz,"TotalAmount" numeric) LANGUAGE sql STABLE AS $$ SELECT o."OrderId",o."CreatedAtUtc",o."TotalAmount" FROM "Orders" o WHERE o."CustomerId"=p_customerid ORDER BY o."CreatedAtUtc" DESC LIMIT 5; $$;
 CREATE OR REPLACE FUNCTION public.publiccustomer_recentorderitemsbycustomer(p_customerid uuid) RETURNS TABLE("OrderId" uuid,"MenuItemId" uuid,"MenuItemVariantId" uuid,"MenuItemName" varchar,"VariantName" varchar,"ItemNote" varchar,"DietTypeCode" varchar,"Quantity" integer) LANGUAGE sql STABLE AS $$ SELECT oi."OrderId",oi."MenuItemId",oi."MenuItemVariantId",oi."MenuItemName",oi."VariantName",oi."ItemNote",oi."DietTypeCode",oi."Quantity" FROM "OrderItems" oi JOIN (SELECT o."OrderId" FROM "Orders" o WHERE o."CustomerId"=p_customerid ORDER BY o."CreatedAtUtc" DESC LIMIT 5) recent ON recent."OrderId"=oi."OrderId" ORDER BY oi."RowId"; $$;
 
-CREATE OR REPLACE FUNCTION public.report_orders(p_tenantid uuid,p_branchid uuid,p_datefrom timestamptz,p_dateto timestamptz,p_statuscode text,p_search text) RETURNS TABLE("OrderId" uuid,"BranchId" uuid,"BranchName" varchar,"TableId" uuid,"TableName" varchar,"OrderStatusCode" varchar,"CustomerName" varchar,"CustomerWhatsApp" varchar,"Notes" varchar,"TotalAmount" numeric,"ItemCount" integer,"CreatedAtUtc" timestamptz,"UpdatedAtUtc" timestamptz,"AcceptedAtUtc" timestamptz,"PreparingAtUtc" timestamptz,"ReadyAtUtc" timestamptz,"ServedAtUtc" timestamptz,"CompletedAtUtc" timestamptz,"CancelledAtUtc" timestamptz,"LatestReason" varchar) LANGUAGE sql STABLE AS $$ SELECT o."OrderId",o."BranchId",b."Name",o."TableId",bt."Name",o."OrderStatusCode",o."CustomerName",o."CustomerWhatsApp",o."Notes",o."TotalAmount",COUNT(oi."OrderItemId")::integer,o."CreatedAtUtc",o."UpdatedAtUtc",NULL::timestamptz,NULL::timestamptz,NULL::timestamptz,NULL::timestamptz,NULL::timestamptz,NULL::timestamptz,NULL::varchar FROM "Orders" o JOIN "Branches" b ON b."BranchId"=o."BranchId" JOIN "BranchTables" bt ON bt."TableId"=o."TableId" LEFT JOIN "OrderItems" oi ON oi."OrderId"=o."OrderId" WHERE o."TenantId"=p_tenantid AND (p_branchid IS NULL OR o."BranchId"=p_branchid) AND (p_datefrom IS NULL OR o."CreatedAtUtc">=p_datefrom) AND (p_dateto IS NULL OR o."CreatedAtUtc"<p_dateto) AND (p_statuscode IS NULL OR o."OrderStatusCode"=p_statuscode) AND (p_search IS NULL OR o."CustomerName" ILIKE '%'||p_search||'%' OR o."CustomerWhatsApp" ILIKE '%'||p_search||'%') GROUP BY o."OrderId",b."Name",bt."Name" ORDER BY o."CreatedAtUtc" DESC LIMIT 500; $$;
-CREATE OR REPLACE FUNCTION public.report_ordersummary(p_tenantid uuid,p_branchid uuid,p_datefrom timestamptz,p_dateto timestamptz,p_statuscode text,p_search text) RETURNS TABLE("TotalOrders" integer,"CompletedOrders" integer,"CancelledOrders" integer,"TotalOrderValue" numeric,"AverageOrderValue" numeric,"AverageReadyMinutes" numeric) LANGUAGE sql STABLE AS $$ SELECT COUNT(*)::integer,COUNT(*) FILTER (WHERE "OrderStatusCode"='Completed')::integer,COUNT(*) FILTER (WHERE "OrderStatusCode" IN ('Cancelled','Void'))::integer,COALESCE(SUM("TotalAmount"),0),COALESCE(AVG("TotalAmount"),0),0::numeric FROM "Orders" WHERE "TenantId"=p_tenantid AND (p_branchid IS NULL OR "BranchId"=p_branchid); $$;
+CREATE OR REPLACE FUNCTION public.report_orders(p_tenantid uuid,p_branchid uuid,p_datefrom timestamptz,p_dateto timestamptz,p_statuscode text,p_search text)
+RETURNS TABLE("OrderId" uuid,"BranchId" uuid,"BranchName" varchar,"TableId" uuid,"TableName" varchar,"OrderStatusCode" varchar,"CustomerName" varchar,"CustomerWhatsApp" varchar,"Notes" varchar,"TotalAmount" numeric,"ItemCount" integer,"CreatedAtUtc" timestamptz,"UpdatedAtUtc" timestamptz,"AcceptedAtUtc" timestamptz,"PreparingAtUtc" timestamptz,"ReadyAtUtc" timestamptz,"ServedAtUtc" timestamptz,"CompletedAtUtc" timestamptz,"CancelledAtUtc" timestamptz,"LatestReason" varchar)
+LANGUAGE sql STABLE AS $$
+WITH status_rollup AS (
+    SELECT
+        h."OrderId",
+        MIN(h."CreatedAtUtc") FILTER (WHERE h."StatusCode"='Accepted') AS "AcceptedAtUtc",
+        MIN(h."CreatedAtUtc") FILTER (WHERE h."StatusCode"='Preparing') AS "PreparingAtUtc",
+        MIN(h."CreatedAtUtc") FILTER (WHERE h."StatusCode"='Ready') AS "ReadyAtUtc",
+        MIN(h."CreatedAtUtc") FILTER (WHERE h."StatusCode"='Served') AS "ServedAtUtc",
+        MIN(h."CreatedAtUtc") FILTER (WHERE h."StatusCode"='Completed') AS "CompletedAtUtc",
+        MAX(h."CreatedAtUtc") FILTER (WHERE h."StatusCode" IN ('Cancelled','Void')) AS "CancelledAtUtc",
+        (array_agg(NULLIF(btrim(h."Reason"), '') ORDER BY h."CreatedAtUtc" DESC) FILTER (WHERE NULLIF(btrim(h."Reason"), '') IS NOT NULL))[1]::varchar AS "LatestReason"
+    FROM "OrderStatusHistory" h
+    WHERE h."TenantId"=p_tenantid
+    GROUP BY h."OrderId"
+),
+base_orders AS (
+    SELECT
+        o."OrderId",
+        o."BranchId",
+        b."Name" AS "BranchName",
+        o."TableId",
+        bt."Name" AS "TableName",
+        o."OrderStatusCode",
+        o."CustomerName",
+        o."CustomerWhatsApp",
+        o."Notes",
+        o."TotalAmount",
+        o."CreatedAtUtc",
+        o."UpdatedAtUtc",
+        sr."AcceptedAtUtc",
+        sr."PreparingAtUtc",
+        sr."ReadyAtUtc",
+        sr."ServedAtUtc",
+        sr."CompletedAtUtc",
+        sr."CancelledAtUtc",
+        sr."LatestReason",
+        CASE
+            WHEN lower(COALESCE(p_statuscode,'')) IN ('cancelled','void') THEN COALESCE(sr."CancelledAtUtc",o."UpdatedAtUtc",o."CreatedAtUtc")
+            WHEN lower(COALESCE(p_statuscode,''))='completed' THEN COALESCE(sr."CompletedAtUtc",o."UpdatedAtUtc",o."CreatedAtUtc")
+            ELSE o."CreatedAtUtc"
+        END AS "ReportAtUtc"
+    FROM "Orders" o
+    JOIN "Branches" b ON b."BranchId"=o."BranchId"
+    JOIN "BranchTables" bt ON bt."TableId"=o."TableId"
+    LEFT JOIN status_rollup sr ON sr."OrderId"=o."OrderId"
+    WHERE o."TenantId"=p_tenantid
+      AND (p_branchid IS NULL OR o."BranchId"=p_branchid)
+      AND (p_statuscode IS NULL OR lower(o."OrderStatusCode")=lower(p_statuscode))
+)
+SELECT
+    bo."OrderId",
+    bo."BranchId",
+    bo."BranchName",
+    bo."TableId",
+    bo."TableName",
+    bo."OrderStatusCode",
+    bo."CustomerName",
+    bo."CustomerWhatsApp",
+    bo."Notes",
+    bo."TotalAmount",
+    COUNT(oi."OrderItemId")::integer,
+    bo."CreatedAtUtc",
+    bo."UpdatedAtUtc",
+    bo."AcceptedAtUtc",
+    bo."PreparingAtUtc",
+    bo."ReadyAtUtc",
+    bo."ServedAtUtc",
+    bo."CompletedAtUtc",
+    bo."CancelledAtUtc",
+    bo."LatestReason"
+FROM base_orders bo
+LEFT JOIN "OrderItems" oi ON oi."OrderId"=bo."OrderId"
+WHERE (p_datefrom IS NULL OR bo."ReportAtUtc">=p_datefrom)
+  AND (p_dateto IS NULL OR bo."ReportAtUtc"<p_dateto)
+  AND (
+      p_search IS NULL
+      OR bo."CustomerName" ILIKE '%'||p_search||'%'
+      OR bo."CustomerWhatsApp" ILIKE '%'||p_search||'%'
+      OR bo."TableName" ILIKE '%'||p_search||'%'
+      OR bo."OrderId"::text ILIKE '%'||p_search||'%'
+  )
+GROUP BY bo."OrderId",bo."BranchId",bo."BranchName",bo."TableId",bo."TableName",bo."OrderStatusCode",bo."CustomerName",bo."CustomerWhatsApp",bo."Notes",bo."TotalAmount",bo."CreatedAtUtc",bo."UpdatedAtUtc",bo."AcceptedAtUtc",bo."PreparingAtUtc",bo."ReadyAtUtc",bo."ServedAtUtc",bo."CompletedAtUtc",bo."CancelledAtUtc",bo."LatestReason",bo."ReportAtUtc"
+ORDER BY bo."ReportAtUtc" DESC,bo."CreatedAtUtc" DESC
+LIMIT 500;
+$$;
+CREATE OR REPLACE FUNCTION public.report_ordersummary(p_tenantid uuid,p_branchid uuid,p_datefrom timestamptz,p_dateto timestamptz,p_statuscode text,p_search text)
+RETURNS TABLE("TotalOrders" integer,"CompletedOrders" integer,"CancelledOrders" integer,"TotalOrderValue" numeric,"AverageOrderValue" numeric,"AverageReadyMinutes" numeric)
+LANGUAGE sql STABLE AS $$
+WITH status_rollup AS (
+    SELECT
+        h."OrderId",
+        MIN(h."CreatedAtUtc") FILTER (WHERE h."StatusCode"='Completed') AS "CompletedAtUtc",
+        MAX(h."CreatedAtUtc") FILTER (WHERE h."StatusCode" IN ('Cancelled','Void')) AS "CancelledAtUtc"
+    FROM "OrderStatusHistory" h
+    WHERE h."TenantId"=p_tenantid
+    GROUP BY h."OrderId"
+),
+filtered_orders AS (
+    SELECT
+        o."OrderId",
+        o."OrderStatusCode",
+        o."TotalAmount",
+        CASE
+            WHEN lower(COALESCE(p_statuscode,'')) IN ('cancelled','void') THEN COALESCE(sr."CancelledAtUtc",o."UpdatedAtUtc",o."CreatedAtUtc")
+            WHEN lower(COALESCE(p_statuscode,''))='completed' THEN COALESCE(sr."CompletedAtUtc",o."UpdatedAtUtc",o."CreatedAtUtc")
+            ELSE o."CreatedAtUtc"
+        END AS "ReportAtUtc"
+    FROM "Orders" o
+    JOIN "BranchTables" bt ON bt."TableId"=o."TableId"
+    LEFT JOIN status_rollup sr ON sr."OrderId"=o."OrderId"
+    WHERE o."TenantId"=p_tenantid
+      AND (p_branchid IS NULL OR o."BranchId"=p_branchid)
+      AND (p_statuscode IS NULL OR lower(o."OrderStatusCode")=lower(p_statuscode))
+      AND (
+          p_search IS NULL
+          OR o."CustomerName" ILIKE '%'||p_search||'%'
+          OR o."CustomerWhatsApp" ILIKE '%'||p_search||'%'
+          OR bt."Name" ILIKE '%'||p_search||'%'
+          OR o."OrderId"::text ILIKE '%'||p_search||'%'
+      )
+)
+SELECT
+    COUNT(*)::integer,
+    COUNT(*) FILTER (WHERE "OrderStatusCode"='Completed')::integer,
+    COUNT(*) FILTER (WHERE "OrderStatusCode" IN ('Cancelled','Void'))::integer,
+    COALESCE(SUM("TotalAmount"),0),
+    COALESCE(AVG("TotalAmount"),0),
+    0::numeric
+FROM filtered_orders
+WHERE (p_datefrom IS NULL OR "ReportAtUtc">=p_datefrom)
+  AND (p_dateto IS NULL OR "ReportAtUtc"<p_dateto);
+$$;
 CREATE OR REPLACE FUNCTION public.report_items(p_tenantid uuid,p_branchid uuid,p_datefrom timestamptz,p_dateto timestamptz,p_statuscode text,p_search text) RETURNS TABLE("ItemName" varchar,"VariantName" varchar,"Quantity" integer,"OrderCount" integer,"TotalValue" numeric) LANGUAGE sql STABLE AS $$ SELECT oi."MenuItemName",oi."VariantName",SUM(oi."Quantity")::integer,COUNT(DISTINCT oi."OrderId")::integer,SUM(oi."LineTotal") FROM "OrderItems" oi JOIN "Orders" o ON o."OrderId"=oi."OrderId" WHERE o."TenantId"=p_tenantid AND (p_branchid IS NULL OR o."BranchId"=p_branchid) GROUP BY oi."MenuItemName",oi."VariantName" ORDER BY SUM(oi."LineTotal") DESC; $$;
 CREATE OR REPLACE FUNCTION public.report_customers(p_tenantid uuid,p_branchid uuid,p_datefrom timestamptz,p_dateto timestamptz,p_statuscode text,p_search text) RETURNS TABLE("CustomerId" uuid,"CustomerKey" text,"CustomerName" varchar,"CustomerWhatsApp" varchar,"MarketingConsent" boolean,"VisitCount" integer,"OrderCount" integer,"TotalValue" numeric,"FirstVisitAtUtc" timestamptz,"LastVisitAtUtc" timestamptz,"LastOrderAtUtc" timestamptz,"BranchesVisited" integer,"FirstBranchName" varchar,"LastBranchName" varchar,"FavoriteItemName" varchar,"FavoriteVariantName" varchar,"FavoriteItemQuantity" integer) LANGUAGE sql STABLE AS $$ SELECT c."CustomerId",COALESCE(c."WhatsAppNumber",c."CustomerId"::text),c."Name",c."WhatsAppNumber",c."MarketingConsent",c."VisitCount",COUNT(o."OrderId")::integer,COALESCE(SUM(o."TotalAmount"),0),c."CreatedAtUtc",c."LastVisitAtUtc",MAX(o."CreatedAtUtc"),COUNT(DISTINCT o."BranchId")::integer,NULL::varchar,NULL::varchar,NULL::varchar,NULL::varchar,0 FROM "Customers" c LEFT JOIN "Orders" o ON o."CustomerId"=c."CustomerId" WHERE c."TenantId"=p_tenantid AND (p_branchid IS NULL OR c."BranchId"=p_branchid) GROUP BY c."CustomerId" ORDER BY MAX(o."CreatedAtUtc") DESC NULLS LAST; $$;
 CREATE OR REPLACE FUNCTION public.report_orderdetail(p_tenantid uuid,p_orderid uuid) RETURNS TABLE("OrderId" uuid,"BranchId" uuid,"BranchName" varchar,"TableId" uuid,"TableName" varchar,"OrderStatusCode" varchar,"CustomerName" varchar,"CustomerWhatsApp" varchar,"Notes" varchar,"TotalAmount" numeric,"ItemCount" integer,"CreatedAtUtc" timestamptz,"UpdatedAtUtc" timestamptz,"AcceptedAtUtc" timestamptz,"PreparingAtUtc" timestamptz,"ReadyAtUtc" timestamptz,"ServedAtUtc" timestamptz,"CompletedAtUtc" timestamptz,"CancelledAtUtc" timestamptz,"LatestReason" varchar) LANGUAGE sql STABLE AS $$ SELECT * FROM public.report_orders(p_tenantid,NULL,NULL,NULL,NULL,NULL) WHERE "OrderId"=p_orderid; $$;

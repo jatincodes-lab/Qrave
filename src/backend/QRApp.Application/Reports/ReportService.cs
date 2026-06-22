@@ -33,8 +33,19 @@ public sealed class ReportService(IReportRepository repository) : IReportService
     {
         return filter with
         {
+            DateTo = NormalizeDateTo(filter.DateTo),
             StatusCode = TextRules.CleanOptional(filter.StatusCode),
             Search = TextRules.CleanOptional(filter.Search)
         };
+    }
+
+    private static DateTime? NormalizeDateTo(DateTime? dateTo)
+    {
+        if (!dateTo.HasValue || dateTo.Value.TimeOfDay != TimeSpan.Zero)
+        {
+            return dateTo;
+        }
+
+        return dateTo.Value.AddDays(1);
     }
 }
