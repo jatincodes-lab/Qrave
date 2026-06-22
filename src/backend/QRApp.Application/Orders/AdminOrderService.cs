@@ -57,4 +57,36 @@ public sealed class AdminOrderService(IAdminOrderRepository repository) : IAdmin
         var order = await repository.UpdateStatusAsync(tenantId, branchId, orderId, normalized, reason, changedByUserId, cancellationToken);
         return OperationResult<AdminOrderResponse>.Success(order);
     }
+
+    public async Task<OperationResult<AdminOrderResponse>> CancelItemAsync(
+        Guid tenantId,
+        Guid branchId,
+        Guid orderId,
+        Guid orderItemId,
+        CancelAdminOrderItemRequest request,
+        Guid changedByUserId,
+        CancellationToken cancellationToken)
+    {
+        if (request.Quantity <= 0)
+        {
+            return OperationResult<AdminOrderResponse>.Failed(
+                new ValidationFailure(nameof(CancelAdminOrderItemRequest.Quantity), "Cancellation quantity must be greater than zero."));
+        }
+
+        var reason = TextRules.CleanOptional(request.Reason);
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return OperationResult<AdminOrderResponse>.Failed(
+                new ValidationFailure(nameof(CancelAdminOrderItemRequest.Reason), "Cancellation reason is required."));
+        }
+
+        if (reason.Length > 300)
+        {
+            return OperationResult<AdminOrderResponse>.Failed(
+                new ValidationFailure(nameof(CancelAdminOrderItemRequest.Reason), "Cancellation reason cannot exceed 300 characters."));
+        }
+
+        var order = await repository.CancelItemAsync(tenantId, branchId, orderId, orderItemId, request.Quantity, reason, changedByUserId, cancellationToken);
+        return OperationResult<AdminOrderResponse>.Success(order);
+    }
 }

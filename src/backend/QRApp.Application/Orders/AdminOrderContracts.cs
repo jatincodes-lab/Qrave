@@ -11,7 +11,12 @@ public sealed record AdminOrderItemResponse(
     string DietTypeCode,
     decimal UnitPrice,
     int Quantity,
-    decimal LineTotal);
+    decimal LineTotal,
+    int CancelledQuantity,
+    int ActiveQuantity,
+    decimal ActiveLineTotal,
+    string? CancelledReason,
+    DateTime? CancelledAtUtc);
 
 public sealed record AdminOrderResponse(
     Guid OrderId,
@@ -35,3 +40,5 @@ public sealed record AdminOrderResponse(
     IReadOnlyCollection<AdminOrderItemResponse> Items);
 
 public sealed record UpdateAdminOrderStatusRequest(string OrderStatusCode, string? Reason = null);
+
+public sealed record CancelAdminOrderItemRequest(int Quantity, string? Reason);

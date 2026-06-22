@@ -59,6 +59,7 @@ internal static class StoredProcedures
     public const string AdminOrderGetListByBranch = "public.adminorder_getlistbybranch";
     public const string AdminOrderGetItemsByBranch = "public.adminorder_getitemsbybranch";
     public const string AdminOrderUpdateStatus = "public.adminorder_updatestatus";
+    public const string AdminOrderCancelItem = "public.adminorder_cancelitem";
     public const string BranchBillingSettingsGetByBranch = "public.branchbillingsettings_getbybranch";
     public const string BranchBillingSettingsSave = "public.branchbillingsettings_save";
     public const string OrderBillGetByOrder = "public.orderbill_getbyorder";

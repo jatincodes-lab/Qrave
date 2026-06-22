@@ -582,6 +582,11 @@ export type AdminOrderItem = {
   unitPrice: number;
   quantity: number;
   lineTotal: number;
+  cancelledQuantity: number;
+  activeQuantity: number;
+  activeLineTotal: number;
+  cancelledReason: string | null;
+  cancelledAtUtc: string | null;
 };
 
 export type AdminOrder = {
@@ -1270,6 +1275,20 @@ export async function updateAdminOrderStatus(
   return request<AdminOrder>(`/api/v1/admin/branches/${branchId}/orders/${orderId}/status`, {
     method: "PUT",
     body: { orderStatusCode, reason },
+    requireAuth: true
+  });
+}
+
+export async function cancelAdminOrderItem(
+  branchId: string,
+  orderId: string,
+  orderItemId: string,
+  quantity: number,
+  reason: string
+): Promise<AdminOrder> {
+  return request<AdminOrder>(`/api/v1/admin/branches/${branchId}/orders/${orderId}/items/${orderItemId}/cancel`, {
+    method: "POST",
+    body: { quantity, reason },
     requireAuth: true
   });
 }

@@ -17,4 +17,13 @@ public interface IAdminOrderService
         UpdateAdminOrderStatusRequest request,
         Guid changedByUserId,
         CancellationToken cancellationToken);
+
+    Task<OperationResult<AdminOrderResponse>> CancelItemAsync(
+        Guid tenantId,
+        Guid branchId,
+        Guid orderId,
+        Guid orderItemId,
+        CancelAdminOrderItemRequest request,
+        Guid changedByUserId,
+        CancellationToken cancellationToken);
 }

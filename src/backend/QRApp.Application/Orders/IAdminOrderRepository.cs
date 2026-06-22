@@ -16,4 +16,14 @@ public interface IAdminOrderRepository
         string? reason,
         Guid changedByUserId,
         CancellationToken cancellationToken);
+
+    Task<AdminOrderResponse> CancelItemAsync(
+        Guid tenantId,
+        Guid branchId,
+        Guid orderId,
+        Guid orderItemId,
+        int quantity,
+        string reason,
+        Guid changedByUserId,
+        CancellationToken cancellationToken);
 }

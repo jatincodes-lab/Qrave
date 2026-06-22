@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import {
+  cancelAdminOrderItem,
   generateOrderBill,
   getAdminOrders,
   getBranchBillingSettings,
@@ -22,6 +23,7 @@ import {
   updateOrderBillRefundStatus,
   updateWaiterCallStatus,
   type AdminOrder,
+  type AdminOrderItem,
   type BranchBillingSettings,
   type BranchListItem,
   type DietTypeCode,
@@ -69,6 +71,13 @@ type OrderActionDialogState = {
   reason: string;
 };
 
+type ItemActionDialogState = {
+  order: AdminOrder;
+  item: AdminOrderItem;
+  quantity: string;
+  reason: string;
+};
+
 type OrderHistoryStatusFilter = "all" | "Completed" | "Cancelled";
 type OrdersViewTab = "active" | "history";
 
@@ -79,6 +88,7 @@ export default function AdminOrdersPage() {
   const [billingSettings, setBillingSettings] = useState<BranchBillingSettings | null>(null);
   const [billDialog, setBillDialog] = useState<BillDialogState | null>(null);
   const [orderAction, setOrderAction] = useState<OrderActionDialogState | null>(null);
+  const [itemAction, setItemAction] = useState<ItemActionDialogState | null>(null);
   const [historySearch, setHistorySearch] = useState("");
   const [historyStatus, setHistoryStatus] = useState<OrderHistoryStatusFilter>("all");
   const [historyFromDate, setHistoryFromDate] = useState("");
@@ -291,6 +301,46 @@ export default function AdminOrdersPage() {
     const wasUpdated = await moveOrder(orderAction.order, orderAction.status, reason);
     if (wasUpdated) {
       setOrderAction(null);
+    }
+  }
+
+  function requestCancelOrderItem(order: AdminOrder, item: AdminOrderItem) {
+    const activeQuantity = getActiveItemQuantity(item);
+    if (activeQuantity <= 0) {
+      return;
+    }
+
+    setItemAction({ order, item, quantity: String(Math.min(1, activeQuantity)), reason: "" });
+  }
+
+  async function confirmItemAction() {
+    if (!workspace.selectedBranch || !itemAction) {
+      return;
+    }
+
+    const activeQuantity = getActiveItemQuantity(itemAction.item);
+    const quantity = Number(itemAction.quantity);
+    const reason = itemAction.reason.trim();
+
+    if (!Number.isInteger(quantity) || quantity <= 0 || quantity > activeQuantity) {
+      workspace.setWorkspaceError("Cancellation quantity is invalid.");
+      return;
+    }
+
+    if (!reason) {
+      workspace.setWorkspaceError("Cancellation reason is required.");
+      return;
+    }
+
+    setSavingKey(itemAction.item.orderItemId);
+    try {
+      const updated = await cancelAdminOrderItem(workspace.selectedBranch.branchId, itemAction.order.orderId, itemAction.item.orderItemId, quantity, reason);
+      setOrdersSynced((current) => current.map((item) => (item.orderId === updated.orderId ? updated : item)));
+      setItemAction(null);
+    } catch (caught) {
+      workspace.handleApiError(caught);
+    } finally {
+      setSavingKey(null);
     }
   }
 
@@ -556,7 +606,7 @@ export default function AdminOrdersPage() {
                     ) : activeOrders.length === 0 ? (
                       <EmptyPanel title="No active orders" text="New QR orders will appear here." />
                     ) : (
-                      activeOrders.map((order) => <OrderCard key={order.orderId} order={order} savingKey={savingKey} onBill={openBill} onMove={requestMoveOrder} />)
+                      activeOrders.map((order) => <OrderCard key={order.orderId} order={order} savingKey={savingKey} onBill={openBill} onCancelItem={requestCancelOrderItem} onMove={requestMoveOrder} />)
                     )}
                   </CardContent>
                 </Card>
@@ -614,6 +664,15 @@ export default function AdminOrdersPage() {
           onChange={setOrderAction}
           onClose={() => setOrderAction(null)}
           onConfirm={confirmOrderAction}
+        />
+      ) : null}
+      {itemAction ? (
+        <ItemActionDialog
+          action={itemAction}
+          savingKey={savingKey}
+          onChange={setItemAction}
+          onClose={() => setItemAction(null)}
+          onConfirm={confirmItemAction}
         />
       ) : null}
     </AdminShell>
@@ -676,14 +735,17 @@ function OrderCard({
   order,
   savingKey,
   onBill,
+  onCancelItem,
   onMove
 }: {
   order: AdminOrder;
   savingKey: string | null;
   onBill: (order: AdminOrder) => void;
+  onCancelItem: (order: AdminOrder, item: AdminOrderItem) => void;
   onMove: (order: AdminOrder, status: OrderStatusCode) => void;
 }) {
   const nextStatus = OrderNextStatus[order.orderStatusCode as OrderStatusCode];
+  const canCancelItems = !["Completed", "Cancelled"].includes(order.orderStatusCode);
 
   return (
     <article className="rounded-xl border border-outline-variant/70 bg-white p-4">
@@ -703,12 +765,32 @@ function OrderCard({
         </div>
       ) : null}
       <div className="mt-3 rounded-lg bg-surface-container-low p-3 text-xs leading-5 text-on-surface-variant">
-        {order.items.map((item) => (
-          <div key={item.orderItemId}>
-            <span>{item.quantity}x {formatAdminOrderItemName(item.menuItemName, item.variantName)}{formatDietTypeSuffix(item.dietTypeCode)}</span>
-            {item.itemNote ? <span className="ml-2 font-bold text-primary">Note: {item.itemNote}</span> : null}
+        {order.items.map((item) => {
+          const activeQuantity = getActiveItemQuantity(item);
+          const cancelledQuantity = getCancelledItemQuantity(item);
+          const isFullyCancelled = activeQuantity <= 0;
+
+          return (
+          <div key={item.orderItemId} className={`flex flex-col gap-1 border-b border-outline-variant/50 py-2 last:border-b-0 sm:flex-row sm:items-start sm:justify-between ${isFullyCancelled ? "opacity-60" : ""}`}>
+            <div className="min-w-0">
+              <span className={isFullyCancelled ? "line-through" : ""}>
+                {activeQuantity}x {formatAdminOrderItemName(item.menuItemName, item.variantName)}{formatDietTypeSuffix(item.dietTypeCode)}
+              </span>
+              {cancelledQuantity > 0 ? <span className="ml-2 font-bold text-destructive">{cancelledQuantity} cancelled</span> : null}
+              {item.itemNote ? <span className="ml-2 font-bold text-primary">Note: {item.itemNote}</span> : null}
+            </div>
+            <div className="flex items-center gap-2 sm:justify-end">
+              <span className="font-bold text-on-surface">{formatMoney(item.activeLineTotal ?? item.lineTotal)}</span>
+              {canCancelItems && activeQuantity > 0 ? (
+                <Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={savingKey === item.orderItemId} onClick={() => onCancelItem(order, item)}>
+                  {savingKey === item.orderItemId ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />}
+                  Cancel item
+                </Button>
+              ) : null}
+            </div>
           </div>
-        ))}
+          );
+        })}
       </div>
       <div className="mt-3 grid gap-2 sm:flex sm:flex-wrap">
         {nextStatus ? (
@@ -937,9 +1019,12 @@ function BillDialog({
                           <p className="break-words text-sm font-bold text-on-surface">{formatAdminOrderItemName(item.menuItemName, item.variantName)}</p>
                           <DietTypeBadge dietTypeCode={item.dietTypeCode} />
                           {item.itemNote ? <p className="mt-1 break-words text-xs font-semibold text-primary">Note: {item.itemNote}</p> : null}
-                          <p className="mt-1 text-xs text-on-surface-variant">{item.quantity} x {formatMoney(item.unitPrice)}</p>
+                          <p className="mt-1 text-xs text-on-surface-variant">
+                            {getActiveItemQuantity(item)} x {formatMoney(item.unitPrice)}
+                            {getCancelledItemQuantity(item) > 0 ? ` / ${getCancelledItemQuantity(item)} cancelled` : ""}
+                          </p>
                         </div>
-                        <p className="text-sm font-extrabold text-on-surface">{formatMoney(item.lineTotal)}</p>
+                        <p className="text-sm font-extrabold text-on-surface">{formatMoney(item.activeLineTotal ?? item.lineTotal)}</p>
                       </div>
                     ))}
                   </div>
@@ -1202,6 +1287,96 @@ function OrderActionDialog({
   );
 }
 
+function ItemActionDialog({
+  action,
+  savingKey,
+  onChange,
+  onClose,
+  onConfirm
+}: {
+  action: ItemActionDialogState;
+  savingKey: string | null;
+  onChange: (action: ItemActionDialogState) => void;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const isSaving = savingKey === action.item.orderItemId;
+  const activeQuantity = getActiveItemQuantity(action.item);
+  const reasonLength = action.reason.trim().length;
+  const quantity = Number(action.quantity);
+  const isQuantityInvalid = !Number.isInteger(quantity) || quantity <= 0 || quantity > activeQuantity;
+
+  return (
+    <Dialog>
+      <DialogContent className="max-w-lg overflow-hidden bg-white p-0">
+        <div className="border-b border-outline-variant/60 bg-surface-container-low px-5 py-4">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <span className="grid h-9 w-9 place-items-center rounded-full bg-destructive/10 text-destructive">
+                <X size={18} />
+              </span>
+              Cancel item
+            </DialogTitle>
+            <DialogDescription>This will reduce the order total and update any unpaid bill.</DialogDescription>
+          </DialogHeader>
+        </div>
+
+        <div className="grid gap-4 p-5">
+          <div className="rounded-lg border border-outline-variant/70 bg-surface-container-low p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="break-words text-sm font-extrabold text-on-surface">{formatAdminOrderItemName(action.item.menuItemName, action.item.variantName)}</p>
+                <p className="mt-1 text-xs text-on-surface-variant">{action.order.tableName} - #{shortOrderCode(action.order.orderId)}</p>
+              </div>
+              <Badge variant="outline">{activeQuantity} active</Badge>
+            </div>
+            {action.item.itemNote ? <p className="mt-3 text-xs font-semibold text-primary">Note: {action.item.itemNote}</p> : null}
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="cancel-item-quantity">Quantity to cancel</Label>
+            <Input
+              id="cancel-item-quantity"
+              type="number"
+              min={1}
+              max={activeQuantity}
+              value={action.quantity}
+              onChange={(event) => onChange({ ...action, quantity: event.target.value })}
+            />
+            <p className="text-xs text-on-surface-variant">Available quantity: {activeQuantity}</p>
+          </div>
+
+          <div className="grid gap-1.5">
+            <div className="flex items-center justify-between gap-3">
+              <Label htmlFor="cancel-item-reason">Cancellation reason</Label>
+              <span className={`text-xs font-bold ${reasonLength > 300 ? "text-destructive" : "text-on-surface-variant"}`}>{reasonLength}/300</span>
+            </div>
+            <textarea
+              id="cancel-item-reason"
+              value={action.reason}
+              onChange={(event) => onChange({ ...action, reason: event.target.value })}
+              placeholder="Required, for example: item unavailable"
+              maxLength={320}
+              autoFocus
+              className="min-h-28 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm text-on-surface shadow-sm outline-none transition-colors placeholder:text-on-surface-variant/70 focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-2 border-t border-outline-variant/60 bg-white px-5 py-4 sm:flex sm:flex-row sm:justify-end">
+          <Button type="button" variant="outline" onClick={onClose} disabled={isSaving} className="w-full sm:w-auto">
+            Keep item
+          </Button>
+          <Button type="button" variant="destructive" onClick={onConfirm} disabled={isSaving || isQuantityInvalid || reasonLength === 0 || reasonLength > 300} className="w-full sm:w-auto">
+            {isSaving ? <Loader2 size={16} className="animate-spin" /> : <X size={16} />}
+            Confirm cancel
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function EmptyPanel({ text, title }: { text: string; title: string }) {
   return (
     <div className="rounded-xl border border-dashed border-outline-variant/70 bg-surface-container-low p-8 text-center">
@@ -1240,6 +1415,14 @@ function BillLine({ label, strong, value }: { label: string; strong?: boolean; v
 
 function formatAdminOrderItemName(name: string, variantName: string | null): string {
   return variantName ? `${name} - ${variantName}` : name;
+}
+
+function getCancelledItemQuantity(item: AdminOrderItem): number {
+  return Math.max(0, item.cancelledQuantity ?? 0);
+}
+
+function getActiveItemQuantity(item: AdminOrderItem): number {
+  return Math.max(0, item.activeQuantity ?? item.quantity - getCancelledItemQuantity(item));
 }
 
 function DietTypeBadge({ dietTypeCode }: { dietTypeCode: DietTypeCode }) {
@@ -1356,15 +1539,16 @@ function escapeHtml(value: string): string {
 function buildBillPrintHtml(branch: BranchListItem, order: AdminOrder, bill: OrderBill): string {
   const branchAddress = [branch.addressLine1, branch.addressLine2, branch.city, branch.state, branch.postalCode].filter(Boolean).join(", ");
   const rows = order.items
+    .filter((item) => getActiveItemQuantity(item) > 0)
     .map(
       (item) => `<tr>
         <td>
           <strong>${escapeHtml(`${formatAdminOrderItemName(item.menuItemName, item.variantName)}${formatDietTypeSuffix(item.dietTypeCode)}`)}</strong>
           ${item.itemNote ? `<span>Note: ${escapeHtml(item.itemNote)}</span>` : ""}
         </td>
-        <td>${item.quantity}</td>
+        <td>${getActiveItemQuantity(item)}</td>
         <td>${formatMoney(item.unitPrice)}</td>
-        <td>${formatMoney(item.lineTotal)}</td>
+        <td>${formatMoney(item.activeLineTotal ?? item.lineTotal)}</td>
       </tr>`
     )
     .join("");

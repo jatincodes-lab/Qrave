@@ -16,6 +16,7 @@ public static class AdminOrderEndpoints
 
         group.MapGet("/branches/{branchId:guid}/orders", GetOrdersAsync);
         group.MapPut("/branches/{branchId:guid}/orders/{orderId:guid}/status", UpdateStatusAsync);
+        group.MapPost("/branches/{branchId:guid}/orders/{orderId:guid}/items/{orderItemId:guid}/cancel", CancelItemAsync);
         group.MapGet("/branches/{branchId:guid}/orders/{orderId:guid}/bill", GetBillAsync);
         group.MapPost("/branches/{branchId:guid}/orders/{orderId:guid}/bill", GenerateBillAsync);
         group.MapPut("/branches/{branchId:guid}/orders/{orderId:guid}/bill/payment-status", UpdateBillPaymentStatusAsync);
@@ -107,6 +108,60 @@ public static class AdminOrderEndpoints
     private static string ShortId(Guid id)
     {
         return id.ToString("N")[^6..].ToUpperInvariant();
+    }
+
+    private static async Task<IResult> CancelItemAsync(
+        Guid branchId,
+        Guid orderId,
+        Guid orderItemId,
+        CancelAdminOrderItemRequest request,
+        ITenantContext tenantContext,
+        IAdminOrderService service,
+        IAdminNotificationService notificationService,
+        IAdminOrderRealtimeNotifier realtimeNotifier,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await service.CancelItemAsync(tenantContext.TenantId, branchId, orderId, orderItemId, request, tenantContext.UserId, cancellationToken);
+            if (!result.IsSuccess)
+            {
+                return ApiProblemResponses.Validation(result.Errors);
+            }
+
+            try
+            {
+                await notificationService.CreateAsync(
+                    tenantContext.TenantId,
+                    new CreateAdminNotificationRequest(
+                        branchId,
+                        "order-item-cancelled",
+                        "Order item cancelled",
+                        $"Order {ShortId(orderId)} had {request.Quantity} item(s) cancelled.",
+                        "/admin/orders"),
+                    cancellationToken);
+            }
+            catch (Exception notificationException)
+            {
+                loggerFactory.CreateLogger(nameof(AdminOrderEndpoints)).LogWarning(notificationException, "Order {OrderId} item cancellation was saved, but its admin notification could not be stored.", orderId);
+            }
+
+            await realtimeNotifier.OrderStatusUpdatedAsync(result.Value!, cancellationToken);
+            return Results.Ok(result.Value);
+        }
+        catch (Exception ex)
+        when (ex is PostgresException)
+        {
+            var postgresException = (PostgresException)ex;
+            loggerFactory.CreateLogger(nameof(AdminOrderEndpoints)).LogWarning(postgresException, "Database rejected item cancellation for order {OrderId}, item {OrderItemId}.", orderId, orderItemId);
+            return SqlProblemMapper.ToProblem(postgresException);
+        }
+        catch (Exception ex)
+        {
+            loggerFactory.CreateLogger(nameof(AdminOrderEndpoints)).LogError(ex, "Failed to cancel item {OrderItemId} for order {OrderId}.", orderItemId, orderId);
+            return ApiProblemResponses.ServerError("Order item could not be cancelled.");
+        }
     }
 
     private static async Task<IResult> GetBillAsync(
