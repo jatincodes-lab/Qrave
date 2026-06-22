@@ -70,6 +70,7 @@ type OrderActionDialogState = {
 };
 
 type OrderHistoryStatusFilter = "all" | "Completed" | "Cancelled";
+type OrdersViewTab = "active" | "history";
 
 export default function AdminOrdersPage() {
   const workspace = useAdminWorkspace();
@@ -82,6 +83,7 @@ export default function AdminOrdersPage() {
   const [historyStatus, setHistoryStatus] = useState<OrderHistoryStatusFilter>("all");
   const [historyFromDate, setHistoryFromDate] = useState("");
   const [historyToDate, setHistoryToDate] = useState("");
+  const [selectedTab, setSelectedTab] = useState<OrdersViewTab>("active");
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   const [liveState, setLiveState] = useState<"connecting" | "live" | "offline">("offline");
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -114,6 +116,7 @@ export default function AdminOrdersPage() {
       return;
     }
 
+    setSelectedTab("active");
     void loadOrders(workspace.selectedBranch.branchId);
   }, [workspace.selectedBranch?.branchId]);
 
@@ -533,53 +536,62 @@ export default function AdminOrdersPage() {
               <MetricCard icon={<Ban size={20} />} label="Cancelled" value={isLoadingOrders ? "..." : String(cancelledOrderCount)} />
             </section>
 
-            <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Orders</CardTitle>
-                  <CardDescription>Move each order through the kitchen workflow.</CardDescription>
-                </CardHeader>
-                <CardContent className="grid gap-3">
-                  {isLoadingOrders ? (
-                    <PageLoading />
-                  ) : activeOrders.length === 0 ? (
-                    <EmptyPanel title="No active orders" text="New QR orders will appear here." />
-                  ) : (
-                    activeOrders.map((order) => <OrderCard key={order.orderId} order={order} savingKey={savingKey} onBill={openBill} onMove={requestMoveOrder} />)
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Waiter calls</CardTitle>
-                  <CardDescription>Customer requests from QR tables.</CardDescription>
-                </CardHeader>
-                <CardContent className="grid gap-3">
-                  {isLoadingOrders ? (
-                    <PageLoading />
-                  ) : activeCalls.length === 0 ? (
-                    <EmptyPanel title="No active calls" text="Waiter requests will appear here." />
-                  ) : (
-                    activeCalls.map((call) => <WaiterCallCard key={call.waiterCallId} call={call} savingKey={savingKey} onMove={moveWaiterCall} />)
-                  )}
-                </CardContent>
-              </Card>
-            </section>
-
-            <OrderHistorySection
-              closedOrders={closedOrders}
-              filteredOrders={filteredClosedOrders}
-              fromDate={historyFromDate}
-              isLoading={isLoadingOrders}
-              onFromDateChange={setHistoryFromDate}
-              onSearchChange={setHistorySearch}
-              onStatusChange={setHistoryStatus}
-              onToDateChange={setHistoryToDate}
-              search={historySearch}
-              status={historyStatus}
-              toDate={historyToDate}
+            <OrdersTabs
+              activeOrdersCount={activeOrders.length}
+              closedOrdersCount={closedOrders.length}
+              selectedTab={selectedTab}
+              onSelect={setSelectedTab}
             />
+
+            {selectedTab === "active" ? (
+              <section className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Orders</CardTitle>
+                    <CardDescription>Move each order through the kitchen workflow.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-3">
+                    {isLoadingOrders ? (
+                      <PageLoading />
+                    ) : activeOrders.length === 0 ? (
+                      <EmptyPanel title="No active orders" text="New QR orders will appear here." />
+                    ) : (
+                      activeOrders.map((order) => <OrderCard key={order.orderId} order={order} savingKey={savingKey} onBill={openBill} onMove={requestMoveOrder} />)
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Waiter calls</CardTitle>
+                    <CardDescription>Customer requests from QR tables.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-3">
+                    {isLoadingOrders ? (
+                      <PageLoading />
+                    ) : activeCalls.length === 0 ? (
+                      <EmptyPanel title="No active calls" text="Waiter requests will appear here." />
+                    ) : (
+                      activeCalls.map((call) => <WaiterCallCard key={call.waiterCallId} call={call} savingKey={savingKey} onMove={moveWaiterCall} />)
+                    )}
+                  </CardContent>
+                </Card>
+              </section>
+            ) : (
+              <OrderHistorySection
+                closedOrders={closedOrders}
+                filteredOrders={filteredClosedOrders}
+                fromDate={historyFromDate}
+                isLoading={isLoadingOrders}
+                onFromDateChange={setHistoryFromDate}
+                onSearchChange={setHistorySearch}
+                onStatusChange={setHistoryStatus}
+                onToDateChange={setHistoryToDate}
+                search={historySearch}
+                status={historyStatus}
+                toDate={historyToDate}
+              />
+            )}
           </>
         )}
       </div>
@@ -605,6 +617,58 @@ export default function AdminOrdersPage() {
         />
       ) : null}
     </AdminShell>
+  );
+}
+
+function OrdersTabs({
+  activeOrdersCount,
+  closedOrdersCount,
+  selectedTab,
+  onSelect
+}: {
+  activeOrdersCount: number;
+  closedOrdersCount: number;
+  selectedTab: OrdersViewTab;
+  onSelect: (tab: OrdersViewTab) => void;
+}) {
+  const tabs: Array<{ value: OrdersViewTab; label: string; count: number; icon: ReactNode }> = [
+    { value: "active", label: "Active", count: activeOrdersCount, icon: <ClipboardList size={16} /> },
+    { value: "history", label: "History", count: closedOrdersCount, icon: <Clock3 size={16} /> }
+  ];
+
+  return (
+    <section className="rounded-xl border border-outline-variant/70 bg-white p-1.5 shadow-sm">
+      <div className="grid gap-1.5 sm:grid-cols-2" role="tablist" aria-label="Orders view">
+        {tabs.map((tab) => {
+          const isSelected = selectedTab === tab.value;
+
+          return (
+            <button
+              key={tab.value}
+              type="button"
+              role="tab"
+              aria-selected={isSelected}
+              className={`flex h-12 items-center justify-center gap-2 rounded-lg px-3 text-sm font-extrabold transition-colors ${
+                isSelected
+                  ? "bg-primary text-on-primary shadow-sm"
+                  : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container"
+              }`}
+              onClick={() => onSelect(tab.value)}
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs ${
+                  isSelected ? "bg-white/20 text-on-primary" : "bg-white text-on-surface"
+                }`}
+              >
+                {tab.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
