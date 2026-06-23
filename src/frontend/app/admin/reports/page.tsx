@@ -351,10 +351,10 @@ function OrderDetailDialog({ detail, isLoading, onClose }: { detail: OrderReport
               <div>
                 <DialogTitle className="flex items-center gap-2 text-lg font-black text-on-surface">
                   <ClipboardList size={19} className="text-primary" />
-                  {order ? `Order #${shortOrderCode(order.orderId)}` : "Order details"}
+                  Order details
                 </DialogTitle>
                 <DialogDescription className="mt-1 font-semibold">
-                  {order ? `${order.tableName} - ${formatDateTime(order.createdAtUtc)}` : "Loading ordered items and status timeline."}
+                  {order ? "Ordered items, totals, customer notes, and status timeline." : "Loading ordered items and status timeline."}
                 </DialogDescription>
               </div>
               <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Close order details">
