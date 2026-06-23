@@ -37,6 +37,8 @@ body {
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 8.5rem;
+  scrollbar-color: hsl(var(--primary)) hsl(var(--muted));
+  scrollbar-width: thin;
 }
 
 a {
@@ -47,6 +49,31 @@ a {
 button,
 input {
   font: inherit;
+}
+
+* {
+  scrollbar-color: hsl(var(--primary)) hsl(var(--muted));
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+
+*::-webkit-scrollbar-thumb {
+  min-height: 2rem;
+  border: 2px solid hsl(var(--muted));
+  border-radius: 999px;
+  background: hsl(var(--primary));
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--secondary));
 }
 
 @layer components {
@@ -77,6 +104,30 @@ input {
 
   .scrollbar-hidden::-webkit-scrollbar {
     display: none;
+  }
+
+  .scrollbar-brand {
+    scrollbar-color: hsl(var(--primary)) transparent;
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-brand::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-brand::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-brand::-webkit-scrollbar-thumb {
+    border: 0;
+    border-radius: 999px;
+    background: hsl(var(--primary));
+  }
+
+  .scrollbar-brand::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--secondary));
   }
 
   .qr-fly-to-cart {
