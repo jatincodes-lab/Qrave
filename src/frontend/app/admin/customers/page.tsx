@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { CalendarDays, ChevronRight, IndianRupee, PackageCheck, RefreshCw, Search, ShoppingBag, SlidersHorizontal, Star, UserRound, Users, X } from "lucide-react";
 import { AdminShell } from "../../../components/admin-shell";
-import { EmptyBranchState, MetricCard, PageError, PageLoading } from "../../../components/admin-page-common";
+import { EmptyBranchState, PageError, PageLoading } from "../../../components/admin-page-common";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
@@ -133,7 +133,6 @@ export default function AdminCustomersPage() {
     }
   }
 
-  const metrics = getCustomerMetrics(customers);
   const feedbackMetrics = getFeedbackMetrics(feedback);
   const branchName = workspace.selectedBranch?.name ?? "Customers";
   const visibleCustomers = useMemo(() => filterCustomersBySegment(customers, activeSegment), [activeSegment, customers]);
@@ -223,13 +222,6 @@ export default function AdminCustomersPage() {
                 </form>
               </CardContent>
             </Card>
-
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <MetricCard icon={<Users size={20} />} label="Customers" value={isLoading ? "..." : String(customers.length)} />
-              <MetricCard icon={<RefreshCw size={20} />} label="Repeat guests" value={isLoading ? "..." : String(metrics.repeatCustomers)} />
-              <MetricCard icon={<IndianRupee size={20} />} label="Top spenders" value={isLoading ? "..." : String(segmentCounts.topSpenders)} />
-              <MetricCard icon={<CalendarDays size={20} />} label="At risk" value={isLoading ? "..." : String(segmentCounts.inactive)} />
-            </section>
 
             <CustomerSegments activeSegment={activeSegment} counts={segmentCounts} onChange={setActiveSegment} />
 
@@ -626,15 +618,6 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <span className="text-on-surface-variant">{label}</span>
       <span className="min-w-0 truncate text-right font-semibold text-on-surface">{value}</span>
     </div>
-  );
-}
-
-function getCustomerMetrics(customers: CustomerReport[]) {
-  return customers.reduce(
-    (metrics, customer) => ({
-      repeatCustomers: metrics.repeatCustomers + (isRepeatCustomer(customer) ? 1 : 0)
-    }),
-    { repeatCustomers: 0 }
   );
 }
 
