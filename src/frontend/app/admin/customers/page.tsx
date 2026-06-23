@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { CalendarDays, ChevronRight, IndianRupee, PackageCheck, RefreshCw, Search, ShoppingBag, SlidersHorizontal, Star, UserRound, Users, X } from "lucide-react";
+import { ArrowUpRight, CalendarDays, ChevronRight, IndianRupee, PackageCheck, RefreshCw, Search, ShoppingBag, SlidersHorizontal, Star, UserRound, X } from "lucide-react";
 import { AdminShell } from "../../../components/admin-shell";
 import { EmptyBranchState, PageError, PageLoading } from "../../../components/admin-page-common";
 import { Badge } from "../../../components/ui/badge";
@@ -27,16 +27,15 @@ type CustomerSegment = "all" | "repeat" | "topSpenders" | "inactive" | "firstTim
 type CustomerSegmentOption = {
   value: CustomerSegment;
   label: string;
-  helper: string;
 };
 
 const SegmentOptions: CustomerSegmentOption[] = [
-  { value: "all", label: "All", helper: "Every saved customer" },
-  { value: "repeat", label: "Repeat", helper: "Visited or ordered more than once" },
-  { value: "topSpenders", label: "Top spenders", helper: "Highest total value customers" },
-  { value: "inactive", label: "Inactive", helper: "No visit in 30 days" },
-  { value: "firstTime", label: "First-time", helper: "Only one visit or order" },
-  { value: "consent", label: "Consent saved", helper: "Has permission for future outreach" }
+  { value: "all", label: "All" },
+  { value: "repeat", label: "Repeat" },
+  { value: "topSpenders", label: "Top spenders" },
+  { value: "firstTime", label: "First-time" },
+  { value: "inactive", label: "Inactive" },
+  { value: "consent", label: "Consent saved" }
 ];
 
 const InactiveCustomerDays = 30;
@@ -147,16 +146,12 @@ export default function AdminCustomersPage() {
       onSelectedBranchChange={workspace.setSelectedBranchId}
       selectedBranchId={workspace.selectedBranchId}
     >
-      <div className="mx-auto max-w-7xl space-y-6">
-        <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="mx-auto max-w-5xl space-y-5">
+        <header className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <Badge variant="secondary" className="gap-2">
-              <Users size={14} />
-              Customers
-            </Badge>
-            <h1 className="mt-4 text-headline-lg text-primary">Customers</h1>
-            <p className="mt-2 max-w-2xl text-body-md text-on-surface-variant">
-              Understand repeat guests, spend, favorite items, and feedback without extra staff work.
+            <h1 className="text-2xl font-black leading-tight tracking-normal text-on-surface">Customers</h1>
+            <p className="mt-1 text-sm font-medium text-on-surface-variant">
+              Track repeat guests, spending, and feedback in one place.
             </p>
           </div>
         </header>
@@ -169,22 +164,30 @@ export default function AdminCustomersPage() {
           <EmptyBranchState />
         ) : (
           <>
-            <Card className="bg-surface-container-low/70">
-              <CardContent className="px-5 py-5 sm:px-6">
+            <Card className="bg-white">
+              <CardContent className="px-4 pb-4 pt-4 sm:px-5 sm:pb-5 sm:pt-5">
                 <form onSubmit={applyFilters} className="grid w-full gap-4">
-                  <div className="grid gap-3 lg:grid-cols-[minmax(16rem,1fr)_auto_auto] lg:items-end">
-                    <label className="grid gap-2">
-                      <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-on-surface-variant">
-                        <Search size={13} />
-                        Search customer
-                      </span>
-                      <Input className="h-11 bg-white" value={form.search} onChange={(event) => setForm({ ...form, search: event.target.value })} placeholder="Name, phone number, favorite item" />
+                  <div className="grid gap-3 md:grid-cols-[minmax(16rem,1fr)_auto_auto] md:items-center">
+                    <label className="relative block">
+                      <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+                      <Input
+                        className="h-12 rounded-lg border-transparent bg-surface-container-low pl-11 pr-4 text-base font-semibold shadow-none focus:border-primary/30"
+                        value={form.search}
+                        onChange={(event) => setForm({ ...form, search: event.target.value })}
+                        placeholder="Search by name, phone, or favourite item"
+                      />
                     </label>
-                    <Button type="button" variant="outline" className="h-11 px-4" onClick={() => setShowMoreFilters((current) => !current)}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-12 px-4"
+                      onClick={() => setShowMoreFilters((current) => !current)}
+                      aria-expanded={showMoreFilters}
+                    >
                       <SlidersHorizontal size={17} />
-                      {showMoreFilters ? "Hide filters" : "More filters"}
+                      {showMoreFilters ? "Hide" : "Filters"}
                     </Button>
-                    <Button type="submit" disabled={isLoading} className="h-11 px-5">
+                    <Button type="submit" disabled={isLoading} className="h-12 px-6">
                       {isLoading ? <RefreshCw size={17} className="animate-spin" /> : <Search size={17} />}
                       Search
                     </Button>
@@ -225,8 +228,10 @@ export default function AdminCustomersPage() {
 
             <CustomerSegments activeSegment={activeSegment} counts={segmentCounts} onChange={setActiveSegment} />
 
-            <Card>
-              <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <CustomerStats counts={segmentCounts} averageRating={feedbackMetrics.averageRating} />
+
+            <Card className="overflow-hidden bg-white">
+              <CardHeader className="flex flex-col gap-2 border-b border-outline-variant/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-4">
                 <div>
                   <CardTitle>Recent feedback</CardTitle>
                   <p className="mt-1 text-sm text-on-surface-variant">
@@ -238,20 +243,23 @@ export default function AdminCustomersPage() {
                   {feedbackMetrics.averageRating > 0 ? feedbackMetrics.averageRating.toFixed(1) : "-"}
                 </Badge>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-0">
                 <FeedbackList feedback={feedback} />
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <Card className="overflow-hidden bg-white">
+              <CardHeader className="flex flex-col gap-3 border-b border-outline-variant/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-4">
                 <div>
                   <CardTitle>Saved customers</CardTitle>
                   <p className="mt-1 text-sm text-on-surface-variant">{visibleCustomers.length} of {customers.length} customers shown.</p>
                 </div>
-                <Badge variant="outline">{workspace.selectedBranch.name}</Badge>
+                <Button type="button" variant="outline" size="sm" onClick={() => setActiveSegment("topSpenders")}>
+                  Get insights
+                  <ArrowUpRight size={14} />
+                </Button>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-0">
                 {isLoading ? <PageLoading /> : <CustomerList customers={visibleCustomers} emptyText={segmentEmptyText(activeSegment)} onOpenCustomer={openCustomerQuickView} />}
               </CardContent>
             </Card>
@@ -279,36 +287,59 @@ export default function AdminCustomersPage() {
 
 function CustomerSegments({ activeSegment, counts, onChange }: { activeSegment: CustomerSegment; counts: Record<CustomerSegment, number>; onChange: (segment: CustomerSegment) => void }) {
   return (
-    <Card className="bg-surface-container-low/70">
-      <CardContent className="px-5 py-5 sm:px-6">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-          {SegmentOptions.map((option) => {
-            const active = activeSegment === option.value;
-            return (
-              <button
-                key={option.value}
-                type="button"
-                className={`rounded-lg border px-4 py-3 text-left transition ${
-                  active ? "border-primary bg-primary text-white shadow-sm" : "border-outline-variant/70 bg-white text-on-surface hover:border-primary/30 hover:bg-primary/5"
-                }`}
-                onClick={() => onChange(option.value)}
-              >
-                <span className={`text-[11px] font-black uppercase tracking-wide ${active ? "text-white/70" : "text-on-surface-variant"}`}>{option.label}</span>
-                <span className="mt-2 block text-2xl font-black leading-none">{counts[option.value]}</span>
-                <span className={`mt-2 block text-xs font-semibold leading-4 ${active ? "text-white/70" : "text-on-surface-variant"}`}>{option.helper}</span>
-              </button>
-            );
-          })}
-        </div>
-      </CardContent>
-    </Card>
+    <div className="flex flex-wrap gap-2">
+      {SegmentOptions.map((option) => {
+        const active = activeSegment === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            className={`min-h-9 rounded-lg border px-4 py-2 text-sm font-bold transition ${
+              active ? "border-primary bg-primary text-white shadow-sm" : "border-outline-variant bg-white text-on-surface hover:border-primary/40 hover:bg-primary/5"
+            }`}
+            onClick={() => onChange(option.value)}
+          >
+            {option.label} - {counts[option.value]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function CustomerStats({ averageRating, counts }: { averageRating: number; counts: Record<CustomerSegment, number> }) {
+  const rating = averageRating > 0 ? averageRating.toFixed(1) : "-";
+
+  return (
+    <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <CustomerStat label="All customers" value={String(counts.all)} />
+      <CustomerStat label="Repeat guests" value={String(counts.repeat)} />
+      <CustomerStat
+        label="Avg. rating"
+        value={rating}
+        suffix={averageRating > 0 ? <Star size={16} className="fill-current text-primary" /> : null}
+      />
+      <CustomerStat label="Consent saved" value={String(counts.consent)} />
+    </section>
+  );
+}
+
+function CustomerStat({ label, suffix, value }: { label: string; suffix?: React.ReactNode; value: string }) {
+  return (
+    <div className="rounded-lg bg-surface-container-low px-4 py-4">
+      <p className="text-xs font-black uppercase tracking-wide text-on-surface-variant">{label}</p>
+      <p className="mt-2 flex items-center gap-1.5 text-2xl font-black leading-none text-on-surface">
+        {value}
+        {suffix}
+      </p>
+    </div>
   );
 }
 
 function CustomerList({ customers, emptyText, onOpenCustomer }: { customers: CustomerReport[]; emptyText: string; onOpenCustomer: (customer: CustomerReport) => void }) {
   if (customers.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-outline-variant/70 bg-surface-container-low p-8 text-center">
+      <div className="m-5 rounded-xl border border-dashed border-outline-variant/70 bg-surface-container-low p-8 text-center">
         <UserRound size={28} className="mx-auto text-on-surface-variant/70" />
         <p className="mt-3 text-sm font-extrabold text-on-surface">No customers found</p>
         <p className="mt-1 text-sm text-on-surface-variant">{emptyText}</p>
@@ -317,50 +348,44 @@ function CustomerList({ customers, emptyText, onOpenCustomer }: { customers: Cus
   }
 
   return (
-    <>
-      <div className="grid gap-3 lg:hidden">
-        {customers.map((customer) => (
-          <CustomerCard key={customer.customerId ?? customer.customerKey} customer={customer} onOpenCustomer={onOpenCustomer} />
-        ))}
-      </div>
-      <div className="hidden overflow-x-auto lg:block">
-        <table className="w-full min-w-[920px] text-left text-sm">
-          <thead className="border-b border-outline-variant/70 text-xs uppercase text-on-surface-variant">
-            <tr>
-              <th className="py-2 pr-4">Customer</th>
-              <th className="py-2 pr-4">Visits</th>
-              <th className="py-2 pr-4">Total spent</th>
-              <th className="py-2 pr-4">Favorite</th>
-              <th className="py-2 pr-4">Last visit</th>
-              <th className="py-2 pr-4">Consent</th>
-              <th className="py-2 pr-0 text-right">View</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-outline-variant/50">
-            {customers.map((customer) => (
-              <tr key={customer.customerId ?? customer.customerKey} className="cursor-pointer transition-colors hover:bg-primary/5" onClick={() => onOpenCustomer(customer)}>
-                <td className="py-4 pr-4">
-                  <p className="max-w-[18rem] truncate font-extrabold text-on-surface">{displayName(customer)}</p>
-                  <p className="mt-1 text-xs text-on-surface-variant">{customer.customerWhatsApp ?? "No phone number"}</p>
-                </td>
-                <td className="py-4 pr-4 font-semibold text-on-surface">{customer.visitCount}</td>
-                <td className="py-4 pr-4 font-extrabold text-primary">{formatMoney(customer.totalValue)}</td>
-                <td className="py-4 pr-4">
-                  <p className="max-w-[14rem] truncate font-semibold text-on-surface">{favoriteItem(customer)}</p>
-                </td>
-                <td className="py-4 pr-4 text-on-surface-variant">{formatDateTime(customer.lastVisitAtUtc ?? customer.lastOrderAtUtc)}</td>
-                <td className="py-4 pr-4">
-                  <ConsentBadge customer={customer} />
-                </td>
-                <td className="py-4 pr-0 text-right text-primary">
-                  <ChevronRight size={18} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </>
+    <div className="divide-y divide-outline-variant/70">
+      {customers.map((customer) => (
+        <button
+          key={customer.customerId ?? customer.customerKey}
+          type="button"
+          className="grid w-full gap-3 px-5 py-4 text-left transition hover:bg-primary/5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+          onClick={() => onOpenCustomer(customer)}
+        >
+          <div className="flex min-w-0 items-center gap-3">
+            <InitialAvatar label={displayName(customer)} />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black text-on-surface">{displayName(customer)}</p>
+              <p className="mt-1 truncate text-xs font-semibold text-on-surface-variant">{customer.customerWhatsApp ?? "No phone number"}</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 items-center gap-3 sm:grid-cols-[auto_auto_auto_auto] sm:justify-end sm:gap-6">
+            <CustomerRowStat label="visits" value={String(customer.visitCount)} />
+            <CustomerRowStat label="spent" value={formatMoney(customer.totalValue)} />
+            <div className="min-w-0 text-right">
+              <p className="truncate text-xs font-semibold text-on-surface">{formatDateTime(customer.lastVisitAtUtc ?? customer.lastOrderAtUtc)}</p>
+              <div className="mt-1 flex justify-end">
+                <ConsentBadge customer={customer} />
+              </div>
+            </div>
+            <ChevronRight size={18} className="text-on-surface-variant" />
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function CustomerRowStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="text-right">
+      <p className="text-sm font-black text-on-surface">{value}</p>
+      <p className="mt-0.5 text-[11px] font-semibold text-on-surface-variant">{label}</p>
+    </div>
   );
 }
 
@@ -532,10 +557,20 @@ function CustomerStatusPill({ status }: { status: OrderStatusCode }) {
   return <span className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black ${className}`}>{status}</span>;
 }
 
+function InitialAvatar({ label, size = "md" }: { label: string; size?: "sm" | "md" }) {
+  const dimension = size === "sm" ? "h-9 w-9 text-sm" : "h-10 w-10 text-sm";
+
+  return (
+    <div className={`grid shrink-0 place-items-center rounded-full bg-brand-mint font-black text-primary ${dimension}`}>
+      {label.trim().charAt(0).toUpperCase() || "?"}
+    </div>
+  );
+}
+
 function FeedbackList({ feedback }: { feedback: AdminFeedback[] }) {
   if (feedback.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-outline-variant/70 bg-surface-container-low p-8 text-center">
+      <div className="m-5 rounded-xl border border-dashed border-outline-variant/70 bg-surface-container-low p-8 text-center">
         <Star size={28} className="mx-auto text-on-surface-variant/70" />
         <p className="mt-3 text-sm font-extrabold text-on-surface">No feedback yet</p>
         <p className="mt-1 text-sm text-on-surface-variant">Customers can rate their experience after an order is completed.</p>
@@ -544,54 +579,37 @@ function FeedbackList({ feedback }: { feedback: AdminFeedback[] }) {
   }
 
   return (
-    <div className="grid gap-3 lg:grid-cols-2">
+    <div className="divide-y divide-outline-variant/70">
       {feedback.slice(0, 8).map((item) => (
-        <article key={item.orderFeedbackId} className="rounded-xl border border-outline-variant/60 bg-white p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-1 text-primary">
-                {Array.from({ length: 5 }, (_, index) => (
-                  <Star key={index} size={15} className={index < item.rating ? "fill-current" : "text-on-surface-variant/35"} />
-                ))}
+        <article key={item.orderFeedbackId} className="flex gap-3 px-5 py-4">
+          <InitialAvatar label={feedbackDisplayName(item)} size="sm" />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <p className="text-sm font-black text-on-surface">{feedbackDisplayName(item)}</p>
+                  <p className="text-xs font-semibold text-on-surface-variant">{item.tableName} - {formatDateTime(item.createdAtUtc)}</p>
+                </div>
               </div>
-              <p className="mt-2 text-sm font-extrabold text-on-surface">{item.customerName || item.customerWhatsApp || "Guest customer"}</p>
-              <p className="mt-1 text-xs font-semibold text-on-surface-variant">
-                {item.tableName} - #{shortId(item.orderId)} - {formatDateTime(item.createdAtUtc)}
-              </p>
+              <RatingStars rating={item.rating} />
             </div>
-            <Badge variant={item.rating >= 4 ? "success" : "outline"} className={item.rating <= 2 ? "border-red-200 bg-red-50 text-red-800" : undefined}>{item.rating}/5</Badge>
+            {item.comment ? <p className="mt-3 rounded-lg bg-surface-container-low px-3 py-2 text-sm font-semibold leading-5 text-on-surface-variant">{item.comment}</p> : null}
           </div>
-          {item.comment ? <p className="mt-3 rounded-lg bg-surface-container-low p-3 text-sm font-semibold leading-6 text-on-surface-variant">{item.comment}</p> : null}
         </article>
       ))}
     </div>
   );
 }
 
-function CustomerCard({ customer, onOpenCustomer }: { customer: CustomerReport; onOpenCustomer: (customer: CustomerReport) => void }) {
+function RatingStars({ rating }: { rating: number }) {
+  const clampedRating = Math.max(0, Math.min(5, Math.round(rating)));
+
   return (
-    <article className="rounded-xl border border-outline-variant/60 bg-white p-4 transition-colors hover:border-primary/30 hover:bg-primary/5" role="button" tabIndex={0} onClick={() => onOpenCustomer(customer)} onKeyDown={(event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        onOpenCustomer(customer);
-      }
-    }}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-extrabold text-on-surface">{displayName(customer)}</p>
-          <p className="mt-1 text-xs text-on-surface-variant">{customer.customerWhatsApp ?? "No phone number"}</p>
-        </div>
-        <ConsentBadge customer={customer} />
-      </div>
-      <div className="mt-4 grid grid-cols-2 gap-2 text-center">
-        <MiniStat label="Visits" value={String(customer.visitCount)} />
-        <MiniStat label="Spent" value={formatMoney(customer.totalValue)} />
-      </div>
-      <div className="mt-4 grid gap-2 text-sm">
-        <InfoRow label="Favorite" value={favoriteItem(customer)} />
-        <InfoRow label="Last visit" value={formatDateTime(customer.lastVisitAtUtc ?? customer.lastOrderAtUtc)} />
-      </div>
-    </article>
+    <div className="flex shrink-0 items-center gap-0.5 text-primary" aria-label={`${clampedRating} out of 5`}>
+      {Array.from({ length: 5 }, (_, index) => (
+        <Star key={index} size={14} className={index < clampedRating ? "fill-current" : "text-on-surface-variant/35"} />
+      ))}
+    </div>
   );
 }
 
@@ -601,24 +619,6 @@ function ConsentBadge({ customer }: { customer: CustomerReport }) {
   }
 
   return <Badge variant="outline" className="w-fit">{customerConsentLabel(customer)}</Badge>;
-}
-
-function MiniStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg bg-surface-container-low px-2 py-2">
-      <p className="truncate text-xs text-on-surface-variant">{label}</p>
-      <p className="mt-1 truncate text-sm font-extrabold text-on-surface">{value}</p>
-    </div>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-on-surface-variant">{label}</span>
-      <span className="min-w-0 truncate text-right font-semibold text-on-surface">{value}</span>
-    </div>
-  );
 }
 
 function filterCustomersBySegment(customers: CustomerReport[], segment: CustomerSegment): CustomerReport[] {
@@ -739,6 +739,10 @@ function shortId(id: string): string {
 
 function displayName(customer: CustomerReport): string {
   return customer.customerName || customer.customerWhatsApp || "Guest customer";
+}
+
+function feedbackDisplayName(item: AdminFeedback): string {
+  return item.customerName || item.customerWhatsApp || "Guest customer";
 }
 
 function customerInitial(customer: CustomerReport): string {
