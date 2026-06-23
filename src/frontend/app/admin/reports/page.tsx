@@ -340,20 +340,21 @@ function OrderHistoryTable({ orders, onOpenOrder }: { orders: OrderReportListIte
 function OrderDetailDialog({ detail, isLoading, onClose }: { detail: OrderReportDetail | null; isLoading: boolean; onClose: () => void }) {
   const order = detail?.order;
   const itemTotal = detail?.items.reduce((total, item) => total + item.lineTotal, 0) ?? 0;
+  const adjustmentsTotal = Math.max(0, (order?.totalAmount ?? 0) - itemTotal);
 
   return (
     <Dialog>
-      <DialogContent className="max-w-4xl bg-white">
-        <div className="sticky top-0 z-10 border-b border-outline-variant/70 bg-white px-5 py-4">
+      <DialogContent className="max-w-3xl border-outline-variant/70 bg-white p-0 shadow-modal">
+        <div className="sticky top-0 z-10 border-b border-outline-variant/70 bg-surface-container-low px-5 py-4">
           <DialogHeader>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <DialogTitle className="flex items-center gap-2 text-xl font-black text-on-surface">
-                  <ClipboardList size={20} className="text-primary" />
+                <DialogTitle className="flex items-center gap-2 text-lg font-black text-on-surface">
+                  <ClipboardList size={19} className="text-primary" />
                   {order ? `Order #${shortOrderCode(order.orderId)}` : "Order details"}
                 </DialogTitle>
-                <DialogDescription>
-                  {order ? `${order.tableName} - ${formatDateTime(order.createdAtUtc)}` : "Loading ordered items and status history."}
+                <DialogDescription className="mt-1 font-semibold">
+                  {order ? `${order.tableName} - ${formatDateTime(order.createdAtUtc)}` : "Loading ordered items and status timeline."}
                 </DialogDescription>
               </div>
               <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Close order details">
@@ -368,69 +369,89 @@ function OrderDetailDialog({ detail, isLoading, onClose }: { detail: OrderReport
             <PageLoading />
           </div>
         ) : (
-          <div className="grid gap-4 p-5">
-            <section className="grid gap-3 md:grid-cols-4">
-              <DetailMetric icon={<UserRound size={16} />} label="Customer" value={order.customerName || "Guest"} note={order.customerWhatsApp || "No WhatsApp"} />
-              <DetailMetric icon={<ClipboardList size={16} />} label="Status" value={order.orderStatusCode} note={formatOrderStatusTime(order)} />
-              <DetailMetric icon={<PackageCheck size={16} />} label="Items" value={String(order.itemCount)} note={`${detail.items.length} line ${detail.items.length === 1 ? "item" : "items"}`} />
-              <DetailMetric icon={<IndianRupee size={16} />} label="Order value" value={formatMoney(order.totalAmount)} note={`Items total ${formatMoney(itemTotal)}`} />
-            </section>
-
-            {(order.notes || order.latestReason) ? (
-              <section className="grid gap-3 md:grid-cols-2">
-                {order.notes ? <InfoBox title="Customer note" text={order.notes} /> : null}
-                {order.latestReason ? <InfoBox title="Latest reason" text={order.latestReason} /> : null}
-              </section>
-            ) : null}
-
-            <section className="rounded-lg border border-outline-variant/70 bg-white">
-              <div className="flex items-center justify-between border-b border-outline-variant/70 px-4 py-3">
-                <div>
-                  <h3 className="text-sm font-black text-on-surface">Ordered items</h3>
-                  <p className="text-xs font-semibold text-on-surface-variant">Names, variants, notes, quantities, and line totals</p>
+          <div className="mx-auto max-w-2xl py-4">
+            <section className="overflow-hidden rounded-lg border border-outline-variant/70 bg-white">
+              <div className="flex flex-col gap-3 border-b border-outline-variant/70 bg-surface-container-low px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <ClipboardList size={16} className="text-on-surface-variant" />
+                    <span className="text-[11px] font-black uppercase tracking-wide text-on-surface-variant">Order</span>
+                    <span className="font-mono text-sm font-black text-on-surface">#{shortOrderCode(order.orderId)}</span>
+                  </div>
+                  <p className="mt-2 text-sm font-semibold text-on-surface-variant">{order.tableName} - {formatDateTime(order.createdAtUtc)}</p>
                 </div>
-                <Badge variant="outline">{detail.items.length} lines</Badge>
+                <StatusBadge status={order.orderStatusCode} />
               </div>
-              <div className="divide-y divide-outline-variant/60">
-                {detail.items.length === 0 ? (
-                  <EmptyReport text="No item details found for this order." />
-                ) : detail.items.map((item) => (
-                  <div key={item.orderItemId} className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_7rem_7rem_8rem] md:items-center">
-                    <div className="min-w-0">
-                      <p className="font-black text-on-surface">{item.variantName ? `${item.menuItemName} - ${item.variantName}` : item.menuItemName}</p>
-                      <div className="mt-1 flex flex-wrap gap-2">
-                        <Badge variant="outline" className="h-6 px-2 text-[10px]">{item.dietTypeCode}</Badge>
-                        {item.itemNote ? <span className="text-xs font-semibold text-on-surface-variant">Note: {item.itemNote}</span> : null}
+
+              <div className="grid divide-y divide-outline-variant/70 border-b border-outline-variant/70 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+                <ReceiptMetric icon={<UserRound size={15} />} label="Customer" value={order.customerName || "Guest"} note={order.customerWhatsApp || "No WhatsApp"} />
+                <ReceiptMetric icon={<PackageCheck size={15} />} label="Items" value={`${order.itemCount} item${order.itemCount === 1 ? "" : "s"}`} note={`${detail.items.length} line ${detail.items.length === 1 ? "item" : "items"}`} />
+                <ReceiptMetric icon={<IndianRupee size={15} />} label="Total" value={formatMoney(order.totalAmount)} note={`Items ${formatMoney(itemTotal)}`} />
+              </div>
+
+              {(order.notes || order.latestReason) ? (
+                <div className="grid gap-3 border-b border-outline-variant/70 bg-surface-container-low/45 px-5 py-4 sm:grid-cols-2">
+                  {order.notes ? <InfoBox title="Customer note" text={order.notes} /> : null}
+                  {order.latestReason ? <InfoBox title="Latest reason" text={order.latestReason} /> : null}
+                </div>
+              ) : null}
+
+              <section className="px-5 py-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <p className="text-[11px] font-black uppercase tracking-wide text-on-surface-variant">Ordered items</p>
+                  <Badge variant="outline">{detail.items.length} lines</Badge>
+                </div>
+                <div className="divide-y divide-outline-variant/70">
+                  {detail.items.length === 0 ? (
+                    <EmptyReport text="No item details found for this order." />
+                  ) : detail.items.map((item) => (
+                    <div key={item.orderItemId} className="flex items-center justify-between gap-3 py-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-secondary-container text-primary">
+                          <PackageCheck size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-on-surface">{item.variantName ? `${item.menuItemName} - ${item.variantName}` : item.menuItemName}</p>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <span className="rounded-full bg-primary-fixed px-2 py-0.5 text-[10px] font-black text-primary">{item.dietTypeCode}</span>
+                            {item.itemNote ? <span className="max-w-[14rem] truncate text-xs font-semibold text-on-surface-variant">Note: {item.itemNote}</span> : null}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-sm font-black text-on-surface">{formatMoney(item.lineTotal)}</p>
+                        <p className="mt-0.5 text-xs font-semibold text-on-surface-variant">{formatMoney(item.unitPrice)} x {item.quantity}</p>
                       </div>
                     </div>
-                    <p className="text-sm font-semibold text-on-surface-variant md:text-right">{formatMoney(item.unitPrice)}</p>
-                    <p className="text-sm font-black text-on-surface md:text-right">x {item.quantity}</p>
-                    <p className="text-sm font-black text-primary md:text-right">{formatMoney(item.lineTotal)}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
+                  ))}
+                </div>
+              </section>
 
-            <section className="rounded-lg border border-outline-variant/70 bg-surface-container-low/40">
-              <div className="flex items-center gap-2 border-b border-outline-variant/70 px-4 py-3">
-                <History size={16} className="text-primary" />
-                <h3 className="text-sm font-black text-on-surface">Status timeline</h3>
-              </div>
-              <div className="grid gap-2 p-4">
+              <section className="border-t border-outline-variant/70 bg-surface-container-low">
+                <ReceiptTotalRow label="Items total" value={formatMoney(itemTotal)} />
+                <ReceiptTotalRow label="Taxes, charges, discounts" value={formatMoney(adjustmentsTotal)} />
+                <ReceiptTotalRow label="Order total" value={formatMoney(order.totalAmount)} strong />
+              </section>
+
+              <section className="border-t border-outline-variant/70 px-5 py-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <History size={15} className="text-primary" />
+                  <p className="text-[11px] font-black uppercase tracking-wide text-on-surface-variant">Status timeline</p>
+                </div>
                 {detail.statusHistory.length === 0 ? (
                   <p className="text-sm font-semibold text-on-surface-variant">No status changes found.</p>
-                ) : detail.statusHistory.map((entry) => (
-                  <div key={entry.orderStatusHistoryId} className="flex flex-col gap-1 rounded-lg border border-outline-variant/70 bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-black text-on-surface">
-                        {entry.oldStatusCode ? `${entry.oldStatusCode} -> ${entry.newStatusCode}` : entry.newStatusCode}
-                      </p>
-                      {entry.reason ? <p className="mt-0.5 text-xs font-semibold text-on-surface-variant">{entry.reason}</p> : null}
-                    </div>
-                    <p className="text-xs font-semibold text-on-surface-variant">{formatDateTime(entry.createdAtUtc)}</p>
+                ) : (
+                  <div>
+                    {detail.statusHistory.map((entry, index) => (
+                      <TimelineEntry
+                        key={entry.orderStatusHistoryId}
+                        entry={entry}
+                        isLast={index === detail.statusHistory.length - 1}
+                      />
+                    ))}
                   </div>
-                ))}
-              </div>
+                )}
+              </section>
             </section>
           </div>
         )}
@@ -439,14 +460,14 @@ function OrderDetailDialog({ detail, isLoading, onClose }: { detail: OrderReport
   );
 }
 
-function DetailMetric({ icon, label, value, note }: { icon: React.ReactNode; label: string; value: string; note: string }) {
+function ReceiptMetric({ icon, label, value, note }: { icon: React.ReactNode; label: string; value: string; note: string }) {
   return (
-    <div className="rounded-lg border border-outline-variant/70 bg-surface-container-low/50 p-4">
-      <div className="flex items-center justify-between gap-3">
+    <div className="px-5 py-4">
+      <div className="flex items-center gap-1.5">
+        <span className="text-on-surface-variant">{icon}</span>
         <p className="text-[11px] font-black uppercase tracking-wide text-on-surface-variant">{label}</p>
-        <span className="text-primary">{icon}</span>
       </div>
-      <p className="mt-2 truncate text-base font-black text-on-surface">{value}</p>
+      <p className="mt-2 truncate text-[15px] font-black text-on-surface">{value}</p>
       <p className="mt-1 truncate text-xs font-semibold text-on-surface-variant">{note}</p>
     </div>
   );
@@ -457,6 +478,37 @@ function InfoBox({ title, text }: { title: string; text: string }) {
     <div className="rounded-lg border border-outline-variant/70 bg-surface-container-low/40 p-4">
       <p className="text-[11px] font-black uppercase tracking-wide text-on-surface-variant">{title}</p>
       <p className="mt-2 text-sm font-semibold leading-5 text-on-surface">{text}</p>
+    </div>
+  );
+}
+
+function ReceiptTotalRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className={`flex items-center justify-between gap-4 border-t border-outline-variant/70 px-5 ${strong ? "py-4" : "py-3"}`}>
+      <span className={`${strong ? "text-sm font-black text-on-surface" : "text-sm font-semibold text-on-surface-variant"}`}>{label}</span>
+      <span className={`${strong ? "text-xl font-black text-primary" : "text-sm font-black text-on-surface"}`}>{value}</span>
+    </div>
+  );
+}
+
+function TimelineEntry({ entry, isLast }: { entry: OrderReportDetail["statusHistory"][number]; isLast: boolean }) {
+  return (
+    <div className="grid grid-cols-[1.25rem_minmax(0,1fr)] gap-3">
+      <div className="flex flex-col items-center">
+        <span className="mt-1 h-3 w-3 rounded-full border-2 border-primary-fixed bg-primary shadow-[0_0_0_3px_rgba(32,199,122,0.12)]" />
+        {!isLast ? <span className="h-9 w-px bg-outline-variant" /> : null}
+      </div>
+      <div className={isLast ? "pb-0" : "pb-4"}>
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-black text-on-surface">
+              {entry.oldStatusCode ? `${entry.oldStatusCode} -> ${entry.newStatusCode}` : entry.newStatusCode}
+            </p>
+            {entry.reason ? <p className="mt-1 text-xs font-semibold leading-5 text-on-surface-variant">{entry.reason}</p> : null}
+          </div>
+          <p className="shrink-0 text-xs font-semibold text-on-surface-variant">{formatDateTime(entry.createdAtUtc)}</p>
+        </div>
+      </div>
     </div>
   );
 }
