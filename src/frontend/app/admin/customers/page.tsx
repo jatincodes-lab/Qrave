@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { CalendarDays, ChevronRight, IndianRupee, MessageCircle, PackageCheck, RefreshCw, Search, Send, ShoppingBag, SlidersHorizontal, Star, UserRound, Users, X } from "lucide-react";
+import { CalendarDays, ChevronRight, IndianRupee, PackageCheck, RefreshCw, Search, ShoppingBag, SlidersHorizontal, Star, UserRound, Users, X } from "lucide-react";
 import { AdminShell } from "../../../components/admin-shell";
 import { EmptyBranchState, MetricCard, PageError, PageLoading } from "../../../components/admin-page-common";
 import { Badge } from "../../../components/ui/badge";
@@ -22,38 +22,25 @@ type CustomerFilterForm = {
 
 const StatusOptions: Array<"" | OrderStatusCode> = ["", "Placed", "Accepted", "Preparing", "Ready", "Served", "Completed", "Cancelled"];
 
-type WhatsAppTemplateId = "repeatVisit" | "inactiveCustomer" | "favoriteItem";
+type CustomerSegment = "all" | "repeat" | "topSpenders" | "inactive" | "firstTime" | "consent";
 
-type WhatsAppTemplate = {
-  id: WhatsAppTemplateId;
+type CustomerSegmentOption = {
+  value: CustomerSegment;
   label: string;
-  description: string;
-  buildMessage: (customer: CustomerReport, branchName: string) => string;
+  helper: string;
 };
 
-const WhatsAppTemplates: WhatsAppTemplate[] = [
-  {
-    id: "repeatVisit",
-    label: "Invite again",
-    description: "Invite loyal customers back with a simple thank-you message.",
-    buildMessage: (customer, branchName) =>
-      `Hi ${customerFirstName(customer)}, thanks for visiting ${branchName}. We would love to serve you again. Reply here or scan our QR menu when you are nearby.`
-  },
-  {
-    id: "inactiveCustomer",
-    label: "Come back offer",
-    description: "Reach customers who have not visited recently.",
-    buildMessage: (customer, branchName) =>
-      `Hi ${customerFirstName(customer)}, we miss you at ${branchName}. Visit us again this week and ask our team about today's special offer.`
-  },
-  {
-    id: "favoriteItem",
-    label: "Favorite item",
-    description: "Mention the item this customer orders most often.",
-    buildMessage: (customer, branchName) =>
-      `Hi ${customerFirstName(customer)}, your favorite ${favoriteItem(customer).toLowerCase() === "-" ? "order" : favoriteItem(customer)} is waiting at ${branchName}. Visit us again soon.`
-  }
+const SegmentOptions: CustomerSegmentOption[] = [
+  { value: "all", label: "All", helper: "Every saved customer" },
+  { value: "repeat", label: "Repeat", helper: "Visited or ordered more than once" },
+  { value: "topSpenders", label: "Top spenders", helper: "Highest total value customers" },
+  { value: "inactive", label: "Inactive", helper: "No visit in 30 days" },
+  { value: "firstTime", label: "First-time", helper: "Only one visit or order" },
+  { value: "consent", label: "Consent saved", helper: "Has permission for future outreach" }
 ];
+
+const InactiveCustomerDays = 30;
+const TopSpenderLimit = 10;
 
 export default function AdminCustomersPage() {
   const workspace = useAdminWorkspace();
@@ -67,7 +54,7 @@ export default function AdminCustomersPage() {
   const [feedback, setFeedback] = useState<AdminFeedback[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showMoreFilters, setShowMoreFilters] = useState(false);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<WhatsAppTemplateId>("repeatVisit");
+  const [activeSegment, setActiveSegment] = useState<CustomerSegment>("all");
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerReport | null>(null);
   const [recentOrders, setRecentOrders] = useState<OrderReportListItem[]>([]);
   const [isLoadingCustomerOrders, setIsLoadingCustomerOrders] = useState(false);
@@ -149,8 +136,8 @@ export default function AdminCustomersPage() {
   const metrics = getCustomerMetrics(customers);
   const feedbackMetrics = getFeedbackMetrics(feedback);
   const branchName = workspace.selectedBranch?.name ?? "Customers";
-  const selectedTemplate = WhatsAppTemplates.find((template) => template.id === selectedTemplateId) ?? WhatsAppTemplates[0];
-  const optedInCustomers = customers.filter((customer) => customer.marketingConsent && toWhatsAppPhone(customer.customerWhatsApp)).length;
+  const visibleCustomers = useMemo(() => filterCustomersBySegment(customers, activeSegment), [activeSegment, customers]);
+  const segmentCounts = useMemo(() => getSegmentCounts(customers), [customers]);
 
   return (
     <AdminShell
@@ -170,7 +157,7 @@ export default function AdminCustomersPage() {
             </Badge>
             <h1 className="mt-4 text-headline-lg text-primary">Customers</h1>
             <p className="mt-2 max-w-2xl text-body-md text-on-surface-variant">
-              See saved customers and message them on WhatsApp.
+              Understand repeat guests, spend, favorite items, and feedback without extra staff work.
             </p>
           </div>
         </header>
@@ -192,7 +179,7 @@ export default function AdminCustomersPage() {
                         <Search size={13} />
                         Search customer
                       </span>
-                      <Input className="h-11 bg-white" value={form.search} onChange={(event) => setForm({ ...form, search: event.target.value })} placeholder="Name, WhatsApp number, favorite item" />
+                      <Input className="h-11 bg-white" value={form.search} onChange={(event) => setForm({ ...form, search: event.target.value })} placeholder="Name, phone number, favorite item" />
                     </label>
                     <Button type="button" variant="outline" className="h-11 px-4" onClick={() => setShowMoreFilters((current) => !current)}>
                       <SlidersHorizontal size={17} />
@@ -239,10 +226,12 @@ export default function AdminCustomersPage() {
 
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <MetricCard icon={<Users size={20} />} label="Customers" value={isLoading ? "..." : String(customers.length)} />
-              <MetricCard icon={<RefreshCw size={20} />} label="Repeat customers" value={isLoading ? "..." : String(metrics.repeatCustomers)} />
-              <MetricCard icon={<MessageCircle size={20} />} label="Can message" value={isLoading ? "..." : String(optedInCustomers)} />
-              <MetricCard icon={<Star size={20} />} label="Total spent" value={isLoading ? "..." : formatMoney(metrics.totalValue)} />
+              <MetricCard icon={<RefreshCw size={20} />} label="Repeat guests" value={isLoading ? "..." : String(metrics.repeatCustomers)} />
+              <MetricCard icon={<IndianRupee size={20} />} label="Top spenders" value={isLoading ? "..." : String(segmentCounts.topSpenders)} />
+              <MetricCard icon={<CalendarDays size={20} />} label="At risk" value={isLoading ? "..." : String(segmentCounts.inactive)} />
             </section>
+
+            <CustomerSegments activeSegment={activeSegment} counts={segmentCounts} onChange={setActiveSegment} />
 
             <Card>
               <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -262,43 +251,16 @@ export default function AdminCustomersPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-surface-container-low/70">
-              <CardContent className="grid min-h-[7.5rem] gap-5 px-5 py-6 sm:px-6 sm:py-7 lg:grid-cols-[minmax(15rem,0.7fr)_minmax(18rem,1fr)_auto] lg:items-center">
-                <label className="grid gap-2.5">
-                  <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-on-surface-variant">
-                    <MessageCircle size={13} />
-                    WhatsApp message
-                  </span>
-                  <select
-                    value={selectedTemplateId}
-                    onChange={(event) => setSelectedTemplateId(event.target.value as WhatsAppTemplateId)}
-                    className="h-11 w-full rounded-lg border border-input bg-white px-3 text-sm font-semibold text-on-surface outline-none transition-colors focus:border-primary/30 focus:ring-2 focus:ring-ring/20"
-                  >
-                    {WhatsAppTemplates.map((template) => (
-                      <option key={template.id} value={template.id}>{template.label}</option>
-                    ))}
-                  </select>
-                </label>
-                <div className="min-w-0 rounded-lg border border-outline-variant/70 bg-white px-3 py-3">
-                  <p className="text-xs font-bold uppercase tracking-wide text-on-surface-variant">Preview</p>
-                  <p className="mt-1 truncate text-sm font-semibold text-on-surface">
-                    {selectedTemplate.buildMessage(customers[0] ?? EmptyPreviewCustomer, branchName)}
-                  </p>
-                </div>
-                <Badge variant="outline" className="h-10 justify-center px-3">{optedInCustomers} can message</Badge>
-              </CardContent>
-            </Card>
-
             <Card>
               <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle>Saved customers</CardTitle>
-                  <p className="mt-1 text-sm text-on-surface-variant">{customers.length} customers found.</p>
+                  <p className="mt-1 text-sm text-on-surface-variant">{visibleCustomers.length} of {customers.length} customers shown.</p>
                 </div>
                 <Badge variant="outline">{workspace.selectedBranch.name}</Badge>
               </CardHeader>
               <CardContent>
-                {isLoading ? <PageLoading /> : <CustomerList branchName={branchName} customers={customers} onOpenCustomer={openCustomerQuickView} template={selectedTemplate} />}
+                {isLoading ? <PageLoading /> : <CustomerList customers={visibleCustomers} emptyText={segmentEmptyText(activeSegment)} onOpenCustomer={openCustomerQuickView} />}
               </CardContent>
             </Card>
 
@@ -323,13 +285,41 @@ export default function AdminCustomersPage() {
   );
 }
 
-function CustomerList({ branchName, customers, onOpenCustomer, template }: { branchName: string; customers: CustomerReport[]; onOpenCustomer: (customer: CustomerReport) => void; template: WhatsAppTemplate }) {
+function CustomerSegments({ activeSegment, counts, onChange }: { activeSegment: CustomerSegment; counts: Record<CustomerSegment, number>; onChange: (segment: CustomerSegment) => void }) {
+  return (
+    <Card className="bg-surface-container-low/70">
+      <CardContent className="px-5 py-5 sm:px-6">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+          {SegmentOptions.map((option) => {
+            const active = activeSegment === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                className={`rounded-lg border px-4 py-3 text-left transition ${
+                  active ? "border-primary bg-primary text-white shadow-sm" : "border-outline-variant/70 bg-white text-on-surface hover:border-primary/30 hover:bg-primary/5"
+                }`}
+                onClick={() => onChange(option.value)}
+              >
+                <span className={`text-[11px] font-black uppercase tracking-wide ${active ? "text-white/70" : "text-on-surface-variant"}`}>{option.label}</span>
+                <span className="mt-2 block text-2xl font-black leading-none">{counts[option.value]}</span>
+                <span className={`mt-2 block text-xs font-semibold leading-4 ${active ? "text-white/70" : "text-on-surface-variant"}`}>{option.helper}</span>
+              </button>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CustomerList({ customers, emptyText, onOpenCustomer }: { customers: CustomerReport[]; emptyText: string; onOpenCustomer: (customer: CustomerReport) => void }) {
   if (customers.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-outline-variant/70 bg-surface-container-low p-8 text-center">
         <UserRound size={28} className="mx-auto text-on-surface-variant/70" />
-        <p className="mt-3 text-sm font-extrabold text-on-surface">No customers yet</p>
-        <p className="mt-1 text-sm text-on-surface-variant">Customers will appear here after they order with a WhatsApp number.</p>
+        <p className="mt-3 text-sm font-extrabold text-on-surface">No customers found</p>
+        <p className="mt-1 text-sm text-on-surface-variant">{emptyText}</p>
       </div>
     );
   }
@@ -338,7 +328,7 @@ function CustomerList({ branchName, customers, onOpenCustomer, template }: { bra
     <>
       <div className="grid gap-3 lg:hidden">
         {customers.map((customer) => (
-          <CustomerCard key={customer.customerId ?? customer.customerKey} branchName={branchName} customer={customer} onOpenCustomer={onOpenCustomer} template={template} />
+          <CustomerCard key={customer.customerId ?? customer.customerKey} customer={customer} onOpenCustomer={onOpenCustomer} />
         ))}
       </div>
       <div className="hidden overflow-x-auto lg:block">
@@ -350,7 +340,7 @@ function CustomerList({ branchName, customers, onOpenCustomer, template }: { bra
               <th className="py-2 pr-4">Total spent</th>
               <th className="py-2 pr-4">Favorite</th>
               <th className="py-2 pr-4">Last visit</th>
-              <th className="py-2 pr-4">WhatsApp</th>
+              <th className="py-2 pr-4">Consent</th>
               <th className="py-2 pr-0 text-right">View</th>
             </tr>
           </thead>
@@ -359,7 +349,7 @@ function CustomerList({ branchName, customers, onOpenCustomer, template }: { bra
               <tr key={customer.customerId ?? customer.customerKey} className="cursor-pointer transition-colors hover:bg-primary/5" onClick={() => onOpenCustomer(customer)}>
                 <td className="py-4 pr-4">
                   <p className="max-w-[18rem] truncate font-extrabold text-on-surface">{displayName(customer)}</p>
-                  <p className="mt-1 text-xs text-on-surface-variant">{customer.customerWhatsApp ?? "No WhatsApp number"}</p>
+                  <p className="mt-1 text-xs text-on-surface-variant">{customer.customerWhatsApp ?? "No phone number"}</p>
                 </td>
                 <td className="py-4 pr-4 font-semibold text-on-surface">{customer.visitCount}</td>
                 <td className="py-4 pr-4 font-extrabold text-primary">{formatMoney(customer.totalValue)}</td>
@@ -367,8 +357,8 @@ function CustomerList({ branchName, customers, onOpenCustomer, template }: { bra
                   <p className="max-w-[14rem] truncate font-semibold text-on-surface">{favoriteItem(customer)}</p>
                 </td>
                 <td className="py-4 pr-4 text-on-surface-variant">{formatDateTime(customer.lastVisitAtUtc ?? customer.lastOrderAtUtc)}</td>
-                <td className="py-4 pr-4" onClick={(event) => event.stopPropagation()}>
-                  <WhatsAppButton branchName={branchName} customer={customer} template={template} />
+                <td className="py-4 pr-4">
+                  <ConsentBadge customer={customer} />
                 </td>
                 <td className="py-4 pr-0 text-right text-primary">
                   <ChevronRight size={18} />
@@ -397,7 +387,7 @@ function CustomerQuickView({
   onClose: () => void;
   orders: OrderReportListItem[];
 }) {
-  const canMessage = customer.marketingConsent && Boolean(toWhatsAppPhone(customer.customerWhatsApp));
+  const hasConsent = hasUsableCustomerConsent(customer);
 
   return (
     <Dialog>
@@ -431,12 +421,12 @@ function CustomerQuickView({
                   </div>
                   <div className="min-w-0">
                     <h2 className="truncate text-xl font-black">{displayName(customer)}</h2>
-                    <p className="mt-1 truncate text-sm font-semibold text-white/70">{customer.customerWhatsApp ?? "No WhatsApp number"}</p>
+                    <p className="mt-1 truncate text-sm font-semibold text-white/70">{customer.customerWhatsApp ?? "No phone number"}</p>
                   </div>
                 </div>
               </div>
-              <Badge variant={canMessage ? "success" : "outline"} className={canMessage ? "w-fit bg-brand-mint text-primary" : "w-fit border-white/20 bg-white/10 text-white"}>
-                {canMessage ? "Marketing consent" : "No campaign consent"}
+              <Badge variant={hasConsent ? "success" : "outline"} className={hasConsent ? "w-fit bg-brand-mint text-primary" : "w-fit border-white/20 bg-white/10 text-white"}>
+                {customerConsentLabel(customer)}
               </Badge>
             </div>
 
@@ -586,7 +576,7 @@ function FeedbackList({ feedback }: { feedback: AdminFeedback[] }) {
   );
 }
 
-function CustomerCard({ branchName, customer, onOpenCustomer, template }: { branchName: string; customer: CustomerReport; onOpenCustomer: (customer: CustomerReport) => void; template: WhatsAppTemplate }) {
+function CustomerCard({ customer, onOpenCustomer }: { customer: CustomerReport; onOpenCustomer: (customer: CustomerReport) => void }) {
   return (
     <article className="rounded-xl border border-outline-variant/60 bg-white p-4 transition-colors hover:border-primary/30 hover:bg-primary/5" role="button" tabIndex={0} onClick={() => onOpenCustomer(customer)} onKeyDown={(event) => {
       if (event.key === "Enter" || event.key === " ") {
@@ -597,11 +587,9 @@ function CustomerCard({ branchName, customer, onOpenCustomer, template }: { bran
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-extrabold text-on-surface">{displayName(customer)}</p>
-          <p className="mt-1 text-xs text-on-surface-variant">{customer.customerWhatsApp ?? "No WhatsApp number"}</p>
+          <p className="mt-1 text-xs text-on-surface-variant">{customer.customerWhatsApp ?? "No phone number"}</p>
         </div>
-        <div onClick={(event) => event.stopPropagation()}>
-          <WhatsAppButton branchName={branchName} customer={customer} template={template} />
-        </div>
+        <ConsentBadge customer={customer} />
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2 text-center">
         <MiniStat label="Visits" value={String(customer.visitCount)} />
@@ -615,26 +603,12 @@ function CustomerCard({ branchName, customer, onOpenCustomer, template }: { bran
   );
 }
 
-function WhatsAppButton({ branchName, customer, template }: { branchName: string; customer: CustomerReport; template: WhatsAppTemplate }) {
-  const phone = toWhatsAppPhone(customer.customerWhatsApp);
-  const disabledReason = whatsAppDisabledReason(customer, phone);
-  const isEnabled = disabledReason === null;
-
-  function openWhatsApp() {
-    if (!phone || !customer.marketingConsent) {
-      return;
-    }
-
-    const message = template.buildMessage(customer, branchName);
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+function ConsentBadge({ customer }: { customer: CustomerReport }) {
+  if (hasUsableCustomerConsent(customer)) {
+    return <Badge variant="success" className="w-fit">Consent saved</Badge>;
   }
 
-  return (
-    <Button type="button" size="sm" variant={isEnabled ? "secondary" : "outline"} disabled={!isEnabled} onClick={openWhatsApp} title={disabledReason ?? "Send WhatsApp message"}>
-      {isEnabled ? <Send size={15} /> : <MessageCircle size={15} />}
-      {disabledReason ?? "WhatsApp"}
-    </Button>
-  );
+  return <Badge variant="outline" className="w-fit">{customerConsentLabel(customer)}</Badge>;
 }
 
 function MiniStat({ label, value }: { label: string; value: string }) {
@@ -658,12 +632,112 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 function getCustomerMetrics(customers: CustomerReport[]) {
   return customers.reduce(
     (metrics, customer) => ({
-      repeatCustomers: metrics.repeatCustomers + (customer.visitCount > 1 || customer.orderCount > 1 ? 1 : 0),
-      optedInCustomers: metrics.optedInCustomers + (customer.marketingConsent ? 1 : 0),
-      totalValue: metrics.totalValue + customer.totalValue
+      repeatCustomers: metrics.repeatCustomers + (isRepeatCustomer(customer) ? 1 : 0)
     }),
-    { repeatCustomers: 0, optedInCustomers: 0, totalValue: 0 }
+    { repeatCustomers: 0 }
   );
+}
+
+function filterCustomersBySegment(customers: CustomerReport[], segment: CustomerSegment): CustomerReport[] {
+  switch (segment) {
+    case "repeat":
+      return customers.filter(isRepeatCustomer);
+    case "topSpenders":
+      return topSpenderCustomers(customers);
+    case "inactive":
+      return customers.filter(isInactiveCustomer);
+    case "firstTime":
+      return customers.filter(isFirstTimeCustomer);
+    case "consent":
+      return customers.filter(hasUsableCustomerConsent);
+    case "all":
+    default:
+      return customers;
+  }
+}
+
+function getSegmentCounts(customers: CustomerReport[]): Record<CustomerSegment, number> {
+  return {
+    all: customers.length,
+    repeat: customers.filter(isRepeatCustomer).length,
+    topSpenders: topSpenderCustomers(customers).length,
+    inactive: customers.filter(isInactiveCustomer).length,
+    firstTime: customers.filter(isFirstTimeCustomer).length,
+    consent: customers.filter(hasUsableCustomerConsent).length
+  };
+}
+
+function segmentEmptyText(segment: CustomerSegment): string {
+  switch (segment) {
+    case "repeat":
+      return "No repeat guests match the current search or date filters.";
+    case "topSpenders":
+      return "No spending data is available for the current customer list.";
+    case "inactive":
+      return `No customers have been inactive for ${InactiveCustomerDays} days in this view.`;
+    case "firstTime":
+      return "No first-time customers match the current filters.";
+    case "consent":
+      return "No customers with a valid phone number and saved consent match the current filters.";
+    case "all":
+    default:
+      return "Customers will appear here after they place an order with saved contact details.";
+  }
+}
+
+function isRepeatCustomer(customer: CustomerReport): boolean {
+  return safeCustomerNumber(customer.visitCount) > 1 || safeCustomerNumber(customer.orderCount) > 1;
+}
+
+function isFirstTimeCustomer(customer: CustomerReport): boolean {
+  return !isRepeatCustomer(customer);
+}
+
+function isInactiveCustomer(customer: CustomerReport): boolean {
+  const lastActivity = parseCustomerDate(customer.lastVisitAtUtc ?? customer.lastOrderAtUtc);
+  if (!lastActivity) {
+    return false;
+  }
+
+  const inactiveMs = Date.now() - lastActivity.getTime();
+  return inactiveMs >= InactiveCustomerDays * 24 * 60 * 60 * 1000;
+}
+
+function topSpenderCustomers(customers: CustomerReport[]): CustomerReport[] {
+  return customers
+    .filter((customer) => safeCustomerNumber(customer.totalValue) > 0)
+    .slice()
+    .sort((left, right) => safeCustomerNumber(right.totalValue) - safeCustomerNumber(left.totalValue))
+    .slice(0, TopSpenderLimit);
+}
+
+function hasUsableCustomerConsent(customer: CustomerReport): boolean {
+  return customer.marketingConsent && Boolean(toComparablePhone(customer.customerWhatsApp));
+}
+
+function customerConsentLabel(customer: CustomerReport): string {
+  if (!customer.customerWhatsApp?.trim()) {
+    return "No number";
+  }
+
+  if (!toComparablePhone(customer.customerWhatsApp)) {
+    return "Invalid number";
+  }
+
+  return customer.marketingConsent ? "Consent saved" : "No consent";
+}
+
+function safeCustomerNumber(value: number): number {
+  return Number.isFinite(value) ? value : 0;
+}
+
+function parseCustomerDate(value: string | null): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function getFeedbackMetrics(feedback: AdminFeedback[]) {
@@ -687,15 +761,6 @@ function displayName(customer: CustomerReport): string {
 function customerInitial(customer: CustomerReport): string {
   const source = customer.customerName || customer.customerWhatsApp || "?";
   return source.trim().charAt(0).toUpperCase() || "?";
-}
-
-function customerFirstName(customer: CustomerReport): string {
-  const name = customer.customerName?.trim();
-  if (!name) {
-    return "there";
-  }
-
-  return name.split(/\s+/)[0];
 }
 
 function favoriteItem(customer: CustomerReport): string {
@@ -738,7 +803,7 @@ function formatShortDate(value: string | null): string {
   }).format(date);
 }
 
-function toWhatsAppPhone(value: string | null): string | null {
+function toComparablePhone(value: string | null): string | null {
   if (!value) {
     return null;
   }
@@ -756,7 +821,7 @@ function toWhatsAppPhone(value: string | null): string | null {
 }
 
 function normalizePhone(value: string | null): string {
-  return toWhatsAppPhone(value) ?? "";
+  return toComparablePhone(value) ?? "";
 }
 
 function customerSearchTerm(customer: CustomerReport): string {
@@ -780,38 +845,6 @@ function customerFeedback(customer: CustomerReport, feedback: AdminFeedback[]): 
 
   return matches.sort((left, right) => new Date(right.createdAtUtc).getTime() - new Date(left.createdAtUtc).getTime())[0] ?? null;
 }
-
-function whatsAppDisabledReason(customer: CustomerReport, phone: string | null): string | null {
-  if (!phone) {
-    return "No number";
-  }
-
-  if (!customer.marketingConsent) {
-    return "No consent";
-  }
-
-  return null;
-}
-
-const EmptyPreviewCustomer: CustomerReport = {
-  customerId: null,
-  customerKey: "preview",
-  customerName: "Priya",
-  customerWhatsApp: null,
-  marketingConsent: true,
-  visitCount: 1,
-  orderCount: 1,
-  totalValue: 0,
-  firstVisitAtUtc: null,
-  lastVisitAtUtc: null,
-  lastOrderAtUtc: null,
-  branchesVisited: 1,
-  firstBranchName: null,
-  lastBranchName: null,
-  favoriteItemName: "coffee",
-  favoriteVariantName: null,
-  favoriteItemQuantity: 1
-};
 
 function validateOptionalDateRange(dateFrom: string, dateTo: string) {
   if (!dateFrom && !dateTo) {
