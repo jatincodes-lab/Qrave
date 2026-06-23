@@ -272,6 +272,39 @@ public sealed class OrderServiceTests
                 order.OrderStatusCode));
         }
 
+        public Task<PublicOrderResponse> RequestItemCancellationAsync(
+            string qrToken,
+            Guid orderId,
+            Guid orderItemId,
+            string tokenHash,
+            int quantity,
+            string reason,
+            CancellationToken cancellationToken)
+        {
+            QrToken = qrToken;
+            CancelOrderId = orderId;
+            CancelTokenHash = tokenHash;
+            CancelReason = reason;
+
+            return Task.FromResult(new PublicOrderResponse(
+                orderId,
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                "Placed",
+                null,
+                null,
+                null,
+                100m,
+                100m,
+                null,
+                null,
+                0m,
+                DateTime.UtcNow,
+                DateTime.UtcNow,
+                []));
+        }
+
         public Task<PublicQrPromoCodeValidationResponse> ValidatePromoCodeAsync(
             string qrToken,
             Guid qrSessionId,

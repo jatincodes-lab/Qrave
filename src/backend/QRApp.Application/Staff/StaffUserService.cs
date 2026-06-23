@@ -64,6 +64,54 @@ public sealed class StaffUserService(IStaffUserRepository repository, IPasswordH
         return OperationResult<StaffUserResponse>.Success(staff);
     }
 
+    public async Task<OperationResult<StaffUserResponse>> ResetPasswordAsync(Guid tenantId, Guid userId, ResetStaffPasswordRequest request, CancellationToken cancellationToken)
+    {
+        var password = request.Password ?? string.Empty;
+        var errors = ValidatePassword(password, nameof(ResetStaffPasswordRequest.Password));
+        if (errors.Count > 0)
+        {
+            return OperationResult<StaffUserResponse>.Failed(errors.ToArray());
+        }
+
+        var staff = await repository.ResetPasswordAsync(tenantId, userId, passwordHasher.Hash(password), cancellationToken);
+        return staff is null
+            ? OperationResult<StaffUserResponse>.Failed(new ValidationFailure(nameof(userId), "Staff user was not found."))
+            : OperationResult<StaffUserResponse>.Success(staff);
+    }
+
+    public async Task<OperationResult<bool>> ChangeOwnPasswordAsync(Guid tenantId, Guid userId, ChangeOwnPasswordRequest request, CancellationToken cancellationToken)
+    {
+        var currentPassword = request.CurrentPassword ?? string.Empty;
+        var newPassword = request.NewPassword ?? string.Empty;
+        var errors = ValidatePassword(newPassword, nameof(ChangeOwnPasswordRequest.NewPassword));
+
+        if (string.IsNullOrWhiteSpace(currentPassword))
+        {
+            errors.Add(new ValidationFailure(nameof(ChangeOwnPasswordRequest.CurrentPassword), "Current password is required."));
+        }
+
+        if (currentPassword == newPassword)
+        {
+            errors.Add(new ValidationFailure(nameof(ChangeOwnPasswordRequest.NewPassword), "New password must be different from current password."));
+        }
+
+        if (errors.Count > 0)
+        {
+            return OperationResult<bool>.Failed(errors.ToArray());
+        }
+
+        var passwordHash = await repository.GetPasswordHashAsync(tenantId, userId, cancellationToken);
+        if (passwordHash is null || !passwordHasher.Verify(currentPassword, passwordHash))
+        {
+            return OperationResult<bool>.Failed(new ValidationFailure(nameof(ChangeOwnPasswordRequest.CurrentPassword), "Current password is incorrect."));
+        }
+
+        var updated = await repository.UpdatePasswordAsync(tenantId, userId, passwordHasher.Hash(newPassword), cancellationToken);
+        return updated
+            ? OperationResult<bool>.Success(true)
+            : OperationResult<bool>.Failed(new ValidationFailure(nameof(userId), "User was not found."));
+    }
+
     private static List<ValidationFailure> ValidateCreate(CreateStaffUserRequest request)
     {
         var errors = ValidateShared(request.DisplayName, request.RoleCode);
@@ -73,10 +121,7 @@ public sealed class StaffUserService(IStaffUserRepository repository, IPasswordH
             errors.Add(new ValidationFailure(nameof(CreateStaffUserRequest.Email), "Email is invalid."));
         }
 
-        if (request.Password.Length is < 8 or > 128)
-        {
-            errors.Add(new ValidationFailure(nameof(CreateStaffUserRequest.Password), "Password must be between 8 and 128 characters."));
-        }
+        errors.AddRange(ValidatePassword(request.Password, nameof(CreateStaffUserRequest.Password)));
 
         return errors;
     }
@@ -98,6 +143,17 @@ public sealed class StaffUserService(IStaffUserRepository repository, IPasswordH
         if (!AllowedRoles.Contains(roleCode))
         {
             errors.Add(new ValidationFailure("RoleCode", "Staff role is invalid."));
+        }
+
+        return errors;
+    }
+
+    private static List<ValidationFailure> ValidatePassword(string password, string field)
+    {
+        var errors = new List<ValidationFailure>();
+        if (password.Length is < 8 or > 128)
+        {
+            errors.Add(new ValidationFailure(field, "Password must be between 8 and 128 characters."));
         }
 
         return errors;

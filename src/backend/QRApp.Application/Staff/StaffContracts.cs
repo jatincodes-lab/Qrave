@@ -13,6 +13,12 @@ public sealed record UpdateStaffUserRequest(
     string RoleCode,
     bool IsActive);
 
+public sealed record ResetStaffPasswordRequest(string Password);
+
+public sealed record ChangeOwnPasswordRequest(
+    string CurrentPassword,
+    string NewPassword);
+
 public sealed record StaffUserResponse(
     Guid UserId,
     Guid TenantUserId,

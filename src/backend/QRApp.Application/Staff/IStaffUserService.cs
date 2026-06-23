@@ -9,4 +9,8 @@ public interface IStaffUserService
     Task<IReadOnlyCollection<StaffUserResponse>> GetListAsync(Guid tenantId, bool includeInactive, CancellationToken cancellationToken);
 
     Task<OperationResult<StaffUserResponse>> UpdateAsync(Guid tenantId, Guid userId, UpdateStaffUserRequest request, CancellationToken cancellationToken);
+
+    Task<OperationResult<StaffUserResponse>> ResetPasswordAsync(Guid tenantId, Guid userId, ResetStaffPasswordRequest request, CancellationToken cancellationToken);
+
+    Task<OperationResult<bool>> ChangeOwnPasswordAsync(Guid tenantId, Guid userId, ChangeOwnPasswordRequest request, CancellationToken cancellationToken);
 }

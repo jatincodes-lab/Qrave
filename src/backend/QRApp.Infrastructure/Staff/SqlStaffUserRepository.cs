@@ -87,6 +87,120 @@ public sealed class SqlStaffUserRepository(INpgsqlConnectionFactory connectionFa
         return ReadStaff(reader);
     }
 
+    public async Task<StaffUserResponse?> ResetPasswordAsync(Guid tenantId, Guid userId, string passwordHash, CancellationToken cancellationToken)
+    {
+        await using var connection = (NpgsqlConnection)connectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        await using (var updateCommand = new NpgsqlCommand(
+            """
+            UPDATE "Users" u
+            SET "PasswordHash" = @passwordHash
+            WHERE u."UserId" = @userId
+              AND EXISTS (
+                  SELECT 1
+                  FROM "TenantUsers" tu
+                  WHERE tu."TenantId" = @tenantId
+                    AND tu."UserId" = u."UserId"
+                    AND lower(tu."RoleCode") <> 'owner'
+              )
+            """,
+            connection))
+        {
+            updateCommand.Parameters.AddWithValue("tenantId", tenantId);
+            updateCommand.Parameters.AddWithValue("userId", userId);
+            updateCommand.Parameters.AddWithValue("passwordHash", passwordHash);
+            var rows = await updateCommand.ExecuteNonQueryAsync(cancellationToken);
+            if (rows == 0)
+            {
+                return null;
+            }
+        }
+
+        return await GetByUserIdAsync(connection, tenantId, userId, cancellationToken);
+    }
+
+    public async Task<string?> GetPasswordHashAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken)
+    {
+        await using var connection = (NpgsqlConnection)connectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand(
+            """
+            SELECT u."PasswordHash"
+            FROM "TenantUsers" tu
+            JOIN "Users" u ON u."UserId" = tu."UserId"
+            WHERE tu."TenantId" = @tenantId
+              AND tu."UserId" = @userId
+              AND tu."IsActive"
+            LIMIT 1
+            """,
+            connection);
+
+        command.Parameters.AddWithValue("tenantId", tenantId);
+        command.Parameters.AddWithValue("userId", userId);
+
+        var result = await command.ExecuteScalarAsync(cancellationToken);
+        return result is string hash ? hash : null;
+    }
+
+    public async Task<bool> UpdatePasswordAsync(Guid tenantId, Guid userId, string passwordHash, CancellationToken cancellationToken)
+    {
+        await using var connection = (NpgsqlConnection)connectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new NpgsqlCommand(
+            """
+            UPDATE "Users" u
+            SET "PasswordHash" = @passwordHash
+            WHERE u."UserId" = @userId
+              AND EXISTS (
+                  SELECT 1
+                  FROM "TenantUsers" tu
+                  WHERE tu."TenantId" = @tenantId
+                    AND tu."UserId" = u."UserId"
+                    AND tu."IsActive"
+              )
+            """,
+            connection);
+
+        command.Parameters.AddWithValue("tenantId", tenantId);
+        command.Parameters.AddWithValue("userId", userId);
+        command.Parameters.AddWithValue("passwordHash", passwordHash);
+
+        return await command.ExecuteNonQueryAsync(cancellationToken) > 0;
+    }
+
+    private static async Task<StaffUserResponse?> GetByUserIdAsync(NpgsqlConnection connection, Guid tenantId, Guid userId, CancellationToken cancellationToken)
+    {
+        await using var command = new NpgsqlCommand(
+            """
+            SELECT
+                u."UserId",
+                tu."TenantUserId",
+                tu."TenantId",
+                tu."BranchId",
+                b."Name" AS "BranchName",
+                u."Email",
+                u."DisplayName",
+                tu."RoleCode",
+                tu."IsActive" AS "IsActive",
+                tu."IsActive" AS "TenantUserIsActive",
+                tu."CreatedAtUtc",
+                tu."UpdatedAtUtc"
+            FROM "TenantUsers" tu
+            JOIN "Users" u ON u."UserId" = tu."UserId"
+            LEFT JOIN "Branches" b ON b."BranchId" = tu."BranchId"
+            WHERE tu."TenantId" = @tenantId AND tu."UserId" = @userId
+            LIMIT 1
+            """,
+            connection);
+
+        command.Parameters.AddWithValue("tenantId", tenantId);
+        command.Parameters.AddWithValue("userId", userId);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken) ? ReadStaff(reader) : null;
+    }
+
     private static StaffUserResponse ReadStaff(NpgsqlDataReader reader)
     {
         return new StaffUserResponse(

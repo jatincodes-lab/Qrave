@@ -11,6 +11,7 @@ import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { useToast } from "../../../components/ui/toast";
 import {
+  changeOwnPassword,
   createBranchOrderSettings,
   getBranchBillingSettings,
   getBranchOrderSettings,
@@ -22,6 +23,8 @@ import {
   type SaveBranchOrderSettingsInput
 } from "../../../lib/api";
 import { useAdminWorkspace } from "../../../lib/admin-workspace";
+import { getCurrentRoleCode } from "../../../lib/auth";
+import { firstInvalid, validatePassword, validateRequired } from "../../../lib/validation";
 
 const DefaultSettings: SaveBranchOrderSettingsInput = {
   enableDirectQrOrdering: false,
@@ -43,19 +46,28 @@ const DefaultBillingSettings: SaveBranchBillingSettingsInput = {
   roundingMode: "NearestRupee"
 };
 
+const DefaultPasswordForm = {
+  currentPassword: "",
+  newPassword: ""
+};
+
 export default function AdminSettingsPage() {
   const workspace = useAdminWorkspace();
   const { toastSuccess } = useToast();
+  const roleCode = getCurrentRoleCode();
+  const canManageBranchSettings = roleCode === "owner" || roleCode === "admin" || roleCode === "manager";
   const [settings, setSettings] = useState<BranchOrderSettings | null>(null);
   const [billingSettings, setBillingSettings] = useState<BranchBillingSettings | null>(null);
   const [form, setForm] = useState<SaveBranchOrderSettingsInput>(DefaultSettings);
   const [billingForm, setBillingForm] = useState<SaveBranchBillingSettingsInput>(DefaultBillingSettings);
+  const [passwordForm, setPasswordForm] = useState(DefaultPasswordForm);
   const [isLoadingSettings, setIsLoadingSettings] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingBilling, setIsSavingBilling] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   useEffect(() => {
-    if (!workspace.selectedBranch) {
+    if (!workspace.selectedBranch || !canManageBranchSettings) {
       setSettings(null);
       setBillingSettings(null);
       setForm(DefaultSettings);
@@ -64,7 +76,7 @@ export default function AdminSettingsPage() {
     }
 
     void loadSettings(workspace.selectedBranch.branchId);
-  }, [workspace.selectedBranch?.branchId]);
+  }, [canManageBranchSettings, workspace.selectedBranch?.branchId]);
 
   async function loadSettings(branchId: string) {
     setIsLoadingSettings(true);
@@ -132,6 +144,35 @@ export default function AdminSettingsPage() {
     }
   }
 
+  async function changePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const validation = firstInvalid(
+      validateRequired(passwordForm.currentPassword, "Current password", 128),
+      validatePassword(passwordForm.newPassword)
+    );
+
+    if (!validation.isValid) {
+      workspace.setWorkspaceError(validation.message);
+      return;
+    }
+
+    if (passwordForm.currentPassword === passwordForm.newPassword) {
+      workspace.setWorkspaceError("New password must be different from current password.");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      await changeOwnPassword(passwordForm);
+      setPasswordForm(DefaultPasswordForm);
+      toastSuccess("Password changed.");
+    } catch (caught) {
+      workspace.handleApiError(caught);
+    } finally {
+      setIsChangingPassword(false);
+    }
+  }
+
   const branchName = workspace.selectedBranch?.name ?? "Settings";
 
   return (
@@ -165,108 +206,158 @@ export default function AdminSettingsPage() {
           <EmptyBranchState />
         ) : (
           <section className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-            <Card>
-              <CardHeader>
-                <CardTitle>Workspace</CardTitle>
-                <CardDescription>Current selected restaurant branch.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-3 rounded-xl border border-outline-variant/70 bg-surface-container-low p-4">
-                  <div className="grid h-11 w-11 place-items-center rounded-xl bg-primary-fixed text-primary">
-                    <Store size={20} />
-                  </div>
-                  <div>
-                    <p className="font-extrabold text-on-surface">{workspace.selectedBranch.name}</p>
-                    <p className="mt-1 text-xs text-on-surface-variant">
-                      {[workspace.selectedBranch.city, workspace.selectedBranch.countryCode].filter(Boolean).join(", ") || "Location not added"}
-                    </p>
-                  </div>
-                </div>
-                <p className="text-sm leading-6 text-on-surface-variant">
-                  Profile fields such as address and phone are edited from the branch detail workspace.
-                </p>
-              </CardContent>
-            </Card>
-
             <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>QR ordering controls</CardTitle>
-                <CardDescription>These settings affect the public QR menu and customer checkout flow.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoadingSettings ? (
-                  <PageLoading />
-                ) : (
-                  <form onSubmit={saveSettings} className="space-y-3">
-                    <Toggle label="Enable direct QR ordering" description="Customers can place orders from the QR menu." checked={form.enableDirectQrOrdering} onChange={(value) => setForm({ ...form, enableDirectQrOrdering: value })} />
-                    <Toggle label="Require customer name" description="Ask for a name before order submission." checked={form.requireCustomerName} onChange={(value) => setForm({ ...form, requireCustomerName: value })} />
-                    <Toggle label="Require WhatsApp number" description="Ask for contact number during checkout." checked={form.requireCustomerWhatsApp} onChange={(value) => setForm({ ...form, requireCustomerWhatsApp: value })} />
-                    <Toggle label="Enable waiter calls" description="Customers can request staff from the QR menu." checked={form.waiterCallEnabled} onChange={(value) => setForm({ ...form, waiterCallEnabled: value })} />
-
-                    <div className="pt-2">
-                      <Button type="submit" disabled={isSaving}>
-                        <Save size={18} />
-                        {isSaving ? "Saving..." : "Save settings"}
-                      </Button>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Workspace</CardTitle>
+                  <CardDescription>Current selected restaurant branch.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-3 rounded-xl border border-outline-variant/70 bg-surface-container-low p-4">
+                    <div className="grid h-11 w-11 place-items-center rounded-xl bg-primary-fixed text-primary">
+                      <Store size={20} />
                     </div>
-                  </form>
-                )}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Billing defaults</CardTitle>
-                <CardDescription>These branch-level defaults are copied into each generated bill.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoadingSettings ? (
-                  <PageLoading />
-                ) : (
-                  <form onSubmit={saveBillingSettings} className="space-y-4">
-                    <Toggle label="Enable tax" description="Apply branch tax to generated bills." checked={billingForm.taxEnabled} onChange={(value) => setBillingForm({ ...billingForm, taxEnabled: value })} />
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <Field label="Tax name">
-                        <Input value={billingForm.taxName} onChange={(event) => setBillingForm({ ...billingForm, taxName: event.target.value })} />
-                      </Field>
-                      <Field label="Tax rate %">
-                        <Input type="number" min="0" max="100" step="0.001" value={billingForm.taxRate} onChange={(event) => setBillingForm({ ...billingForm, taxRate: Number(event.target.value) })} />
-                      </Field>
-                      <Field label="Tax mode">
-                        <select value={billingForm.taxMode} onChange={(event) => setBillingForm({ ...billingForm, taxMode: event.target.value as SaveBranchBillingSettingsInput["taxMode"] })} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
-                          <option value="Exclusive">Exclusive</option>
-                          <option value="Inclusive">Inclusive</option>
-                        </select>
-                      </Field>
+                    <div>
+                      <p className="font-extrabold text-on-surface">{workspace.selectedBranch.name}</p>
+                      <p className="mt-1 text-xs text-on-surface-variant">
+                        {[workspace.selectedBranch.city, workspace.selectedBranch.countryCode].filter(Boolean).join(", ") || "Location not added"}
+                      </p>
                     </div>
+                  </div>
+                  <p className="text-sm leading-6 text-on-surface-variant">
+                    Profile fields such as address and phone are edited from the branch detail workspace.
+                  </p>
+                </CardContent>
+              </Card>
 
-                    <Toggle label="Enable service charge" description="Apply a service charge on generated bills." checked={billingForm.serviceChargeEnabled} onChange={(value) => setBillingForm({ ...billingForm, serviceChargeEnabled: value })} />
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="Service charge label">
-                        <Input value={billingForm.serviceChargeName} onChange={(event) => setBillingForm({ ...billingForm, serviceChargeName: event.target.value })} />
-                      </Field>
-                      <Field label="Service charge %">
-                        <Input type="number" min="0" max="100" step="0.001" value={billingForm.serviceChargeRate} onChange={(event) => setBillingForm({ ...billingForm, serviceChargeRate: Number(event.target.value) })} />
-                      </Field>
-                    </div>
-
-                    <Toggle label="Allow discounts" description="Bills can include a manual discount." checked={billingForm.discountEnabled} onChange={(value) => setBillingForm({ ...billingForm, discountEnabled: value })} />
-                    <Toggle label="Staff can apply discounts" description="Allow non-owner staff to discount bills." checked={billingForm.staffCanApplyDiscount} onChange={(value) => setBillingForm({ ...billingForm, staffCanApplyDiscount: value })} />
-                    <Field label="Rounding">
-                      <select value={billingForm.roundingMode} onChange={(event) => setBillingForm({ ...billingForm, roundingMode: event.target.value as SaveBranchBillingSettingsInput["roundingMode"] })} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
-                        <option value="NearestRupee">Nearest rupee</option>
-                        <option value="None">No rounding</option>
-                      </select>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Account security</CardTitle>
+                  <CardDescription>Change the password for your current login.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={changePassword} className="space-y-3">
+                    <Field label="Current password">
+                      <Input
+                        autoComplete="current-password"
+                        type="password"
+                        value={passwordForm.currentPassword}
+                        onChange={(event) => setPasswordForm({ ...passwordForm, currentPassword: event.target.value })}
+                      />
                     </Field>
-
-                    <Button type="submit" disabled={isSavingBilling}>
+                    <Field label="New password">
+                      <Input
+                        autoComplete="new-password"
+                        type="password"
+                        value={passwordForm.newPassword}
+                        onChange={(event) => setPasswordForm({ ...passwordForm, newPassword: event.target.value })}
+                      />
+                    </Field>
+                    <Button type="submit" disabled={isChangingPassword}>
                       <Save size={18} />
-                      {isSavingBilling ? "Saving..." : "Save billing"}
+                      {isChangingPassword ? "Changing..." : "Change password"}
                     </Button>
                   </form>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-4">
+              {canManageBranchSettings ? (
+                <>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>QR ordering controls</CardTitle>
+                      <CardDescription>These settings affect the public QR menu and customer checkout flow.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {isLoadingSettings ? (
+                        <PageLoading />
+                      ) : (
+                        <form onSubmit={saveSettings} className="space-y-3">
+                          <Toggle label="Enable direct QR ordering" description="Customers can place orders from the QR menu." checked={form.enableDirectQrOrdering} onChange={(value) => setForm({ ...form, enableDirectQrOrdering: value })} />
+                          <Toggle label="Require customer name" description="Ask for a name before order submission." checked={form.requireCustomerName} onChange={(value) => setForm({ ...form, requireCustomerName: value })} />
+                          <Toggle label="Require WhatsApp number" description="Ask for contact number during checkout." checked={form.requireCustomerWhatsApp} onChange={(value) => setForm({ ...form, requireCustomerWhatsApp: value })} />
+                          <Toggle label="Enable waiter calls" description="Customers can request staff from the QR menu." checked={form.waiterCallEnabled} onChange={(value) => setForm({ ...form, waiterCallEnabled: value })} />
+
+                          <div className="pt-2">
+                            <Button type="submit" disabled={isSaving}>
+                              <Save size={18} />
+                              {isSaving ? "Saving..." : "Save settings"}
+                            </Button>
+                          </div>
+                        </form>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Billing defaults</CardTitle>
+                      <CardDescription>These branch-level defaults are copied into each generated bill.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {isLoadingSettings ? (
+                        <PageLoading />
+                      ) : (
+                        <form onSubmit={saveBillingSettings} className="space-y-4">
+                          <Toggle label="Enable tax" description="Apply branch tax to generated bills." checked={billingForm.taxEnabled} onChange={(value) => setBillingForm({ ...billingForm, taxEnabled: value })} />
+                          <div className="grid gap-3 sm:grid-cols-3">
+                            <Field label="Tax name">
+                              <Input value={billingForm.taxName} onChange={(event) => setBillingForm({ ...billingForm, taxName: event.target.value })} />
+                            </Field>
+                            <Field label="Tax rate %">
+                              <Input type="number" min="0" max="100" step="0.001" value={billingForm.taxRate} onChange={(event) => setBillingForm({ ...billingForm, taxRate: Number(event.target.value) })} />
+                            </Field>
+                            <Field label="Tax mode">
+                              <select value={billingForm.taxMode} onChange={(event) => setBillingForm({ ...billingForm, taxMode: event.target.value as SaveBranchBillingSettingsInput["taxMode"] })} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+                                <option value="Exclusive">Exclusive</option>
+                                <option value="Inclusive">Inclusive</option>
+                              </select>
+                            </Field>
+                          </div>
+
+                          <Toggle label="Enable service charge" description="Apply a service charge on generated bills." checked={billingForm.serviceChargeEnabled} onChange={(value) => setBillingForm({ ...billingForm, serviceChargeEnabled: value })} />
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <Field label="Service charge label">
+                              <Input value={billingForm.serviceChargeName} onChange={(event) => setBillingForm({ ...billingForm, serviceChargeName: event.target.value })} />
+                            </Field>
+                            <Field label="Service charge %">
+                              <Input type="number" min="0" max="100" step="0.001" value={billingForm.serviceChargeRate} onChange={(event) => setBillingForm({ ...billingForm, serviceChargeRate: Number(event.target.value) })} />
+                            </Field>
+                          </div>
+
+                          <Toggle label="Allow discounts" description="Bills can include a manual discount." checked={billingForm.discountEnabled} onChange={(value) => setBillingForm({ ...billingForm, discountEnabled: value })} />
+                          <Toggle label="Staff can apply discounts" description="Allow non-owner staff to discount bills." checked={billingForm.staffCanApplyDiscount} onChange={(value) => setBillingForm({ ...billingForm, staffCanApplyDiscount: value })} />
+                          <Field label="Rounding">
+                            <select value={billingForm.roundingMode} onChange={(event) => setBillingForm({ ...billingForm, roundingMode: event.target.value as SaveBranchBillingSettingsInput["roundingMode"] })} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+                              <option value="NearestRupee">Nearest rupee</option>
+                              <option value="None">No rounding</option>
+                            </select>
+                          </Field>
+
+                          <Button type="submit" disabled={isSavingBilling}>
+                            <Save size={18} />
+                            {isSavingBilling ? "Saving..." : "Save billing"}
+                          </Button>
+                        </form>
+                      )}
+                    </CardContent>
+                  </Card>
+                </>
+              ) : (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Branch controls</CardTitle>
+                    <CardDescription>Your role does not include branch settings access.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm leading-6 text-on-surface-variant">
+                      Ask an owner, admin, or manager to change QR ordering, billing, tax, or service charge settings.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </section>
         )}

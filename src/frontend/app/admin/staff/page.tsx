@@ -9,7 +9,7 @@ import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Input } from "../../../components/ui/input";
 import { useToast } from "../../../components/ui/toast";
-import { createStaffUser, getStaffUsers, updateStaffUser, type StaffRoleCode, type StaffUser } from "../../../lib/api";
+import { createStaffUser, getStaffUsers, resetStaffPassword, updateStaffUser, type BranchListItem, type StaffRoleCode, type StaffUser } from "../../../lib/api";
 import { useAdminWorkspace } from "../../../lib/admin-workspace";
 import { getCurrentRoleCode } from "../../../lib/auth";
 import { firstInvalid, validateEmail, validatePassword, validateRequired } from "../../../lib/validation";
@@ -19,6 +19,12 @@ type StaffForm = {
   email: string;
   displayName: string;
   password: string;
+  roleCode: StaffRoleCode;
+};
+
+type StaffDraft = {
+  branchId: string;
+  displayName: string;
   roleCode: StaffRoleCode;
 };
 
@@ -123,6 +129,51 @@ export default function AdminStaffPage() {
     }
   }
 
+  async function saveStaff(user: StaffUser, draft: StaffDraft) {
+    if (user.roleCode === "owner") {
+      return;
+    }
+
+    const validation = firstInvalid(validateRequired(draft.displayName, "Display name", 160));
+    if (!validation.isValid) {
+      workspace.setWorkspaceError(validation.message);
+      return;
+    }
+
+    try {
+      const updated = await updateStaffUser(user.userId, {
+        branchId: draft.branchId || null,
+        displayName: draft.displayName.trim(),
+        roleCode: draft.roleCode,
+        isActive: user.isActive
+      });
+      setStaffUsers((current) => current.map((item) => (item.userId === updated.userId ? updated : item)));
+      toastSuccess("Staff user updated.");
+    } catch (caught) {
+      workspace.handleApiError(caught);
+    }
+  }
+
+  async function resetPasswordForStaff(user: StaffUser, password: string) {
+    if (user.roleCode === "owner") {
+      return;
+    }
+
+    const validation = validatePassword(password);
+    if (!validation.isValid) {
+      workspace.setWorkspaceError(validation.message);
+      return;
+    }
+
+    try {
+      const updated = await resetStaffPassword(user.userId, { password });
+      setStaffUsers((current) => current.map((item) => (item.userId === updated.userId ? updated : item)));
+      toastSuccess("Staff password reset.");
+    } catch (caught) {
+      workspace.handleApiError(caught);
+    }
+  }
+
   const activeStaffCount = staffUsers.filter((user) => user.roleCode !== "owner" && user.isActive && user.tenantUserIsActive).length;
   const branchAssignedCount = staffUsers.filter((user) => user.roleCode !== "owner" && user.branchId).length;
 
@@ -220,7 +271,17 @@ export default function AdminStaffPage() {
                 <CardTitle>Users</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoadingStaff ? <PageLoading /> : <StaffList users={staffUsers} onToggle={toggleStaff} />}
+                {isLoadingStaff ? (
+                  <PageLoading />
+                ) : (
+                  <StaffList
+                    branches={workspace.activeBranches}
+                    onResetPassword={resetPasswordForStaff}
+                    onSave={saveStaff}
+                    onToggle={toggleStaff}
+                    users={staffUsers}
+                  />
+                )}
               </CardContent>
             </Card>
           </>
@@ -230,36 +291,179 @@ export default function AdminStaffPage() {
   );
 }
 
-function StaffList({ users, onToggle }: { users: StaffUser[]; onToggle: (user: StaffUser) => void }) {
+function StaffList({
+  branches,
+  onResetPassword,
+  onSave,
+  onToggle,
+  users
+}: {
+  branches: BranchListItem[];
+  onResetPassword: (user: StaffUser, password: string) => Promise<void>;
+  onSave: (user: StaffUser, draft: StaffDraft) => Promise<void>;
+  onToggle: (user: StaffUser) => Promise<void>;
+  users: StaffUser[];
+}) {
   if (users.length === 0) {
     return <div className="rounded-xl border border-dashed border-outline-variant/70 p-8 text-center text-sm font-semibold text-on-surface-variant">No staff users yet.</div>;
   }
 
   return (
     <div className="overflow-hidden rounded-xl border border-outline-variant/70">
-      <div className="hidden grid-cols-[1fr_0.7fr_0.8fr_0.5fr_auto] gap-4 border-b border-outline-variant/70 bg-surface-container-low px-4 py-3 text-xs font-bold uppercase tracking-wide text-on-surface-variant lg:grid">
+      <div className="hidden grid-cols-[1fr_0.75fr_0.8fr_0.5fr_1.15fr] gap-4 border-b border-outline-variant/70 bg-surface-container-low px-4 py-3 text-xs font-bold uppercase tracking-wide text-on-surface-variant xl:grid">
         <span>User</span>
         <span>Role</span>
         <span>Branch</span>
         <span>Status</span>
-        <span>Action</span>
+        <span>Actions</span>
       </div>
       <div className="divide-y divide-outline-variant/70">
         {users.map((user) => (
-          <div key={user.userId} className="grid gap-3 px-4 py-4 lg:grid-cols-[1fr_0.7fr_0.8fr_0.5fr_auto] lg:items-center">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-extrabold text-on-surface">{user.displayName}</p>
-              <p className="mt-1 truncate text-sm text-on-surface-variant">{user.email}</p>
-            </div>
-            <Badge variant={user.roleCode === "owner" ? "secondary" : "outline"} className="w-fit">{roleLabel(user.roleCode)}</Badge>
-            <p className="text-sm font-semibold text-on-surface">{user.branchName ?? "All branches"}</p>
-            <Badge variant={user.isActive && user.tenantUserIsActive ? "secondary" : "outline"} className="w-fit">{user.isActive && user.tenantUserIsActive ? "Active" : "Off"}</Badge>
-            <Button type="button" variant="outline" size="sm" disabled={user.roleCode === "owner"} onClick={() => onToggle(user)}>
-              <Save size={15} />
-              {user.isActive ? "Turn off" : "Turn on"}
+          <StaffRow
+            branches={branches}
+            key={user.userId}
+            onResetPassword={onResetPassword}
+            onSave={onSave}
+            onToggle={onToggle}
+            user={user}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StaffRow({
+  branches,
+  onResetPassword,
+  onSave,
+  onToggle,
+  user
+}: {
+  branches: BranchListItem[];
+  onResetPassword: (user: StaffUser, password: string) => Promise<void>;
+  onSave: (user: StaffUser, draft: StaffDraft) => Promise<void>;
+  onToggle: (user: StaffUser) => Promise<void>;
+  user: StaffUser;
+}) {
+  const isOwner = user.roleCode === "owner";
+  const [draft, setDraft] = useState<StaffDraft>(() => ({
+    branchId: user.branchId ?? "",
+    displayName: user.displayName,
+    roleCode: editableRole(user.roleCode)
+  }));
+  const [password, setPassword] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [isToggling, setIsToggling] = useState(false);
+
+  useEffect(() => {
+    setDraft({
+      branchId: user.branchId ?? "",
+      displayName: user.displayName,
+      roleCode: editableRole(user.roleCode)
+    });
+    setPassword("");
+  }, [user.branchId, user.displayName, user.roleCode, user.userId]);
+
+  const hasChanges = !isOwner && (
+    draft.branchId !== (user.branchId ?? "") ||
+    draft.displayName.trim() !== user.displayName ||
+    draft.roleCode !== user.roleCode
+  );
+
+  async function handleSave() {
+    setIsSaving(true);
+    try {
+      await onSave(user, draft);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleToggle() {
+    setIsToggling(true);
+    try {
+      await onToggle(user);
+    } finally {
+      setIsToggling(false);
+    }
+  }
+
+  async function handleResetPassword() {
+    setIsResetting(true);
+    try {
+      await onResetPassword(user, password);
+      setPassword("");
+    } finally {
+      setIsResetting(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-3 px-4 py-4 xl:grid-cols-[1fr_0.75fr_0.8fr_0.5fr_1.15fr] xl:items-center">
+      <div className="grid gap-2">
+        <Input
+          className="h-10 bg-white font-extrabold"
+          disabled={isOwner}
+          onChange={(event) => setDraft({ ...draft, displayName: event.target.value })}
+          value={isOwner ? user.displayName : draft.displayName}
+        />
+        <p className="truncate text-sm text-on-surface-variant">{user.email}</p>
+      </div>
+      {isOwner ? (
+        <Badge variant="secondary" className="w-fit">{roleLabel(user.roleCode)}</Badge>
+      ) : (
+        <select
+          value={draft.roleCode}
+          onChange={(event) => setDraft({ ...draft, roleCode: event.target.value as StaffRoleCode })}
+          className="h-10 rounded-lg border border-input bg-white px-3 text-sm font-semibold text-on-surface outline-none"
+        >
+          {RoleOptions.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
+        </select>
+      )}
+      {isOwner ? (
+        <p className="text-sm font-semibold text-on-surface">All branches</p>
+      ) : (
+        <select
+          value={draft.branchId}
+          onChange={(event) => setDraft({ ...draft, branchId: event.target.value })}
+          className="h-10 rounded-lg border border-input bg-white px-3 text-sm font-semibold text-on-surface outline-none"
+        >
+          <option value="">All branches</option>
+          {branches.map((branch) => <option key={branch.branchId} value={branch.branchId}>{branch.name}</option>)}
+        </select>
+      )}
+      <Badge variant={user.isActive && user.tenantUserIsActive ? "secondary" : "outline"} className="w-fit">
+        {user.isActive && user.tenantUserIsActive ? "Active" : "Off"}
+      </Badge>
+      <div className="grid gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" size="sm" disabled={isOwner || !hasChanges || isSaving} onClick={handleSave}>
+            {isSaving ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />}
+            Save
+          </Button>
+          <Button type="button" variant="outline" size="sm" disabled={isOwner || isToggling} onClick={handleToggle}>
+            {isToggling ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />}
+            {user.isActive ? "Turn off" : "Turn on"}
+          </Button>
+        </div>
+        {!isOwner ? (
+          <div className="grid gap-2 sm:grid-cols-[minmax(10rem,1fr)_auto]">
+            <Input
+              autoComplete="new-password"
+              className="h-10 bg-white"
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="New password"
+              type="password"
+              value={password}
+            />
+            <Button type="button" variant="secondary" size="sm" disabled={isResetting || password.length === 0} onClick={handleResetPassword}>
+              {isResetting ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />}
+              Reset
             </Button>
           </div>
-        ))}
+        ) : null}
       </div>
     </div>
   );
@@ -267,4 +471,8 @@ function StaffList({ users, onToggle }: { users: StaffUser[]; onToggle: (user: S
 
 function roleLabel(roleCode: StaffUser["roleCode"]) {
   return RoleOptions.find((role) => role.value === roleCode)?.label ?? "Owner";
+}
+
+function editableRole(roleCode: StaffUser["roleCode"]): StaffRoleCode {
+  return roleCode === "owner" ? "staff" : roleCode;
 }

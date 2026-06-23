@@ -162,6 +162,15 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.Use(async (context, next) =>
 {
+    if (await ShouldBlockForCurrentUserAccessAsync(context))
+    {
+        return;
+    }
+
+    await next();
+});
+app.Use(async (context, next) =>
+{
     if (await ShouldBlockForTenantAccessAsync(context))
     {
         return;
@@ -172,11 +181,14 @@ app.Use(async (context, next) =>
 app.Use(async (context, next) =>
 {
     if (context.Request.Path.StartsWithSegments("/api/v1/admin") &&
-        context.User.Identity?.IsAuthenticated == true &&
-        !CanAccessAdminRequest(context))
+        context.User.Identity?.IsAuthenticated == true)
     {
-        await ApiProblemResponses.Forbidden("Your staff role cannot access this admin action.").ExecuteAsync(context);
-        return;
+        var decision = GetAdminPermissionDecision(context);
+        if (!decision.IsAllowed)
+        {
+            await ApiProblemResponses.Forbidden(decision.Reason ?? "Your staff role cannot access this admin action.").ExecuteAsync(context);
+            return;
+        }
     }
 
     await next();
@@ -217,34 +229,14 @@ app.MapHub<AdminOrderHub>(AdminOrderHub.Route);
 
 app.Run();
 
-static bool CanAccessAdminRequest(HttpContext context)
+static AdminPermissionDecision GetAdminPermissionDecision(HttpContext context)
 {
     var roleCode = context.User.FindFirstValue(TokenClaims.RoleCode);
-    if (string.Equals(roleCode, "owner", StringComparison.OrdinalIgnoreCase))
-    {
-        return true;
-    }
-
-    var path = context.Request.Path.Value ?? string.Empty;
-    if (IsBranchReadPath(context, path))
-    {
-        return CanAccessAssignedBranch(context, path);
-    }
-
-    if (path.StartsWith("/api/v1/admin/staff", StringComparison.OrdinalIgnoreCase) ||
-        path.StartsWith("/api/v1/admin/branches", StringComparison.OrdinalIgnoreCase) && !IsBranchOperationalPath(path))
-    {
-        return false;
-    }
-
-    if (!CanRoleAccessPath(roleCode, path))
-    {
-        return false;
-    }
-
-    var assignedBranchId = ReadOptionalGuidClaim(context.User, TokenClaims.BranchId);
-    var requestedBranchId = ReadBranchIdFromPath(path) ?? ReadBranchIdFromQuery(context);
-    return !assignedBranchId.HasValue || !requestedBranchId.HasValue || requestedBranchId.Value == assignedBranchId.Value;
+    return string.IsNullOrWhiteSpace(roleCode)
+        ? new AdminPermissionDecision(false, "Your staff role cannot access this admin action.")
+        : AdminPermissionPolicy.CanAccess(
+            new AdminPrincipalAccess(roleCode, ReadOptionalGuidClaim(context.User, TokenClaims.BranchId)),
+            new AdminRequestAccess(context.Request.Method, context.Request.Path.Value ?? string.Empty, ReadBranchIdFromQuery(context)));
 }
 
 static async Task<bool> ShouldBlockForTenantAccessAsync(HttpContext context)
@@ -288,6 +280,43 @@ static async Task<bool> ShouldBlockForTenantAccessAsync(HttpContext context)
     return true;
 }
 
+static async Task<bool> ShouldBlockForCurrentUserAccessAsync(HttpContext context)
+{
+    if ((!context.Request.Path.StartsWithSegments("/api/v1/admin") &&
+         !context.Request.Path.StartsWithSegments("/api/v1/me")) ||
+        context.User.Identity?.IsAuthenticated != true)
+    {
+        return false;
+    }
+
+    var userId = ReadOptionalGuidClaim(context.User, TokenClaims.UserId);
+    var tenantId = ReadOptionalGuidClaim(context.User, TokenClaims.TenantId);
+    var tokenRole = context.User.FindFirstValue(TokenClaims.RoleCode);
+    if (!userId.HasValue || !tenantId.HasValue || string.IsNullOrWhiteSpace(tokenRole))
+    {
+        await ApiProblemResponses.Unauthorized("Your login session is invalid. Please login again.").ExecuteAsync(context);
+        return true;
+    }
+
+    var service = context.RequestServices.GetRequiredService<IUserAccessService>();
+    var currentAccess = await service.GetCurrentAsync(tenantId.Value, userId.Value, context.RequestAborted);
+    if (currentAccess is null || !currentAccess.IsActive)
+    {
+        await ApiProblemResponses.Unauthorized("Your staff access is no longer active. Please login again.").ExecuteAsync(context);
+        return true;
+    }
+
+    var tokenBranchId = ReadOptionalGuidClaim(context.User, TokenClaims.BranchId);
+    if (!string.Equals(currentAccess.RoleCode, tokenRole, StringComparison.OrdinalIgnoreCase) ||
+        currentAccess.BranchId != tokenBranchId)
+    {
+        await ApiProblemResponses.Unauthorized("Your staff access changed. Please login again.").ExecuteAsync(context);
+        return true;
+    }
+
+    return false;
+}
+
 static bool IsAnonymousAuthPath(PathString path)
 {
     return path.StartsWithSegments("/api/v1/auth");
@@ -306,89 +335,6 @@ static string? ReadQrTokenFromPublicPath(string path)
         if (string.Equals(segments[index], "qr", StringComparison.OrdinalIgnoreCase))
         {
             return segments[index + 1];
-        }
-    }
-
-    return null;
-}
-
-static bool IsBranchReadPath(HttpContext context, string path)
-{
-    if (!HttpMethods.IsGet(context.Request.Method))
-    {
-        return false;
-    }
-
-    if (string.Equals(path, "/api/v1/admin/branches", StringComparison.OrdinalIgnoreCase))
-    {
-        return true;
-    }
-
-    var requestedBranchId = ReadBranchIdFromPath(path);
-    return requestedBranchId.HasValue &&
-           string.Equals(path, $"/api/v1/admin/branches/{requestedBranchId.Value}", StringComparison.OrdinalIgnoreCase);
-}
-
-static bool CanAccessAssignedBranch(HttpContext context, string path)
-{
-    var assignedBranchId = ReadOptionalGuidClaim(context.User, TokenClaims.BranchId);
-    var requestedBranchId = ReadBranchIdFromPath(path);
-    return !assignedBranchId.HasValue || !requestedBranchId.HasValue || requestedBranchId.Value == assignedBranchId.Value;
-}
-
-static bool CanRoleAccessPath(string? roleCode, string path)
-{
-    if (string.Equals(roleCode, "admin", StringComparison.OrdinalIgnoreCase))
-    {
-        return !path.StartsWith("/api/v1/admin/staff", StringComparison.OrdinalIgnoreCase);
-    }
-
-    if (string.Equals(roleCode, "manager", StringComparison.OrdinalIgnoreCase))
-    {
-        return path.StartsWith("/api/v1/admin/branches", StringComparison.OrdinalIgnoreCase) && IsBranchOperationalPath(path) ||
-               path.StartsWith("/api/v1/admin/media", StringComparison.OrdinalIgnoreCase) ||
-               path.StartsWith("/api/v1/admin/reports", StringComparison.OrdinalIgnoreCase) ||
-               path.StartsWith("/api/v1/admin/feedback", StringComparison.OrdinalIgnoreCase) ||
-               path.StartsWith("/api/v1/admin/campaigns", StringComparison.OrdinalIgnoreCase);
-    }
-
-    if (string.Equals(roleCode, "kitchen", StringComparison.OrdinalIgnoreCase))
-    {
-        return path.Contains("/orders", StringComparison.OrdinalIgnoreCase) ||
-               path.Contains("/waiter-calls", StringComparison.OrdinalIgnoreCase);
-    }
-
-    if (string.Equals(roleCode, "waiter", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(roleCode, "staff", StringComparison.OrdinalIgnoreCase))
-    {
-        return path.Contains("/orders", StringComparison.OrdinalIgnoreCase) ||
-               path.Contains("/waiter-calls", StringComparison.OrdinalIgnoreCase) ||
-               path.Contains("/order-settings", StringComparison.OrdinalIgnoreCase);
-    }
-
-    return false;
-}
-
-static bool IsBranchOperationalPath(string path)
-{
-    return path.Contains("/menu-", StringComparison.OrdinalIgnoreCase) ||
-           path.Contains("/offers", StringComparison.OrdinalIgnoreCase) ||
-           path.Contains("/tables", StringComparison.OrdinalIgnoreCase) ||
-           path.Contains("/orders", StringComparison.OrdinalIgnoreCase) ||
-           path.Contains("/order-settings", StringComparison.OrdinalIgnoreCase) ||
-           path.Contains("/billing-settings", StringComparison.OrdinalIgnoreCase) ||
-           path.Contains("/waiter-calls", StringComparison.OrdinalIgnoreCase);
-}
-
-static Guid? ReadBranchIdFromPath(string path)
-{
-    var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
-    for (var index = 0; index < segments.Length - 1; index++)
-    {
-        if (string.Equals(segments[index], "branches", StringComparison.OrdinalIgnoreCase) &&
-            Guid.TryParse(segments[index + 1], out var branchId))
-        {
-            return branchId;
         }
     }
 

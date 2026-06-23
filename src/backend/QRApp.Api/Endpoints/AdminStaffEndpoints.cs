@@ -14,6 +14,7 @@ public static class AdminStaffEndpoints
         group.MapGet("", GetListAsync);
         group.MapPost("", CreateAsync);
         group.MapPut("/{userId:guid}", UpdateAsync);
+        group.MapPut("/{userId:guid}/password", ResetPasswordAsync);
 
         return app;
     }
@@ -102,6 +103,37 @@ public static class AdminStaffEndpoints
         {
             loggerFactory.CreateLogger(nameof(AdminStaffEndpoints)).LogError(ex, "Failed to update staff user {UserId}.", userId);
             return ApiProblemResponses.ServerError("Staff user could not be updated.");
+        }
+    }
+
+    private static async Task<IResult> ResetPasswordAsync(
+        Guid userId,
+        ResetStaffPasswordRequest request,
+        ITenantContext tenantContext,
+        IStaffUserService service,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+    {
+        if (!IsOwner(tenantContext))
+        {
+            return ApiProblemResponses.Forbidden("Only owner accounts can reset staff passwords.");
+        }
+
+        try
+        {
+            var result = await service.ResetPasswordAsync(tenantContext.TenantId, userId, request, cancellationToken);
+            return result.IsSuccess ? Results.Ok(result.Value) : ApiProblemResponses.Validation(result.Errors);
+        }
+        catch (Exception ex) when (ex is PostgresException)
+        {
+            var postgresException = (PostgresException)ex;
+            loggerFactory.CreateLogger(nameof(AdminStaffEndpoints)).LogWarning(postgresException, "Database rejected staff password reset for {UserId}.", userId);
+            return SqlProblemMapper.ToProblem(postgresException);
+        }
+        catch (Exception ex)
+        {
+            loggerFactory.CreateLogger(nameof(AdminStaffEndpoints)).LogError(ex, "Failed to reset staff password for {UserId}.", userId);
+            return ApiProblemResponses.ServerError("Staff password could not be reset.");
         }
     }
 

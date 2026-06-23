@@ -710,6 +710,15 @@ export type UpdateStaffUserInput = {
   isActive: boolean;
 };
 
+export type ResetStaffPasswordInput = {
+  password: string;
+};
+
+export type ChangeOwnPasswordInput = {
+  currentPassword: string;
+  newPassword: string;
+};
+
 export type Campaign = {
   campaignId: string;
   tenantId: string;
@@ -1512,6 +1521,22 @@ export async function createStaffUser(input: CreateStaffUserInput): Promise<Staf
 
 export async function updateStaffUser(userId: string, input: UpdateStaffUserInput): Promise<StaffUser> {
   return request<StaffUser>(`/api/v1/admin/staff/${userId}`, {
+    method: "PUT",
+    body: input,
+    requireAuth: true
+  });
+}
+
+export async function resetStaffPassword(userId: string, input: ResetStaffPasswordInput): Promise<StaffUser> {
+  return request<StaffUser>(`/api/v1/admin/staff/${userId}/password`, {
+    method: "PUT",
+    body: input,
+    requireAuth: true
+  });
+}
+
+export async function changeOwnPassword(input: ChangeOwnPasswordInput): Promise<void> {
+  await request<void>("/api/v1/me/password", {
     method: "PUT",
     body: input,
     requireAuth: true

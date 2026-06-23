@@ -41,6 +41,7 @@ public static class DependencyInjection
     {
         services.AddSingleton<INpgsqlConnectionFactory, NpgsqlConnectionFactory>();
         services.AddScoped<IAuthRepository, SqlAuthRepository>();
+        services.AddScoped<IUserAccessRepository, SqlUserAccessRepository>();
         services.AddScoped<IBillingRepository, SqlBillingRepository>();
         services.AddScoped<ITenantRepository, SqlTenantRepository>();
         services.AddScoped<IBranchRepository, SqlBranchRepository>();

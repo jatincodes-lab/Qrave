@@ -696,7 +696,7 @@ function canAccessNavItem(roleCode: string | null, itemId: AdminShellProps["acti
   }
 
   if (roleCode === "kitchen") {
-    return ["orders", "kitchen"].includes(itemId);
+    return ["orders", "kitchen", "settings"].includes(itemId);
   }
 
   if (roleCode === "waiter") {

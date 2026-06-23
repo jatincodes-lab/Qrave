@@ -3,6 +3,7 @@ using Npgsql;
 using QRApp.Api.Auth;
 using QRApp.Api.Errors;
 using QRApp.Application.Auth;
+using QRApp.Application.Staff;
 
 namespace QRApp.Api.Endpoints;
 
@@ -26,6 +27,32 @@ public static class AuthEndpoints
                 tenantContext.TenantId,
                 tenantContext.RoleCode,
                 accessStatus));
+        });
+
+        app.MapPut("/api/v1/me/password", [Authorize] async (
+            ChangeOwnPasswordRequest request,
+            ITenantContext tenantContext,
+            IStaffUserService staffUserService,
+            ILoggerFactory loggerFactory,
+            CancellationToken cancellationToken) =>
+        {
+            try
+            {
+                var result = await staffUserService.ChangeOwnPasswordAsync(tenantContext.TenantId, tenantContext.UserId, request, cancellationToken);
+                return result.IsSuccess ? Results.NoContent() : ApiProblemResponses.Validation(result.Errors);
+            }
+            catch (Exception ex)
+            when (ex is PostgresException)
+            {
+                var postgresException = (PostgresException)ex;
+                loggerFactory.CreateLogger(nameof(AuthEndpoints)).LogWarning(postgresException, "Database rejected password change for current user.");
+                return SqlProblemMapper.ToProblem(postgresException);
+            }
+            catch (Exception ex)
+            {
+                loggerFactory.CreateLogger(nameof(AuthEndpoints)).LogError(ex, "Failed to change current user password.");
+                return ApiProblemResponses.ServerError("Password could not be changed.");
+            }
         });
 
         return app;

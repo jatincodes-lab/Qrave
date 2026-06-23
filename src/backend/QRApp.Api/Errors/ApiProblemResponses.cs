@@ -72,6 +72,15 @@ internal static class ApiProblemResponses
             "https://httpstatuses.com/403");
     }
 
+    public static IResult Unauthorized(string detail)
+    {
+        return Problem(
+            StatusCodes.Status401Unauthorized,
+            "Unauthorized",
+            detail,
+            "https://httpstatuses.com/401");
+    }
+
     public static IResult PaymentRequired(string detail)
     {
         return Problem(
