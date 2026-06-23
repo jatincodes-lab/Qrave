@@ -171,7 +171,7 @@ export default function AdminCustomersPage() {
                     <label className="relative block">
                       <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant" />
                       <Input
-                        className="h-12 rounded-lg border-transparent bg-surface-container-low pl-11 pr-4 text-base font-semibold shadow-none focus:border-primary/30"
+                        className="h-12 rounded-lg border-outline-variant/70 bg-surface-container-low pl-11 pr-4 text-base font-semibold shadow-none focus:border-primary/30"
                         value={form.search}
                         onChange={(event) => setForm({ ...form, search: event.target.value })}
                         placeholder="Search by name, phone, or favourite item"
