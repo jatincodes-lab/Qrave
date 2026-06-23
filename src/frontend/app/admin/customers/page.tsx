@@ -1,14 +1,15 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { CalendarDays, MessageCircle, RefreshCw, Search, Send, SlidersHorizontal, Star, UserRound, Users } from "lucide-react";
+import { CalendarDays, ChevronRight, IndianRupee, MessageCircle, PackageCheck, RefreshCw, Search, Send, ShoppingBag, SlidersHorizontal, Star, UserRound, Users, X } from "lucide-react";
 import { AdminShell } from "../../../components/admin-shell";
 import { EmptyBranchState, MetricCard, PageError, PageLoading } from "../../../components/admin-page-common";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 import { Input } from "../../../components/ui/input";
-import { getAdminFeedback, getCustomerReport, type AdminFeedback, type CustomerReport, type OrderStatusCode, type ReportFilterInput } from "../../../lib/api";
+import { getAdminFeedback, getCustomerReport, getOrderReportOrders, type AdminFeedback, type CustomerReport, type OrderReportListItem, type OrderStatusCode, type ReportFilterInput } from "../../../lib/api";
 import { formatMoney, useAdminWorkspace } from "../../../lib/admin-workspace";
 import { firstInvalid, invalid, validateOptionalText, valid } from "../../../lib/validation";
 
@@ -67,6 +68,9 @@ export default function AdminCustomersPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<WhatsAppTemplateId>("repeatVisit");
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerReport | null>(null);
+  const [recentOrders, setRecentOrders] = useState<OrderReportListItem[]>([]);
+  const [isLoadingCustomerOrders, setIsLoadingCustomerOrders] = useState(false);
 
   const filter = useMemo<ReportFilterInput>(() => ({
     branchId: workspace.selectedBranchId || undefined,
@@ -80,6 +84,8 @@ export default function AdminCustomersPage() {
     if (!workspace.selectedBranch) {
       setCustomers([]);
       setFeedback([]);
+      setSelectedCustomer(null);
+      setRecentOrders([]);
       return;
     }
 
@@ -118,6 +124,26 @@ export default function AdminCustomersPage() {
     }
 
     void loadCustomers(filter);
+  }
+
+  async function openCustomerQuickView(customer: CustomerReport) {
+    setSelectedCustomer(customer);
+    setRecentOrders([]);
+    setIsLoadingCustomerOrders(true);
+    try {
+      const search = customerSearchTerm(customer);
+      const orders = search
+        ? await getOrderReportOrders({
+            branchId: workspace.selectedBranchId || undefined,
+            search
+          })
+        : [];
+      setRecentOrders(orders.slice(0, 3));
+    } catch (caught) {
+      workspace.handleApiError(caught);
+    } finally {
+      setIsLoadingCustomerOrders(false);
+    }
   }
 
   const metrics = getCustomerMetrics(customers);
@@ -272,9 +298,24 @@ export default function AdminCustomersPage() {
                 <Badge variant="outline">{workspace.selectedBranch.name}</Badge>
               </CardHeader>
               <CardContent>
-                {isLoading ? <PageLoading /> : <CustomerList branchName={branchName} customers={customers} template={selectedTemplate} />}
+                {isLoading ? <PageLoading /> : <CustomerList branchName={branchName} customers={customers} onOpenCustomer={openCustomerQuickView} template={selectedTemplate} />}
               </CardContent>
             </Card>
+
+            {selectedCustomer ? (
+              <CustomerQuickView
+                branchName={branchName}
+                customer={selectedCustomer}
+                feedback={customerFeedback(selectedCustomer, feedback)}
+                isLoadingOrders={isLoadingCustomerOrders}
+                onClose={() => {
+                  setSelectedCustomer(null);
+                  setRecentOrders([]);
+                  setIsLoadingCustomerOrders(false);
+                }}
+                orders={recentOrders}
+              />
+            ) : null}
           </>
         )}
       </div>
@@ -282,7 +323,7 @@ export default function AdminCustomersPage() {
   );
 }
 
-function CustomerList({ branchName, customers, template }: { branchName: string; customers: CustomerReport[]; template: WhatsAppTemplate }) {
+function CustomerList({ branchName, customers, onOpenCustomer, template }: { branchName: string; customers: CustomerReport[]; onOpenCustomer: (customer: CustomerReport) => void; template: WhatsAppTemplate }) {
   if (customers.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-outline-variant/70 bg-surface-container-low p-8 text-center">
@@ -297,7 +338,7 @@ function CustomerList({ branchName, customers, template }: { branchName: string;
     <>
       <div className="grid gap-3 lg:hidden">
         {customers.map((customer) => (
-          <CustomerCard key={customer.customerId ?? customer.customerKey} branchName={branchName} customer={customer} template={template} />
+          <CustomerCard key={customer.customerId ?? customer.customerKey} branchName={branchName} customer={customer} onOpenCustomer={onOpenCustomer} template={template} />
         ))}
       </div>
       <div className="hidden overflow-x-auto lg:block">
@@ -310,11 +351,12 @@ function CustomerList({ branchName, customers, template }: { branchName: string;
               <th className="py-2 pr-4">Favorite</th>
               <th className="py-2 pr-4">Last visit</th>
               <th className="py-2 pr-4">WhatsApp</th>
+              <th className="py-2 pr-0 text-right">View</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-outline-variant/50">
             {customers.map((customer) => (
-              <tr key={customer.customerId ?? customer.customerKey}>
+              <tr key={customer.customerId ?? customer.customerKey} className="cursor-pointer transition-colors hover:bg-primary/5" onClick={() => onOpenCustomer(customer)}>
                 <td className="py-4 pr-4">
                   <p className="max-w-[18rem] truncate font-extrabold text-on-surface">{displayName(customer)}</p>
                   <p className="mt-1 text-xs text-on-surface-variant">{customer.customerWhatsApp ?? "No WhatsApp number"}</p>
@@ -325,8 +367,11 @@ function CustomerList({ branchName, customers, template }: { branchName: string;
                   <p className="max-w-[14rem] truncate font-semibold text-on-surface">{favoriteItem(customer)}</p>
                 </td>
                 <td className="py-4 pr-4 text-on-surface-variant">{formatDateTime(customer.lastVisitAtUtc ?? customer.lastOrderAtUtc)}</td>
-                <td className="py-4 pr-4">
+                <td className="py-4 pr-4" onClick={(event) => event.stopPropagation()}>
                   <WhatsAppButton branchName={branchName} customer={customer} template={template} />
+                </td>
+                <td className="py-4 pr-0 text-right text-primary">
+                  <ChevronRight size={18} />
                 </td>
               </tr>
             ))}
@@ -335,6 +380,174 @@ function CustomerList({ branchName, customers, template }: { branchName: string;
       </div>
     </>
   );
+}
+
+function CustomerQuickView({
+  branchName,
+  customer,
+  feedback,
+  isLoadingOrders,
+  onClose,
+  orders
+}: {
+  branchName: string;
+  customer: CustomerReport;
+  feedback: AdminFeedback | null;
+  isLoadingOrders: boolean;
+  onClose: () => void;
+  orders: OrderReportListItem[];
+}) {
+  const canMessage = customer.marketingConsent && Boolean(toWhatsAppPhone(customer.customerWhatsApp));
+
+  return (
+    <Dialog>
+      <DialogContent className="max-w-3xl border-outline-variant/70 bg-white p-0 shadow-modal">
+        <div className="sticky top-0 z-10 border-b border-outline-variant/70 bg-surface-container-low px-5 py-4">
+          <DialogHeader>
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <DialogTitle className="flex items-center gap-2 text-lg font-black text-on-surface">
+                  <UserRound size={19} className="text-primary" />
+                  Customer quick view
+                </DialogTitle>
+                <DialogDescription className="mt-1 font-semibold">
+                  Quick context for staff and owners.
+                </DialogDescription>
+              </div>
+              <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Close customer quick view">
+                <X size={18} />
+              </Button>
+            </div>
+          </DialogHeader>
+        </div>
+
+        <div className="mx-auto max-w-2xl py-4">
+          <section className="overflow-hidden rounded-lg border border-outline-variant/70 bg-white">
+            <div className="flex flex-col gap-4 border-b border-outline-variant/70 bg-primary text-white px-5 py-5 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-brand-mint text-lg font-black text-primary">
+                    {customerInitial(customer)}
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="truncate text-xl font-black">{displayName(customer)}</h2>
+                    <p className="mt-1 truncate text-sm font-semibold text-white/70">{customer.customerWhatsApp ?? "No WhatsApp number"}</p>
+                  </div>
+                </div>
+              </div>
+              <Badge variant={canMessage ? "success" : "outline"} className={canMessage ? "w-fit bg-brand-mint text-primary" : "w-fit border-white/20 bg-white/10 text-white"}>
+                {canMessage ? "Marketing consent" : "No campaign consent"}
+              </Badge>
+            </div>
+
+            <div className="grid divide-y divide-outline-variant/70 border-b border-outline-variant/70 sm:grid-cols-4 sm:divide-x sm:divide-y-0">
+              <CustomerQuickMetric icon={<RefreshCw size={15} />} label="Visits" value={String(customer.visitCount)} />
+              <CustomerQuickMetric icon={<ShoppingBag size={15} />} label="Orders" value={String(customer.orderCount)} />
+              <CustomerQuickMetric icon={<IndianRupee size={15} />} label="Spent" value={formatMoney(customer.totalValue)} />
+              <CustomerQuickMetric icon={<CalendarDays size={15} />} label="Last visit" value={formatShortDate(customer.lastVisitAtUtc ?? customer.lastOrderAtUtc)} />
+            </div>
+
+            <div className="grid gap-3 border-b border-outline-variant/70 bg-surface-container-low/45 px-5 py-4 sm:grid-cols-2">
+              <InfoBox title="Favorite item" text={favoriteItem(customer)} />
+              <InfoBox title="Branch context" text={`${branchName}${customer.branchesVisited > 1 ? ` and ${customer.branchesVisited - 1} more` : ""}`} />
+            </div>
+
+            <section className="px-5 py-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-[11px] font-black uppercase tracking-wide text-on-surface-variant">Recent orders</p>
+                <Badge variant="outline">{orders.length} shown</Badge>
+              </div>
+              {isLoadingOrders ? (
+                <PageLoading />
+              ) : orders.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-outline-variant/70 bg-surface-container-low p-5 text-center text-sm font-semibold text-on-surface-variant">
+                  No recent orders found for this customer.
+                </div>
+              ) : (
+                <div className="divide-y divide-outline-variant/70">
+                  {orders.map((order) => (
+                    <div key={order.orderId} className="flex items-center justify-between gap-3 py-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-secondary-container text-primary">
+                          <PackageCheck size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black text-on-surface">#{shortId(order.orderId)} - {order.tableName}</p>
+                          <p className="mt-1 text-xs font-semibold text-on-surface-variant">{formatDateTime(order.createdAtUtc)} - {order.itemCount} item{order.itemCount === 1 ? "" : "s"}</p>
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-sm font-black text-primary">{formatMoney(order.totalAmount)}</p>
+                        <CustomerStatusPill status={order.orderStatusCode} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="border-t border-outline-variant/70 bg-surface-container-low px-5 py-4">
+              <div className="mb-3 flex items-center gap-2">
+                <Star size={15} className="text-primary" />
+                <p className="text-[11px] font-black uppercase tracking-wide text-on-surface-variant">Latest feedback</p>
+              </div>
+              {feedback ? (
+                <div className="rounded-lg border border-outline-variant/70 bg-white p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1 text-primary">
+                        {Array.from({ length: 5 }, (_, index) => (
+                          <Star key={index} size={15} className={index < feedback.rating ? "fill-current" : "text-on-surface-variant/35"} />
+                        ))}
+                      </div>
+                      <p className="mt-2 text-xs font-semibold text-on-surface-variant">
+                        {feedback.tableName} - #{shortId(feedback.orderId)} - {formatDateTime(feedback.createdAtUtc)}
+                      </p>
+                    </div>
+                    <Badge variant={feedback.rating >= 4 ? "success" : "outline"} className={feedback.rating <= 2 ? "border-red-200 bg-red-50 text-red-800" : undefined}>{feedback.rating}/5</Badge>
+                  </div>
+                  {feedback.comment ? <p className="mt-3 rounded-lg bg-surface-container-low p-3 text-sm font-semibold leading-6 text-on-surface-variant">{feedback.comment}</p> : null}
+                </div>
+              ) : (
+                <p className="rounded-lg border border-dashed border-outline-variant/70 bg-white p-5 text-center text-sm font-semibold text-on-surface-variant">No feedback from this customer yet.</p>
+              )}
+            </section>
+          </section>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CustomerQuickMetric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="px-5 py-4">
+      <div className="flex items-center gap-1.5">
+        <span className="text-on-surface-variant">{icon}</span>
+        <p className="text-[11px] font-black uppercase tracking-wide text-on-surface-variant">{label}</p>
+      </div>
+      <p className="mt-2 truncate text-[15px] font-black text-on-surface">{value}</p>
+    </div>
+  );
+}
+
+function InfoBox({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="rounded-lg border border-outline-variant/70 bg-white p-4">
+      <p className="text-[11px] font-black uppercase tracking-wide text-on-surface-variant">{title}</p>
+      <p className="mt-2 text-sm font-semibold leading-5 text-on-surface">{text}</p>
+    </div>
+  );
+}
+
+function CustomerStatusPill({ status }: { status: OrderStatusCode }) {
+  const className = status === "Cancelled"
+    ? "border-red-200 bg-red-50 text-red-700"
+    : status === "Completed" || status === "Served"
+      ? "border-sky-200 bg-sky-50 text-sky-700"
+      : "border-emerald-200 bg-emerald-50 text-emerald-700";
+
+  return <span className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black ${className}`}>{status}</span>;
 }
 
 function FeedbackList({ feedback }: { feedback: AdminFeedback[] }) {
@@ -373,15 +586,22 @@ function FeedbackList({ feedback }: { feedback: AdminFeedback[] }) {
   );
 }
 
-function CustomerCard({ branchName, customer, template }: { branchName: string; customer: CustomerReport; template: WhatsAppTemplate }) {
+function CustomerCard({ branchName, customer, onOpenCustomer, template }: { branchName: string; customer: CustomerReport; onOpenCustomer: (customer: CustomerReport) => void; template: WhatsAppTemplate }) {
   return (
-    <article className="rounded-xl border border-outline-variant/60 bg-white p-4">
+    <article className="rounded-xl border border-outline-variant/60 bg-white p-4 transition-colors hover:border-primary/30 hover:bg-primary/5" role="button" tabIndex={0} onClick={() => onOpenCustomer(customer)} onKeyDown={(event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        onOpenCustomer(customer);
+      }
+    }}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-extrabold text-on-surface">{displayName(customer)}</p>
           <p className="mt-1 text-xs text-on-surface-variant">{customer.customerWhatsApp ?? "No WhatsApp number"}</p>
         </div>
-        <WhatsAppButton branchName={branchName} customer={customer} template={template} />
+        <div onClick={(event) => event.stopPropagation()}>
+          <WhatsAppButton branchName={branchName} customer={customer} template={template} />
+        </div>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2 text-center">
         <MiniStat label="Visits" value={String(customer.visitCount)} />
@@ -464,6 +684,11 @@ function displayName(customer: CustomerReport): string {
   return customer.customerName || customer.customerWhatsApp || "Guest customer";
 }
 
+function customerInitial(customer: CustomerReport): string {
+  const source = customer.customerName || customer.customerWhatsApp || "?";
+  return source.trim().charAt(0).toUpperCase() || "?";
+}
+
 function customerFirstName(customer: CustomerReport): string {
   const name = customer.customerName?.trim();
   if (!name) {
@@ -497,6 +722,22 @@ function formatDateTime(value: string | null): string {
   }).format(date);
 }
 
+function formatShortDate(value: string | null): string {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short"
+  }).format(date);
+}
+
 function toWhatsAppPhone(value: string | null): string | null {
   if (!value) {
     return null;
@@ -512,6 +753,32 @@ function toWhatsAppPhone(value: string | null): string | null {
   }
 
   return digits.length >= 8 ? digits : null;
+}
+
+function normalizePhone(value: string | null): string {
+  return toWhatsAppPhone(value) ?? "";
+}
+
+function customerSearchTerm(customer: CustomerReport): string {
+  return customer.customerWhatsApp || customer.customerName || customer.favoriteItemName || "";
+}
+
+function customerFeedback(customer: CustomerReport, feedback: AdminFeedback[]): AdminFeedback | null {
+  const customerPhone = normalizePhone(customer.customerWhatsApp);
+  const customerName = customer.customerName?.trim().toLowerCase() ?? "";
+  const matches = feedback.filter((item) => {
+    if (customer.customerId && item.customerId === customer.customerId) {
+      return true;
+    }
+
+    if (customerPhone && normalizePhone(item.customerWhatsApp) === customerPhone) {
+      return true;
+    }
+
+    return Boolean(customerName && item.customerName?.trim().toLowerCase() === customerName);
+  });
+
+  return matches.sort((left, right) => new Date(right.createdAtUtc).getTime() - new Date(left.createdAtUtc).getTime())[0] ?? null;
 }
 
 function whatsAppDisabledReason(customer: CustomerReport, phone: string | null): string | null {
