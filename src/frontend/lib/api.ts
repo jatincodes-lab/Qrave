@@ -899,6 +899,35 @@ export type OrderReportListItem = {
   latestReason: string | null;
 };
 
+export type OrderReportItem = {
+  orderItemId: string;
+  menuItemId: string;
+  menuItemVariantId: string | null;
+  menuItemName: string;
+  variantName: string | null;
+  itemNote: string | null;
+  dietTypeCode: DietTypeCode;
+  unitPrice: number;
+  quantity: number;
+  lineTotal: number;
+};
+
+export type OrderStatusHistory = {
+  orderStatusHistoryId: string;
+  orderId: string;
+  oldStatusCode: OrderStatusCode | null;
+  newStatusCode: OrderStatusCode;
+  reason: string | null;
+  changedByUserId: string | null;
+  createdAtUtc: string;
+};
+
+export type OrderReportDetail = {
+  order: OrderReportListItem;
+  items: OrderReportItem[];
+  statusHistory: OrderStatusHistory[];
+};
+
 export type ItemReport = {
   itemName: string;
   variantName: string | null;
@@ -1405,6 +1434,13 @@ export async function getOrderReportSummary(filter: ReportFilterInput): Promise<
 
 export async function getOrderReportOrders(filter: ReportFilterInput): Promise<OrderReportListItem[]> {
   return request<OrderReportListItem[]>(`/api/v1/admin/reports/orders${toReportQuery(filter)}`, {
+    method: "GET",
+    requireAuth: true
+  });
+}
+
+export async function getOrderReportDetail(orderId: string): Promise<OrderReportDetail> {
+  return request<OrderReportDetail>(`/api/v1/admin/reports/orders/${encodeURIComponent(orderId)}`, {
     method: "GET",
     requireAuth: true
   });

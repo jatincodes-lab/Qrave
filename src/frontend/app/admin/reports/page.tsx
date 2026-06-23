@@ -1,20 +1,23 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { BarChart3, CalendarDays, CheckCircle2, ClipboardList, Download, IndianRupee, RefreshCw, Search, SlidersHorizontal, Timer, XCircle } from "lucide-react";
+import { CalendarDays, CheckCircle2, ClipboardList, Download, History, IndianRupee, PackageCheck, RefreshCw, Search, SlidersHorizontal, Timer, UserRound, X, XCircle } from "lucide-react";
 import { AdminShell } from "../../../components/admin-shell";
 import { EmptyBranchState, PageError, PageLoading } from "../../../components/admin-page-common";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent } from "../../../components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 import { Input } from "../../../components/ui/input";
 import {
   getCustomerReport,
   getItemReport,
+  getOrderReportDetail,
   getOrderReportOrders,
   getOrderReportSummary,
   type CustomerReport,
   type ItemReport,
+  type OrderReportDetail,
   type OrderReportListItem,
   type OrderReportSummary,
   type OrderStatusCode,
@@ -46,6 +49,8 @@ export default function AdminReportsPage() {
   const [orders, setOrders] = useState<OrderReportListItem[]>([]);
   const [items, setItems] = useState<ItemReport[]>([]);
   const [customers, setCustomers] = useState<CustomerReport[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<OrderReportDetail | null>(null);
+  const [isLoadingOrder, setIsLoadingOrder] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const filter = useMemo<ReportFilterInput>(() => ({
@@ -62,6 +67,7 @@ export default function AdminReportsPage() {
       setOrders([]);
       setItems([]);
       setCustomers([]);
+      setSelectedOrder(null);
       return;
     }
 
@@ -131,6 +137,18 @@ export default function AdminReportsPage() {
     link.download = `qrave-orders-${form.dateFrom}-to-${form.dateTo}.csv`;
     link.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function openOrderDetail(orderId: string) {
+    setIsLoadingOrder(true);
+    setSelectedOrder(null);
+    try {
+      setSelectedOrder(await getOrderReportDetail(orderId));
+    } catch (caught) {
+      workspace.handleApiError(caught);
+    } finally {
+      setIsLoadingOrder(false);
+    }
   }
 
   const branchName = workspace.selectedBranch?.name ?? "Reports";
@@ -213,7 +231,7 @@ export default function AdminReportsPage() {
                   <Badge variant="outline">{orders.length} orders</Badge>
                 </div>
                 <CardContent className="p-0">
-                  {isLoading ? <div className="p-6"><PageLoading /></div> : <OrderHistoryTable orders={orders} />}
+                  {isLoading ? <div className="p-6"><PageLoading /></div> : <OrderHistoryTable orders={orders} onOpenOrder={openOrderDetail} />}
                 </CardContent>
               </Card>
 
@@ -222,6 +240,17 @@ export default function AdminReportsPage() {
                 <CustomersCard customers={customers} />
               </div>
             </section>
+
+            {isLoadingOrder || selectedOrder ? (
+              <OrderDetailDialog
+                detail={selectedOrder}
+                isLoading={isLoadingOrder}
+                onClose={() => {
+                  setSelectedOrder(null);
+                  setIsLoadingOrder(false);
+                }}
+              />
+            ) : null}
           </>
         )}
       </div>
@@ -253,7 +282,7 @@ function ReportMetric({ icon, label, value }: { icon: React.ReactNode; label: st
   );
 }
 
-function OrderHistoryTable({ orders }: { orders: OrderReportListItem[] }) {
+function OrderHistoryTable({ orders, onOpenOrder }: { orders: OrderReportListItem[]; onOpenOrder: (orderId: string) => void }) {
   if (orders.length === 0) {
     return <EmptyReport text="No orders match the selected filters." />;
   }
@@ -277,7 +306,16 @@ function OrderHistoryTable({ orders }: { orders: OrderReportListItem[] }) {
         <tbody className="divide-y divide-outline-variant/50">
           {orders.map((order) => (
             <tr key={order.orderId} className="align-top transition-colors hover:bg-surface-container-low/70">
-              <td className="px-4 py-3 font-black text-primary">#{shortOrderCode(order.orderId)}</td>
+              <td className="px-4 py-3">
+                <button
+                  type="button"
+                  className="rounded-md font-black text-primary underline-offset-4 transition hover:text-primary/80 hover:underline focus:outline-none focus:ring-2 focus:ring-ring/20"
+                  onClick={() => onOpenOrder(order.orderId)}
+                  title="View ordered items and details"
+                >
+                  #{shortOrderCode(order.orderId)}
+                </button>
+              </td>
               <td className="px-3 py-3 font-black text-on-surface">{order.tableName}</td>
               <td className="px-3 py-3">
                 <p className="max-w-[9rem] truncate font-black text-on-surface">{order.customerName || "Guest"}</p>
@@ -295,6 +333,130 @@ function OrderHistoryTable({ orders }: { orders: OrderReportListItem[] }) {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function OrderDetailDialog({ detail, isLoading, onClose }: { detail: OrderReportDetail | null; isLoading: boolean; onClose: () => void }) {
+  const order = detail?.order;
+  const itemTotal = detail?.items.reduce((total, item) => total + item.lineTotal, 0) ?? 0;
+
+  return (
+    <Dialog>
+      <DialogContent className="max-w-4xl bg-white">
+        <div className="sticky top-0 z-10 border-b border-outline-variant/70 bg-white px-5 py-4">
+          <DialogHeader>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <DialogTitle className="flex items-center gap-2 text-xl font-black text-on-surface">
+                  <ClipboardList size={20} className="text-primary" />
+                  {order ? `Order #${shortOrderCode(order.orderId)}` : "Order details"}
+                </DialogTitle>
+                <DialogDescription>
+                  {order ? `${order.tableName} - ${formatDateTime(order.createdAtUtc)}` : "Loading ordered items and status history."}
+                </DialogDescription>
+              </div>
+              <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Close order details">
+                <X size={18} />
+              </Button>
+            </div>
+          </DialogHeader>
+        </div>
+
+        {isLoading || !detail || !order ? (
+          <div className="p-6">
+            <PageLoading />
+          </div>
+        ) : (
+          <div className="grid gap-4 p-5">
+            <section className="grid gap-3 md:grid-cols-4">
+              <DetailMetric icon={<UserRound size={16} />} label="Customer" value={order.customerName || "Guest"} note={order.customerWhatsApp || "No WhatsApp"} />
+              <DetailMetric icon={<ClipboardList size={16} />} label="Status" value={order.orderStatusCode} note={formatOrderStatusTime(order)} />
+              <DetailMetric icon={<PackageCheck size={16} />} label="Items" value={String(order.itemCount)} note={`${detail.items.length} line ${detail.items.length === 1 ? "item" : "items"}`} />
+              <DetailMetric icon={<IndianRupee size={16} />} label="Order value" value={formatMoney(order.totalAmount)} note={`Items total ${formatMoney(itemTotal)}`} />
+            </section>
+
+            {(order.notes || order.latestReason) ? (
+              <section className="grid gap-3 md:grid-cols-2">
+                {order.notes ? <InfoBox title="Customer note" text={order.notes} /> : null}
+                {order.latestReason ? <InfoBox title="Latest reason" text={order.latestReason} /> : null}
+              </section>
+            ) : null}
+
+            <section className="rounded-lg border border-outline-variant/70 bg-white">
+              <div className="flex items-center justify-between border-b border-outline-variant/70 px-4 py-3">
+                <div>
+                  <h3 className="text-sm font-black text-on-surface">Ordered items</h3>
+                  <p className="text-xs font-semibold text-on-surface-variant">Names, variants, notes, quantities, and line totals</p>
+                </div>
+                <Badge variant="outline">{detail.items.length} lines</Badge>
+              </div>
+              <div className="divide-y divide-outline-variant/60">
+                {detail.items.length === 0 ? (
+                  <EmptyReport text="No item details found for this order." />
+                ) : detail.items.map((item) => (
+                  <div key={item.orderItemId} className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_7rem_7rem_8rem] md:items-center">
+                    <div className="min-w-0">
+                      <p className="font-black text-on-surface">{item.variantName ? `${item.menuItemName} - ${item.variantName}` : item.menuItemName}</p>
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        <Badge variant="outline" className="h-6 px-2 text-[10px]">{item.dietTypeCode}</Badge>
+                        {item.itemNote ? <span className="text-xs font-semibold text-on-surface-variant">Note: {item.itemNote}</span> : null}
+                      </div>
+                    </div>
+                    <p className="text-sm font-semibold text-on-surface-variant md:text-right">{formatMoney(item.unitPrice)}</p>
+                    <p className="text-sm font-black text-on-surface md:text-right">x {item.quantity}</p>
+                    <p className="text-sm font-black text-primary md:text-right">{formatMoney(item.lineTotal)}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="rounded-lg border border-outline-variant/70 bg-surface-container-low/40">
+              <div className="flex items-center gap-2 border-b border-outline-variant/70 px-4 py-3">
+                <History size={16} className="text-primary" />
+                <h3 className="text-sm font-black text-on-surface">Status timeline</h3>
+              </div>
+              <div className="grid gap-2 p-4">
+                {detail.statusHistory.length === 0 ? (
+                  <p className="text-sm font-semibold text-on-surface-variant">No status changes found.</p>
+                ) : detail.statusHistory.map((entry) => (
+                  <div key={entry.orderStatusHistoryId} className="flex flex-col gap-1 rounded-lg border border-outline-variant/70 bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-black text-on-surface">
+                        {entry.oldStatusCode ? `${entry.oldStatusCode} -> ${entry.newStatusCode}` : entry.newStatusCode}
+                      </p>
+                      {entry.reason ? <p className="mt-0.5 text-xs font-semibold text-on-surface-variant">{entry.reason}</p> : null}
+                    </div>
+                    <p className="text-xs font-semibold text-on-surface-variant">{formatDateTime(entry.createdAtUtc)}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DetailMetric({ icon, label, value, note }: { icon: React.ReactNode; label: string; value: string; note: string }) {
+  return (
+    <div className="rounded-lg border border-outline-variant/70 bg-surface-container-low/50 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[11px] font-black uppercase tracking-wide text-on-surface-variant">{label}</p>
+        <span className="text-primary">{icon}</span>
+      </div>
+      <p className="mt-2 truncate text-base font-black text-on-surface">{value}</p>
+      <p className="mt-1 truncate text-xs font-semibold text-on-surface-variant">{note}</p>
+    </div>
+  );
+}
+
+function InfoBox({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="rounded-lg border border-outline-variant/70 bg-surface-container-low/40 p-4">
+      <p className="text-[11px] font-black uppercase tracking-wide text-on-surface-variant">{title}</p>
+      <p className="mt-2 text-sm font-semibold leading-5 text-on-surface">{text}</p>
     </div>
   );
 }
