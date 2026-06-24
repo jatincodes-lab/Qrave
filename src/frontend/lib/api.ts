@@ -1206,8 +1206,8 @@ export async function turnOffBranch(branchId: string): Promise<void> {
   });
 }
 
-export async function getMenuCategories(branchId: string): Promise<MenuCategory[]> {
-  return request<MenuCategory[]>(`/api/v1/admin/branches/${branchId}/menu-categories?includeInactive=false`, {
+export async function getMenuCategories(branchId: string, includeInactive = false): Promise<MenuCategory[]> {
+  return request<MenuCategory[]>(`/api/v1/admin/branches/${branchId}/menu-categories?includeInactive=${includeInactive ? "true" : "false"}`, {
     method: "GET",
     requireAuth: true
   });

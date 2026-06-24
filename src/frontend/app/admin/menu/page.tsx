@@ -109,8 +109,12 @@ export default function AdminMenuPage() {
   const [itemPage, setItemPage] = useState(1);
   const [itemPageSize, setItemPageSize] = useState(10);
 
-  const availableItems = useMemo(() => items.filter((item) => item.isAvailable), [items]);
-  const sortedCategories = useMemo(() => [...categories].sort((left, right) => left.displayOrder - right.displayOrder), [categories]);
+  const sortedAllCategories = useMemo(() => [...categories].sort((left, right) => left.displayOrder - right.displayOrder || left.name.localeCompare(right.name)), [categories]);
+  const sortedCategories = useMemo(() => sortedAllCategories.filter((category) => category.isActive), [sortedAllCategories]);
+  const inactiveCategories = useMemo(() => sortedAllCategories.filter((category) => !category.isActive), [sortedAllCategories]);
+  const activeCategoryIds = useMemo(() => new Set(sortedCategories.map((category) => category.menuCategoryId)), [sortedCategories]);
+  const activeMenuItems = useMemo(() => items.filter((item) => activeCategoryIds.has(item.menuCategoryId)), [activeCategoryIds, items]);
+  const availableItems = useMemo(() => activeMenuItems.filter((item) => item.isAvailable), [activeMenuItems]);
   const categoryById = useMemo(() => new Map(sortedCategories.map((category) => [category.menuCategoryId, category])), [sortedCategories]);
   const itemCountsByCategory = useMemo(() => {
     return items.reduce<Record<string, number>>((lookup, item) => {
@@ -119,7 +123,7 @@ export default function AdminMenuPage() {
     }, {});
   }, [items]);
   const sortedItems = useMemo(() => {
-    return [...items].sort((left, right) => {
+    return [...activeMenuItems].sort((left, right) => {
       const leftCategoryOrder = categoryById.get(left.menuCategoryId)?.displayOrder ?? Number.MAX_SAFE_INTEGER;
       const rightCategoryOrder = categoryById.get(right.menuCategoryId)?.displayOrder ?? Number.MAX_SAFE_INTEGER;
 
@@ -133,7 +137,7 @@ export default function AdminMenuPage() {
 
       return left.name.localeCompare(right.name);
     });
-  }, [categoryById, items]);
+  }, [activeMenuItems, categoryById]);
   const selectedCategory = selectedCategoryId === AllCategoryId ? null : categoryById.get(selectedCategoryId) ?? null;
   const selectedCategoryItems = useMemo(
     () => (selectedCategoryId === AllCategoryId ? sortedItems : sortedItems.filter((item) => item.menuCategoryId === selectedCategoryId)),
@@ -167,12 +171,12 @@ export default function AdminMenuPage() {
   const itemShowingFrom = filteredItems.length === 0 ? 0 : (safeItemPage - 1) * itemPageSize + 1;
   const itemShowingTo = filteredItems.length === 0 ? 0 : Math.min(filteredItems.length, itemShowingFrom + pagedItems.length - 1);
   const averagePrice = useMemo(() => {
-    if (items.length === 0) {
+    if (activeMenuItems.length === 0) {
       return 0;
     }
 
-    return items.reduce((total, item) => total + item.price, 0) / items.length;
-  }, [items]);
+    return activeMenuItems.reduce((total, item) => total + item.price, 0) / activeMenuItems.length;
+  }, [activeMenuItems]);
 
   useEffect(() => {
     if (!workspace.selectedBranch) {
@@ -204,13 +208,14 @@ export default function AdminMenuPage() {
     setIsLoadingMenu(true);
 
     try {
-      const [categoryResponse, itemResponse] = await Promise.all([getMenuCategories(branchId), getMenuItems(branchId)]);
+      const [categoryResponse, itemResponse] = await Promise.all([getMenuCategories(branchId, true), getMenuItems(branchId)]);
+      const activeCategoryResponse = categoryResponse.filter((category) => category.isActive);
       setCategories(categoryResponse);
       setItems(itemResponse);
       setCategoryForm({ ...EmptyCategoryForm, displayOrder: String(categoryResponse.length + 1) });
       setItemForm({
         ...EmptyItemForm,
-        menuCategoryId: categoryResponse[0]?.menuCategoryId ?? "",
+        menuCategoryId: activeCategoryResponse[0]?.menuCategoryId ?? "",
         displayOrder: String(itemResponse.length + 1)
       });
       setEditingCategoryId(null);
@@ -380,12 +385,17 @@ export default function AdminMenuPage() {
 
     await runSaving(`category-${category.menuCategoryId}`, async () => {
       await deactivateMenuCategory(workspace.selectedBranch!.branchId, category.menuCategoryId);
-      setCategories((current) => current.filter((currentCategory) => currentCategory.menuCategoryId !== category.menuCategoryId));
-      setItems((current) => current.filter((currentItem) => currentItem.menuCategoryId !== category.menuCategoryId));
+      setCategories((current) =>
+        current.map((currentCategory) =>
+          currentCategory.menuCategoryId === category.menuCategoryId
+            ? { ...currentCategory, isActive: false, updatedAtUtc: new Date().toISOString() }
+            : currentCategory
+        )
+      );
       if (itemForm.menuCategoryId === category.menuCategoryId) {
         setItemForm((current) => ({
           ...current,
-          menuCategoryId: categories.find((currentCategory) => currentCategory.menuCategoryId !== category.menuCategoryId)?.menuCategoryId ?? ""
+          menuCategoryId: categories.find((currentCategory) => currentCategory.menuCategoryId !== category.menuCategoryId && currentCategory.isActive)?.menuCategoryId ?? ""
         }));
       }
       if (selectedCategoryId === category.menuCategoryId) {
@@ -396,6 +406,29 @@ export default function AdminMenuPage() {
         setEditingCategoryForm(EmptyCategoryForm);
       }
       setMenuNotice("Menu category turned off.");
+    });
+  }
+
+  async function handleEnableCategory(category: MenuCategory) {
+    if (!workspace.selectedBranch) {
+      return;
+    }
+
+    await runSaving(`category-enable-${category.menuCategoryId}`, async () => {
+      const updated = await updateMenuCategory(workspace.selectedBranch!.branchId, category.menuCategoryId, {
+        name: category.name,
+        displayOrder: category.displayOrder,
+        isActive: true
+      });
+
+      setCategories((current) => current.map((currentCategory) => (currentCategory.menuCategoryId === updated.menuCategoryId ? updated : currentCategory)));
+      setItemForm((current) => ({
+        ...current,
+        menuCategoryId: current.menuCategoryId || updated.menuCategoryId
+      }));
+      setSelectedCategoryId(updated.menuCategoryId);
+      setItemPage(1);
+      setMenuNotice("Menu category enabled.");
     });
   }
 
@@ -530,7 +563,7 @@ export default function AdminMenuPage() {
               <Plus size={17} />
               Add category
             </Button>
-            <Button type="button" onClick={handleOpenCreateItem} disabled={isLoadingMenu || categories.length === 0 || !workspace.selectedBranch} className="w-full sm:w-auto">
+            <Button type="button" onClick={handleOpenCreateItem} disabled={isLoadingMenu || sortedCategories.length === 0 || !workspace.selectedBranch} className="w-full sm:w-auto">
               <Plus size={17} />
               Add item
             </Button>
@@ -546,8 +579,8 @@ export default function AdminMenuPage() {
         ) : (
           <>
             <section className="grid gap-4 md:grid-cols-3">
-              <MetricCard icon={<Layers3 size={20} />} label="Categories" value={isLoadingMenu ? "..." : String(categories.length)} />
-              <MetricCard icon={<ChefHat size={20} />} label="Menu items" value={isLoadingMenu ? "..." : String(items.length)} />
+              <MetricCard icon={<Layers3 size={20} />} label="Categories" value={isLoadingMenu ? "..." : String(sortedCategories.length)} note={inactiveCategories.length > 0 ? `${inactiveCategories.length} turned off` : undefined} />
+              <MetricCard icon={<ChefHat size={20} />} label="Menu items" value={isLoadingMenu ? "..." : String(activeMenuItems.length)} />
               <MetricCard icon={<IndianRupee size={20} />} label="Average price" value={isLoadingMenu ? "..." : formatMoney(averagePrice)} note={`${availableItems.length} available`} />
             </section>
 
@@ -567,13 +600,15 @@ export default function AdminMenuPage() {
                   <MenuCategorySidebar
                     categories={sortedCategories}
                     itemCountsByCategory={itemCountsByCategory}
+                    inactiveCategories={inactiveCategories}
                     onAddCategory={handleOpenCreateCategory}
                     onDeactivateCategory={handleDeactivateCategory}
                     onEditCategory={handleStartEditCategory}
+                    onEnableCategory={handleEnableCategory}
                     onSelectCategory={(categoryId) => setSelectedCategoryId(categoryId)}
                     savingKey={savingKey}
                     selectedCategoryId={selectedCategoryId}
-                    totalItems={items.length}
+                    totalItems={activeMenuItems.length}
                   />
 
                   <section className="min-w-0 border-t border-outline-variant/70 lg:border-l lg:border-t-0">
@@ -635,13 +670,13 @@ export default function AdminMenuPage() {
                       </div>
                     </div>
 
-                    {items.length === 0 ? (
+                    {activeMenuItems.length === 0 ? (
                       <MenuEmptyState
-                        actionLabel={categories.length === 0 ? "Add category" : "Add item"}
+                        actionLabel={sortedCategories.length === 0 ? "Add category" : "Add item"}
                         actionIcon={Plus}
-                        message={categories.length === 0 ? "Create a category first, then add items inside it." : "Add your first item to start building this menu."}
-                        onAction={categories.length === 0 ? handleOpenCreateCategory : handleOpenCreateItem}
-                        title={categories.length === 0 ? "No categories yet" : "No menu items yet"}
+                        message={sortedCategories.length === 0 ? "Create or enable a category first, then add items inside it." : "Add your first item to start building this menu."}
+                        onAction={sortedCategories.length === 0 ? handleOpenCreateCategory : handleOpenCreateItem}
+                        title={sortedCategories.length === 0 ? "No active categories" : "No menu items yet"}
                       />
                     ) : filteredItems.length === 0 ? (
                       <MenuEmptyState
@@ -808,9 +843,9 @@ export default function AdminMenuPage() {
                               }
                               className="h-11 w-full rounded-lg border border-input bg-white px-3 text-sm font-semibold text-on-surface outline-none transition-colors focus:border-primary/30 focus:ring-2 focus:ring-ring/20"
                               required
-                              disabled={categories.length === 0}
+                              disabled={sortedCategories.length === 0}
                             >
-                              {categories.length === 0 ? <option value="">Add a category first</option> : null}
+                              {sortedCategories.length === 0 ? <option value="">Add or enable a category first</option> : null}
                               {sortedCategories.map((category) => (
                                 <option key={category.menuCategoryId} value={category.menuCategoryId}>
                                   {category.name}
@@ -926,7 +961,7 @@ export default function AdminMenuPage() {
                       />
                     </div>
                     <div className="grid shrink-0 gap-2 border-t border-outline-variant/70 bg-surface-container-low px-4 py-4 sm:flex sm:flex-row-reverse sm:justify-start sm:px-6">
-                      <Button type="submit" disabled={savingKey === "item" || (editingItem ? savingKey === `item-edit-${editingItem.menuItemId}` : false) || categories.length === 0} className="w-full sm:w-auto">
+                      <Button type="submit" disabled={savingKey === "item" || (editingItem ? savingKey === `item-edit-${editingItem.menuItemId}` : false) || sortedCategories.length === 0} className="w-full sm:w-auto">
                         {savingKey === "item" || (editingItem ? savingKey === `item-edit-${editingItem.menuItemId}` : false) ? (
                           <Loader2 size={17} className="animate-spin" />
                         ) : isEditingItem ? (
@@ -962,20 +997,24 @@ function Field({ children, label }: { children: ReactNode; label: string }) {
 
 function MenuCategorySidebar({
   categories,
+  inactiveCategories,
   itemCountsByCategory,
   onAddCategory,
   onDeactivateCategory,
   onEditCategory,
+  onEnableCategory,
   onSelectCategory,
   savingKey,
   selectedCategoryId,
   totalItems
 }: {
   categories: MenuCategory[];
+  inactiveCategories: MenuCategory[];
   itemCountsByCategory: Record<string, number>;
   onAddCategory: () => void;
   onDeactivateCategory: (category: MenuCategory) => void;
   onEditCategory: (category: MenuCategory) => void;
+  onEnableCategory: (category: MenuCategory) => void;
   onSelectCategory: (categoryId: string) => void;
   savingKey: string | null;
   selectedCategoryId: string;
@@ -1052,6 +1091,56 @@ function MenuCategorySidebar({
             );
           })
         )}
+
+        {inactiveCategories.length > 0 ? (
+          <div className="mt-3 border-t border-outline-variant/70 pt-3">
+            <div className="mb-2 flex items-center justify-between px-2">
+              <p className="text-[11px] font-black uppercase tracking-wide text-on-surface-variant">Turned off</p>
+              <Badge variant="outline" className="shrink-0">
+                {inactiveCategories.length}
+              </Badge>
+            </div>
+            <div className="grid gap-1">
+              {inactiveCategories.map((category, index) => {
+                const isEnabling = savingKey === `category-enable-${category.menuCategoryId}`;
+                const itemCount = itemCountsByCategory[category.menuCategoryId] ?? 0;
+
+                return (
+                  <div
+                    key={category.menuCategoryId}
+                    className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-dashed border-outline-variant/70 bg-white/70 px-2 py-2 opacity-90"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-on-surface-variant/40" style={{ backgroundColor: CategoryAccentColors[(index + categories.length + 1) % CategoryAccentColors.length] }} />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-extrabold text-on-surface-variant">{category.name}</p>
+                        <p className="mt-0.5 truncate text-xs font-semibold text-on-surface-variant">
+                          Order {category.displayOrder} - {itemCount} item{itemCount === 1 ? "" : "s"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 gap-1">
+                      <Button type="button" variant="ghost" size="icon" onClick={() => onEditCategory(category)} className="h-8 w-8" aria-label={`Edit ${category.name}`}>
+                        <Pencil size={14} />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onEnableCategory(category)}
+                        disabled={isEnabling}
+                        className="h-8 w-8 text-primary hover:bg-primary/10 hover:text-primary"
+                        aria-label={`Enable ${category.name}`}
+                      >
+                        {isEnabling ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
       </div>
     </aside>
   );
