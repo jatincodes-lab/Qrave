@@ -1366,69 +1366,71 @@ function MenuDishCard({
   const priceLabel = hasVariants ? `From ${formatPrice(displayPrice)}` : formatPrice(displayPrice);
 
   return (
-    <article className="relative min-w-0 overflow-hidden rounded-[22px] border border-[#eef2ee] bg-white shadow-[0_12px_26px_rgba(6,67,34,0.11)] transition-transform active:scale-[0.99]">
-      <div className="aspect-[1.12/1] overflow-hidden bg-[#eef8f2]">
+    <article className="group flex min-w-0 flex-col overflow-hidden rounded-[20px] bg-white shadow-[0_10px_24px_rgba(6,67,34,0.10)] transition duration-150 active:scale-[0.985] active:shadow-[0_6px_16px_rgba(6,67,34,0.14)]">
+      <div className="aspect-[4/3] overflow-hidden bg-[#eef8f2]">
         <FoodThumb imageAltText={item.imageAltText} imageUrl={item.imageUrl} name={item.name} className="h-full min-h-0 rounded-none" />
       </div>
 
-      <div className="min-h-[7rem] p-2.5 pb-11">
-        <div className="mb-1 flex min-w-0 items-center gap-1.5">
+      <div className="flex min-h-[6.6rem] flex-1 flex-col p-3 pt-2.5">
+        <div className="mb-1.5 flex min-h-5 min-w-0 items-center gap-1.5 overflow-hidden">
           <MenuItemDietIcon dietTypeCode={item.dietTypeCode} />
-          {hasVariants ? <span className="rounded-full bg-[#eef8f2] px-2 py-0.5 text-[10px] font-black text-[#0f7a43]">Options</span> : null}
+          {hasVariants ? <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-[#eef8f2] px-2 text-[10px] font-black leading-none text-[#0f7a43]">Options</span> : null}
         </div>
-        <h3 className="line-clamp-2 min-h-[2.1rem] break-words text-[14px] font-black leading-[1.15] text-[#08291a]">{item.name}</h3>
-        <p className="mt-1 line-clamp-1 min-h-[1rem] break-words text-[11px] font-medium leading-[1.2] text-[#27352f]">
+        <h3 className="line-clamp-2 min-h-[2.05rem] break-words text-[14px] font-black leading-[1.16] text-[#071f14]">{item.name}</h3>
+        <p className="mt-1 truncate text-[11px] font-semibold leading-4 text-[#718078]">
           {item.description || "Freshly prepared by the kitchen."}
         </p>
-        <p className="mt-1.5 truncate pr-11 text-[17px] font-black leading-6 text-[#063d22]">{priceLabel}</p>
-      </div>
 
-      {canOrder ? (
-        hasVariants ? (
-          <button
-            type="button"
-            className="absolute bottom-3 right-3 grid h-10 w-10 place-items-center rounded-xl bg-[#8fe3b7] text-[#063d22] shadow-[0_8px_18px_rgba(6,67,34,0.18)]"
-            onClick={() => onChooseVariant(item, categoryName)}
-            aria-label={`Choose variant for ${item.name}`}
-          >
-            <Plus className="h-5 w-5" aria-hidden="true" />
-            {quantity > 0 ? (
-              <span className="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-[#063d22] px-1 text-[10px] font-black text-white">
-                {quantity > 99 ? "99+" : quantity}
-              </span>
-            ) : null}
-          </button>
-        ) : singleQuantity > 0 ? (
-          <div className="absolute bottom-3 right-3 flex h-10 w-[6.45rem] items-center justify-between overflow-hidden rounded-xl bg-[#8fe3b7] text-[#063d22] shadow-[0_8px_18px_rgba(6,67,34,0.18)]">
-            <button
-              type="button"
-              className="grid h-10 w-8 place-items-center"
-              onClick={() => onDecrement(singleCartLineId)}
-              aria-label={`Remove one ${item.name}`}
-            >
-              <Minus className="h-4 w-4" aria-hidden="true" />
-            </button>
-            <span className="grid h-10 min-w-8 place-items-center text-sm font-black">{singleQuantity}</span>
-            <button
-              type="button"
-              className="grid h-10 w-8 place-items-center"
-              onClick={() => onAdd(item, categoryName, null)}
-              aria-label={`Add one ${item.name}`}
-            >
-              <Plus className="h-4 w-4" aria-hidden="true" />
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            className="absolute bottom-3 right-3 grid h-10 w-10 place-items-center rounded-xl bg-[#8fe3b7] text-[#063d22] shadow-[0_8px_18px_rgba(6,67,34,0.18)]"
-            onClick={() => onAdd(item, categoryName, null)}
-            aria-label={`Add ${item.name}`}
-          >
-            <Plus className="h-5 w-5" aria-hidden="true" />
-          </button>
-        )
-      ) : null}
+        <div className="mt-auto flex min-h-11 items-end justify-between gap-2 pt-2">
+          <p className="min-w-0 flex-1 truncate text-[17px] font-black leading-6 text-[#063d22]">{priceLabel}</p>
+          {canOrder ? (
+            hasVariants ? (
+              <button
+                type="button"
+                className="relative grid h-11 w-11 shrink-0 place-items-center rounded-[14px] bg-[#8fe3b7] text-[#063d22] shadow-[0_8px_18px_rgba(6,67,34,0.16)] transition active:scale-90"
+                onClick={() => onChooseVariant(item, categoryName)}
+                aria-label={`Choose variant for ${item.name}`}
+              >
+                <Plus className="h-5 w-5" aria-hidden="true" />
+                {quantity > 0 ? (
+                  <span className="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-[#063d22] px-1 text-[10px] font-black text-white">
+                    {quantity > 99 ? "99+" : quantity}
+                  </span>
+                ) : null}
+              </button>
+            ) : singleQuantity > 0 ? (
+              <div className="flex h-11 w-[6.35rem] shrink-0 items-center justify-between overflow-hidden rounded-[14px] bg-[#8fe3b7] text-[#063d22] shadow-[0_8px_18px_rgba(6,67,34,0.16)]">
+                <button
+                  type="button"
+                  className="grid h-11 w-8 place-items-center transition active:scale-90"
+                  onClick={() => onDecrement(singleCartLineId)}
+                  aria-label={`Remove one ${item.name}`}
+                >
+                  <Minus className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <span key={singleQuantity} className="grid h-11 min-w-8 place-items-center text-sm font-black animate-[pulse_220ms_ease-out_1]">{singleQuantity}</span>
+                <button
+                  type="button"
+                  className="grid h-11 w-8 place-items-center transition active:scale-90"
+                  onClick={() => onAdd(item, categoryName, null)}
+                  aria-label={`Add one ${item.name}`}
+                >
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] bg-[#8fe3b7] text-[#063d22] shadow-[0_8px_18px_rgba(6,67,34,0.16)] transition active:scale-90"
+                onClick={() => onAdd(item, categoryName, null)}
+                aria-label={`Add ${item.name}`}
+              >
+                <Plus className="h-5 w-5" aria-hidden="true" />
+              </button>
+            )
+          ) : null}
+        </div>
+      </div>
     </article>
   );
 }
@@ -2297,7 +2299,7 @@ function FoodThumb({
   return (
     <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-br from-orange-100 via-white to-emerald-100 ${compact ? "mx-auto h-12 w-12" : "h-full min-h-[144px] w-full"} ${className}`}>
       {imageUrl ? (
-        <img src={imageUrl} alt={imageAltText ?? name} className="absolute inset-0 h-full w-full object-cover" />
+        <img src={imageUrl} alt={imageAltText ?? name} className="absolute inset-0 h-full w-full object-cover transition-transform duration-200 group-active:scale-[1.03]" />
       ) : (
         <>
           <div className="absolute -right-4 -top-4 h-16 w-16 rounded-full bg-[#1bb7b5]/20" />
