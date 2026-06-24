@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { ArrowUpRight, CalendarDays, ChevronRight, IndianRupee, PackageCheck, RefreshCw, Search, ShoppingBag, SlidersHorizontal, Star, UserRound, X } from "lucide-react";
+import { ArrowUpRight, CalendarDays, ChevronLeft, ChevronRight, IndianRupee, PackageCheck, RefreshCw, Search, ShoppingBag, SlidersHorizontal, Star, UserRound, X } from "lucide-react";
 import { AdminShell } from "../../../components/admin-shell";
 import { EmptyBranchState, PageError, PageLoading } from "../../../components/admin-page-common";
 import { Badge } from "../../../components/ui/badge";
@@ -39,6 +39,7 @@ const SegmentOptions: CustomerSegmentOption[] = [
 ];
 
 const InactiveCustomerDays = 30;
+const CustomerPageSizeOptions = [10, 25, 50];
 const TopSpenderLimit = 10;
 
 export default function AdminCustomersPage() {
@@ -55,6 +56,8 @@ export default function AdminCustomersPage() {
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [activeSegment, setActiveSegment] = useState<CustomerSegment>("all");
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerReport | null>(null);
+  const [customerPage, setCustomerPage] = useState(1);
+  const [customerPageSize, setCustomerPageSize] = useState(10);
   const [recentOrders, setRecentOrders] = useState<OrderReportListItem[]>([]);
   const [isLoadingCustomerOrders, setIsLoadingCustomerOrders] = useState(false);
 
@@ -71,10 +74,12 @@ export default function AdminCustomersPage() {
       setCustomers([]);
       setFeedback([]);
       setSelectedCustomer(null);
+      setCustomerPage(1);
       setRecentOrders([]);
       return;
     }
 
+    setCustomerPage(1);
     void loadCustomers(filter);
     void loadFeedback(workspace.selectedBranch.branchId);
   }, [workspace.selectedBranch?.branchId]);
@@ -109,6 +114,7 @@ export default function AdminCustomersPage() {
       return;
     }
 
+    setCustomerPage(1);
     void loadCustomers(filter);
   }
 
@@ -135,7 +141,25 @@ export default function AdminCustomersPage() {
   const feedbackMetrics = getFeedbackMetrics(feedback);
   const branchName = workspace.selectedBranch?.name ?? "Customers";
   const visibleCustomers = useMemo(() => filterCustomersBySegment(customers, activeSegment), [activeSegment, customers]);
+  const customerTotalPages = Math.max(1, Math.ceil(visibleCustomers.length / customerPageSize));
+  const safeCustomerPage = Math.min(customerPage, customerTotalPages);
+  const pagedCustomers = useMemo(() => {
+    const startIndex = (safeCustomerPage - 1) * customerPageSize;
+    return visibleCustomers.slice(startIndex, startIndex + customerPageSize);
+  }, [customerPageSize, safeCustomerPage, visibleCustomers]);
   const segmentCounts = useMemo(() => getSegmentCounts(customers), [customers]);
+  const customerShowingFrom = visibleCustomers.length === 0 ? 0 : (safeCustomerPage - 1) * customerPageSize + 1;
+  const customerShowingTo = Math.min(visibleCustomers.length, customerShowingFrom + pagedCustomers.length - 1);
+
+  useEffect(() => {
+    setCustomerPage(1);
+  }, [activeSegment]);
+
+  useEffect(() => {
+    if (customerPage > customerTotalPages) {
+      setCustomerPage(customerTotalPages);
+    }
+  }, [customerPage, customerTotalPages]);
 
   return (
     <AdminShell
@@ -254,13 +278,48 @@ export default function AdminCustomersPage() {
                   <CardTitle>Saved customers</CardTitle>
                   <p className="mt-1 text-sm text-on-surface-variant">{visibleCustomers.length} of {customers.length} customers shown.</p>
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={() => setActiveSegment("topSpenders")}>
-                  Get insights
-                  <ArrowUpRight size={14} />
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-on-surface-variant">
+                    Rows
+                    <select
+                      value={customerPageSize}
+                      onChange={(event) => {
+                        setCustomerPageSize(Number(event.target.value));
+                        setCustomerPage(1);
+                      }}
+                      className="h-9 rounded-lg border border-input bg-white px-3 text-sm font-semibold text-on-surface outline-none"
+                    >
+                      {CustomerPageSizeOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setActiveSegment("topSpenders")}>
+                    Get insights
+                    <ArrowUpRight size={14} />
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="p-0">
-                {isLoading ? <PageLoading /> : <CustomerList customers={visibleCustomers} emptyText={segmentEmptyText(activeSegment)} onOpenCustomer={openCustomerQuickView} />}
+                {isLoading ? (
+                  <PageLoading />
+                ) : (
+                  <>
+                    <CustomerList customers={pagedCustomers} emptyText={segmentEmptyText(activeSegment)} onOpenCustomer={openCustomerQuickView} />
+                    {visibleCustomers.length > 0 ? (
+                      <CustomerPagination
+                        page={safeCustomerPage}
+                        showingFrom={customerShowingFrom}
+                        showingTo={customerShowingTo}
+                        totalItems={visibleCustomers.length}
+                        totalPages={customerTotalPages}
+                        onPageChange={setCustomerPage}
+                      />
+                    ) : null}
+                  </>
+                )}
               </CardContent>
             </Card>
 
@@ -376,6 +435,46 @@ function CustomerList({ customers, emptyText, onOpenCustomer }: { customers: Cus
           </div>
         </button>
       ))}
+    </div>
+  );
+}
+
+function CustomerPagination({
+  onPageChange,
+  page,
+  showingFrom,
+  showingTo,
+  totalItems,
+  totalPages
+}: {
+  onPageChange: (page: number) => void;
+  page: number;
+  showingFrom: number;
+  showingTo: number;
+  totalItems: number;
+  totalPages: number;
+}) {
+  const canGoBack = page > 1;
+  const canGoForward = page < totalPages;
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-outline-variant/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-sm font-semibold text-on-surface-variant">
+        Showing {showingFrom}-{showingTo} of {totalItems}
+      </p>
+      <div className="flex items-center gap-2">
+        <Button type="button" variant="outline" size="sm" disabled={!canGoBack} onClick={() => onPageChange(Math.max(1, page - 1))}>
+          <ChevronLeft size={15} />
+          Previous
+        </Button>
+        <span className="min-w-16 text-center text-sm font-black text-on-surface">
+          {page} / {totalPages}
+        </span>
+        <Button type="button" variant="outline" size="sm" disabled={!canGoForward} onClick={() => onPageChange(Math.min(totalPages, page + 1))}>
+          Next
+          <ChevronRight size={15} />
+        </Button>
+      </div>
     </div>
   );
 }

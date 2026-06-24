@@ -388,7 +388,11 @@ function DietTypeBadge({ dietTypeCode }: { dietTypeCode: DietTypeCode }) {
     return null;
   }
 
-  return <Badge variant={dietTypeCode === "Veg" || dietTypeCode === "Vegan" || dietTypeCode === "Jain" ? "success" : "secondary"}>{formatDietType(dietTypeCode)}</Badge>;
+  return (
+    <Badge variant={dietTypeCode === "Veg" || dietTypeCode === "Vegan" || dietTypeCode === "Jain" ? "success" : "secondary"} className="w-fit justify-self-start">
+      {formatDietType(dietTypeCode)}
+    </Badge>
+  );
 }
 
 function formatDietType(dietTypeCode: DietTypeCode): string {
