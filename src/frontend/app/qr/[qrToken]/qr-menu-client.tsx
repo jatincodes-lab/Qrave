@@ -5,8 +5,11 @@ import {
   Bell,
   CheckCircle2,
   ChevronRight,
+  Compass,
+  Flame,
+  Home,
+  Leaf,
   Loader2,
-  Menu,
   Minus,
   Plus,
   ReceiptText,
@@ -16,10 +19,11 @@ import {
   TicketPercent,
   Trash2,
   Utensils,
+  UserRound,
   X
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { CountryPhoneInput } from "../../../components/country-phone-input";
 import { useToast } from "../../../components/ui/toast";
 import {
@@ -111,6 +115,8 @@ type ActiveView = "menu" | "cart" | "customerOrders";
 type DietQuickFilter = "all" | "veg" | "nonveg";
 type MenuSortCode = "recommended" | "priceAsc" | "priceDesc" | "nameAsc";
 
+const AllPublicCategoryId = "all";
+
 type SubmitState =
   | {
       kind: "idle";
@@ -153,6 +159,11 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
     () => filterCategories(currentMenu.categories, search, dietFilter, sortBy),
     [currentMenu.categories, dietFilter, search, sortBy]
   );
+  const [selectedCategoryId, setSelectedCategoryId] = useState(AllPublicCategoryId);
+  const visibleCategories = useMemo(
+    () => (selectedCategoryId === AllPublicCategoryId ? categories : categories.filter((category) => category.menuCategoryId === selectedCategoryId)),
+    [categories, selectedCategoryId]
+  );
   const [cart, setCart] = useState<Record<string, CartLine>>({});
   const [customerName, setCustomerName] = useState("");
   const [customerWhatsApp, setCustomerWhatsApp] = useState("");
@@ -184,7 +195,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
   const hasExpiredQrSession = qrSessionState.kind === "expired" || (qrSessionState.kind === "active" && !activeQrSession);
   const canOrder = currentMenu.orderSettings.enableDirectQrOrdering && Boolean(activeQrSession);
   const canCallWaiter = currentMenu.orderSettings.waiterCallEnabled && Boolean(activeQrSession);
-  const itemCount = categories.reduce((total, category) => total + category.items.length, 0);
+  const itemCount = visibleCategories.reduce((total, category) => total + category.items.length, 0);
   const menuItemById = useMemo(() => {
     const lookup = new Map<string, PublicQrMenuItem>();
     currentMenu.categories.forEach((category) => {
@@ -227,6 +238,12 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
       setActiveView("customerOrders");
     }
   }, [recognizedCustomer]);
+
+  useEffect(() => {
+    if (selectedCategoryId !== AllPublicCategoryId && !categories.some((category) => category.menuCategoryId === selectedCategoryId)) {
+      setSelectedCategoryId(AllPublicCategoryId);
+    }
+  }, [categories, selectedCategoryId]);
 
   useEffect(() => {
     const storedSession = readQrVisitSession(currentMenu.qrToken);
@@ -628,14 +645,6 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
 
   return (
     <>
-      <QrPageHeader
-        branchName={currentMenu.branchName}
-        cartCount={cartCount}
-        tableName={currentMenu.tableName}
-        onBack={handleHeaderBack}
-        onCartOpen={() => setActiveView("cart")}
-      />
-
       {activeView === "customerOrders" ? (
         <CustomerPreviousOrdersPage
           customer={recognizedCustomer}
@@ -678,7 +687,16 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
           onSubmit={submitOrder}
         />
       ) : (
-        <>
+        <div className="flex min-h-dvh flex-col bg-[#fbfcfa]">
+          <QrPageHeader
+            branchName={currentMenu.branchName}
+            cartCount={cartCount}
+            recognizedCustomer={recognizedCustomer}
+            tableName={currentMenu.tableName}
+            onBack={handleHeaderBack}
+            onCartOpen={() => setActiveView("cart")}
+            onCustomerOrdersOpen={openCustomerOrders}
+          />
           {flyingItem ? <FlyingCartItem key={flyingItem.key} item={flyingItem.item} /> : null}
           {hasExpiredQrSession ? <QrSessionExpiredNotice /> : null}
           {qrSessionState.kind === "unavailable" ? <QrSessionUnavailableNotice message={qrSessionState.message} /> : null}
@@ -690,8 +708,10 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
             menu={currentMenu}
             recognizedCustomer={recognizedCustomer}
             search={search}
+            selectedCategoryId={selectedCategoryId}
             sortBy={sortBy}
             onCategoryOpen={() => setIsCategoryOpen(true)}
+            onCategorySelect={setSelectedCategoryId}
             onCustomerOrdersOpen={openCustomerOrders}
             onOffersOpen={() => setIsOffersSheetOpen(true)}
             onDietFilterChange={setDietFilter}
@@ -699,9 +719,9 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
             onSortChange={setSortBy}
           />
 
-          <div className={`flex-1 space-y-8 bg-[#f4f7f6] px-4 ${canOrder && cartCount > 0 ? "pb-52" : "pb-28"}`}>
+          <div className={`flex-1 space-y-7 bg-[#fbfcfa] px-4 ${canOrder && cartCount > 0 ? "pb-52" : "pb-28"}`}>
             {itemCount > 0 ? (
-              categories.map((category) => (
+              visibleCategories.map((category) => (
                 <MenuCategorySection
                   key={category.menuCategoryId}
                   canOrder={canOrder}
@@ -764,10 +784,20 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
               onSubmit={() => void submitWaiterCall()}
             />
           ) : null}
-        </>
+        </div>
       )}
 
-      {isCategoryOpen ? <CategorySheet categories={categories} onClose={() => setIsCategoryOpen(false)} /> : null}
+      {isCategoryOpen ? (
+        <CategorySheet
+          categories={categories}
+          selectedCategoryId={selectedCategoryId}
+          onClose={() => setIsCategoryOpen(false)}
+          onSelect={(categoryId) => {
+            setSelectedCategoryId(categoryId);
+            setIsCategoryOpen(false);
+          }}
+        />
+      ) : null}
     </>
   );
 }
@@ -801,32 +831,48 @@ function QrPageHeader({
   cartCount,
   onBack,
   onCartOpen,
+  onCustomerOrdersOpen,
+  recognizedCustomer,
   tableName
 }: {
   branchName: string;
   cartCount: number;
   onBack: () => void;
   onCartOpen: () => void;
+  onCustomerOrdersOpen: () => void;
+  recognizedCustomer: PublicCustomerLookup | null;
   tableName: string;
 }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-[#e6eeea] bg-white/95 px-4 py-3 backdrop-blur">
-      <div className="grid h-10 grid-cols-[40px_1fr_auto] items-center">
-        <button type="button" className="grid h-10 w-10 place-items-center rounded-full text-[#001c11]" onClick={onBack} aria-label="Back">
+    <header className="sticky top-0 z-30 bg-[#fbfcfa]/95 px-4 pb-3 pt-4 backdrop-blur">
+      <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3">
+        <button type="button" className="grid h-10 w-10 place-items-center rounded-full text-[#063d22]" onClick={onBack} aria-label="Back">
           <ArrowLeft className="h-5 w-5" aria-hidden="true" />
         </button>
-        <div className="min-w-0 text-center">
-          <h1 className="truncate text-[15px] font-black uppercase tracking-normal text-[#001c11]">{branchName}</h1>
-          <p className="mt-0.5 truncate text-[11px] font-semibold text-[#5a625e]">{tableName}</p>
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#d9f8e7] text-[#0f6b3a]">
+            <Leaf className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h1 className="truncate text-[22px] font-black leading-7 text-[#063d22]">{branchName}</h1>
+            <p className="mt-0.5 truncate text-[11px] font-bold uppercase tracking-normal text-[#60736a]">{tableName}</p>
+          </div>
         </div>
-        <button type="button" onClick={onCartOpen} className="relative grid h-10 w-10 place-items-center rounded-full bg-[#001c11] text-white shadow-sm" aria-label="Open cart">
-          <ShoppingCart className="h-4 w-4" aria-hidden="true" />
-          {cartCount > 0 ? (
-            <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#83fba5] px-1 text-[10px] font-black leading-none text-[#00210c]">
-              {cartCount > 99 ? "99+" : cartCount}
-            </span>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={onCartOpen} className="relative grid h-11 w-11 place-items-center rounded-xl bg-[#064322] text-white shadow-[0_10px_22px_rgba(6,67,34,0.18)]" aria-label="Open cart">
+            <ShoppingCart className="h-5 w-5" aria-hidden="true" />
+            {cartCount > 0 ? (
+              <span className="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-[#86ddb4] px-1 text-[11px] font-black leading-none text-[#063d22]">
+                {cartCount > 99 ? "99+" : cartCount}
+              </span>
+            ) : null}
+          </button>
+          {recognizedCustomer ? (
+            <button type="button" onClick={onCustomerOrdersOpen} className="grid h-11 w-11 place-items-center rounded-full bg-[#e6f5ed] text-[#063d22]" aria-label="Open previous orders">
+              <UserRound className="h-5 w-5" aria-hidden="true" />
+            </button>
           ) : null}
-        </button>
+        </div>
       </div>
     </header>
   );
@@ -848,28 +894,28 @@ function QrBottomNav({
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 pointer-events-none" aria-label="QR menu actions">
       <div className="mx-auto w-full max-w-md px-5 pb-3">
-        <div className="pointer-events-auto grid grid-cols-3 gap-1.5 rounded-[1.35rem] border border-white/50 bg-white/70 p-1.5 shadow-[0_14px_36px_rgba(0,44,24,0.16)] backdrop-blur-xl">
-          <button type="button" onClick={onMenuOpen} className="flex h-11 flex-col items-center justify-center rounded-[1rem] bg-[#001c11]/95 text-white shadow-sm">
-            <Menu className="h-4 w-4" aria-hidden="true" />
-            <span className="mt-1 text-[11px] font-black">Menu</span>
+        <div className="pointer-events-auto grid grid-cols-3 gap-1.5 rounded-[1.35rem] border border-[#e3eee8]/80 bg-white/90 p-1.5 shadow-[0_16px_34px_rgba(6,67,34,0.16)] backdrop-blur-xl">
+          <button type="button" onClick={onMenuOpen} className="flex h-12 flex-col items-center justify-center rounded-[1rem] bg-[#d9f8e7] text-[#063d22] shadow-sm">
+            <Home className="h-4 w-4" aria-hidden="true" />
+            <span className="mt-1 text-[11px] font-black">Home</span>
           </button>
           <button
             type="button"
             onClick={onOffersOpen}
-            className="flex h-11 flex-col items-center justify-center rounded-[1rem] text-[#006d36] disabled:text-[#9aa8a0]"
+            className="flex h-12 flex-col items-center justify-center rounded-[1rem] text-[#27352f] disabled:text-[#9aa8a0]"
             disabled={!hasOffers}
           >
-            <TicketPercent className="h-4 w-4" aria-hidden="true" />
+            <Compass className="h-4 w-4" aria-hidden="true" />
             <span className="mt-1 text-[11px] font-black">Offers</span>
           </button>
           <button
             type="button"
             onClick={onWaiterCallOpen}
-            className="flex h-11 flex-col items-center justify-center rounded-[1rem] text-[#006d36] disabled:text-[#9aa8a0]"
+            className="flex h-12 flex-col items-center justify-center rounded-[1rem] text-[#27352f] disabled:text-[#9aa8a0]"
             disabled={!canCallWaiter}
           >
             <Bell className="h-4 w-4" aria-hidden="true" />
-            <span className="mt-1 text-[11px] font-black">Waiter</span>
+            <span className="mt-1 text-[11px] font-black">Service</span>
           </button>
         </div>
       </div>
@@ -1014,6 +1060,7 @@ function MenuHero({
   dietFilter,
   menu,
   onCategoryOpen,
+  onCategorySelect,
   onCustomerOrdersOpen,
   onOffersOpen,
   onDietFilterChange,
@@ -1021,12 +1068,14 @@ function MenuHero({
   onSortChange,
   recognizedCustomer,
   search,
+  selectedCategoryId,
   sortBy
 }: {
   categories: PublicQrMenuCategory[];
   dietFilter: DietQuickFilter;
   menu: PublicQrMenu;
   onCategoryOpen: () => void;
+  onCategorySelect: (categoryId: string) => void;
   onCustomerOrdersOpen: () => void;
   onOffersOpen: () => void;
   onDietFilterChange: (value: DietQuickFilter) => void;
@@ -1034,45 +1083,47 @@ function MenuHero({
   onSortChange: (value: MenuSortCode) => void;
   recognizedCustomer: PublicCustomerLookup | null;
   search: string;
+  selectedCategoryId: string;
   sortBy: MenuSortCode;
 }) {
   const availableCategories = categories.filter((category) => category.items.length > 0);
   const offers = (menu.offers ?? []).sort((left, right) => left.displayOrder - right.displayOrder);
-  const compactOffers = offers.slice(0, 4);
+  const compactOffers = offers.slice(0, 3);
+  const totalItemCount = availableCategories.reduce((total, category) => total + category.items.length, 0);
 
   return (
-    <section className="bg-[#f4f7f6] px-4 pb-5 pt-5">
+    <section className="bg-[#fbfcfa] px-4 pb-5 pt-2">
       {recognizedCustomer ? (
         <button
           type="button"
           onClick={onCustomerOrdersOpen}
-          className="group mb-5 flex w-full items-center gap-4 overflow-hidden rounded-[26px] border border-[#bee8ce] bg-gradient-to-br from-white via-[#f1fff6] to-[#dff8e8] p-4 text-left shadow-[0_18px_42px_rgba(0,44,24,0.10)] transition-transform active:scale-[0.99]"
+          className="group mb-4 flex w-full items-center gap-3 overflow-hidden rounded-[22px] border border-[#caead8] bg-[#f1fbf5] p-3 text-left shadow-[0_12px_26px_rgba(0,44,24,0.08)] transition-transform active:scale-[0.99]"
         >
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#001c11] text-white shadow-sm">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#064322] text-white shadow-sm">
             <ReceiptText className="h-5 w-5" aria-hidden="true" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[11px] font-black uppercase tracking-[0.14em] text-[#00743a]">Returning customer</span>
-            <span className="mt-1 block truncate text-lg font-black leading-tight text-[#001c11]">Welcome back, {recognizedCustomer.name ?? "Customer"}</span>
-            <span className="mt-1 block text-sm font-semibold text-[#466155]">View your previous orders</span>
+            <span className="block text-[10px] font-black uppercase tracking-normal text-[#0f7a43]">Returning customer</span>
+            <span className="mt-0.5 block truncate text-base font-black leading-tight text-[#063d22]">Welcome back, {recognizedCustomer.name ?? "Customer"}</span>
+            <span className="mt-0.5 block text-xs font-semibold text-[#60736a]">Previous orders and reorders</span>
           </span>
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-[#006d36] shadow-sm transition-transform group-active:translate-x-0.5">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-[#0f7a43] shadow-sm transition-transform group-active:translate-x-0.5">
             <ChevronRight className="h-5 w-5" aria-hidden="true" />
           </span>
         </button>
       ) : null}
 
-      <div className="mb-5 flex h-16 items-center gap-3 rounded-full border border-[#dce4df] bg-white px-5 shadow-sm">
-        <Search className="h-6 w-6 shrink-0 text-[#6b746f]" aria-hidden="true" />
+      <div className="mb-4 flex h-14 items-center gap-3 rounded-2xl border border-[#e8eee9] bg-[#f1f3f1] px-4 shadow-inner">
+        <Search className="h-6 w-6 shrink-0 text-[#25342d]" aria-hidden="true" />
         <input
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
-          className="min-w-0 flex-1 bg-transparent text-base font-semibold text-[#191c1d] outline-none placeholder:text-[#a8afab]"
-          placeholder="What are you craving today?"
+          className="min-w-0 flex-1 bg-transparent text-base font-semibold text-[#202824] outline-none placeholder:text-[#68756e]"
+          placeholder="Search dishes..."
           type="search"
         />
         {search ? (
-          <button type="button" onClick={() => onSearchChange("")} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[#6b746f]" aria-label="Clear search">
+          <button type="button" onClick={() => onSearchChange("")} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[#60736a]" aria-label="Clear search">
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
         ) : (
@@ -1082,13 +1133,13 @@ function MenuHero({
         )}
       </div>
 
-      <div className="mb-5 grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.3fr)] gap-2">
-        <div className="grid grid-cols-2 overflow-hidden rounded-full border border-[#d9e4df] bg-white p-1 shadow-sm">
+      <div className="mb-4 grid grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] gap-2">
+        <div className="grid grid-cols-2 overflow-hidden rounded-2xl border border-[#d9e4df] bg-white p-1 shadow-sm">
           <button
             type="button"
             onClick={() => onDietFilterChange(dietFilter === "veg" ? "all" : "veg")}
-            className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-full px-2 text-xs font-black uppercase tracking-normal transition-colors ${
-              dietFilter === "veg" ? "bg-[#83fba5] text-[#00210c]" : "text-[#466155]"
+            className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-black uppercase tracking-normal transition-colors ${
+              dietFilter === "veg" ? "bg-[#9be8bf] text-[#063d22]" : "text-[#466155]"
             }`}
             aria-pressed={dietFilter === "veg"}
             aria-label="Show vegetarian items"
@@ -1099,7 +1150,7 @@ function MenuHero({
           <button
             type="button"
             onClick={() => onDietFilterChange(dietFilter === "nonveg" ? "all" : "nonveg")}
-            className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-full px-2 text-xs font-black uppercase tracking-normal transition-colors ${
+            className={`inline-flex h-10 items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-black uppercase tracking-normal transition-colors ${
               dietFilter === "nonveg" ? "bg-[#ffd9b5] text-[#4d2500]" : "text-[#466155]"
             }`}
             aria-pressed={dietFilter === "nonveg"}
@@ -1110,7 +1161,7 @@ function MenuHero({
           </button>
         </div>
 
-        <label className="flex h-12 min-w-0 items-center gap-2 rounded-full border border-[#d9e4df] bg-white px-3 shadow-sm">
+        <label className="flex h-12 min-w-0 items-center gap-2 rounded-2xl border border-[#d9e4df] bg-white px-3 shadow-sm">
           <SlidersHorizontal className="h-4 w-4 shrink-0 text-[#466155]" aria-hidden="true" />
           <select
             value={sortBy}
@@ -1126,14 +1177,36 @@ function MenuHero({
         </label>
       </div>
 
+      {availableCategories.length > 0 ? (
+        <div className="-mx-4 mb-4 flex gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <CategoryPill
+            active={selectedCategoryId === AllPublicCategoryId}
+            count={totalItemCount}
+            icon={<Flame className="h-5 w-5" aria-hidden="true" />}
+            label="All"
+            onClick={() => onCategorySelect(AllPublicCategoryId)}
+          />
+          {availableCategories.map((category) => (
+            <CategoryPill
+              active={selectedCategoryId === category.menuCategoryId}
+              count={category.items.length}
+              icon={<CategoryIcon name={category.name} />}
+              key={category.menuCategoryId}
+              label={category.name}
+              onClick={() => onCategorySelect(category.menuCategoryId)}
+            />
+          ))}
+        </div>
+      ) : null}
+
       {compactOffers.length > 0 ? (
-        <div className="mb-6">
-          <div className="mb-3 flex items-center justify-between">
+        <div>
+          <div className="mb-2 flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#006d36]">Today&apos;s offers</p>
-              <h3 className="mt-0.5 text-lg font-black text-[#001c11]">Save on your order</h3>
+              <p className="text-[10px] font-black uppercase tracking-normal text-[#0f7a43]">Today&apos;s offers</p>
+              <h3 className="mt-0.5 text-base font-black text-[#063d22]">Save on your order</h3>
             </div>
-            <button type="button" onClick={onOffersOpen} className="rounded-full bg-white px-3 py-2 text-xs font-black text-[#006d36] shadow-sm">
+            <button type="button" onClick={onOffersOpen} className="rounded-full bg-white px-3 py-2 text-xs font-black text-[#0f7a43] shadow-sm">
               View all
             </button>
           </div>
@@ -1143,14 +1216,14 @@ function MenuHero({
                 key={offer.branchOfferId}
                 type="button"
                 onClick={onOffersOpen}
-                className="flex min-w-[15rem] max-w-[17rem] shrink-0 items-center gap-3 rounded-[1.4rem] border border-[#bfe6cf] bg-white p-3 text-left shadow-[0_10px_24px_rgba(0,44,24,0.07)]"
+                className="flex min-w-[13.5rem] max-w-[15rem] shrink-0 items-center gap-3 rounded-[1.25rem] border border-[#c9ead7] bg-white p-3 text-left shadow-[0_10px_22px_rgba(0,44,24,0.06)]"
               >
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#e9fff1] text-[#006d36]">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[#e9fff1] text-[#0f7a43]">
                   <TicketPercent className="h-5 w-5" aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="line-clamp-1 text-sm font-black text-[#001c11]">{offer.title}</span>
-                  <span className="mt-0.5 block line-clamp-1 text-xs font-semibold text-[#5a625e]">
+                  <span className="line-clamp-1 text-sm font-black text-[#063d22]">{offer.title}</span>
+                  <span className="mt-0.5 block line-clamp-1 text-xs font-semibold text-[#60736a]">
                     {offer.discountText ?? offer.subtitle ?? "Limited-time branch offer"}
                   </span>
                 </span>
@@ -1159,38 +1232,53 @@ function MenuHero({
           </div>
         </div>
       ) : null}
-
-      {availableCategories.length > 0 ? (
-        <div className="mt-7">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-[18px] font-bold leading-6 text-[#1c1b1b]">Explore Menu</h3>
-            <button type="button" onClick={onCategoryOpen} className="text-xs font-bold text-[#0f3d2e]">Full Gallery</button>
-          </div>
-          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {availableCategories.map((category, index) => (
-              <a key={category.menuCategoryId} href={`#category-${category.menuCategoryId}`} className="flex w-[4.75rem] shrink-0 flex-col items-center gap-1.5 text-center">
-                <div
-                  className={`grid h-14 w-14 place-items-center rounded-2xl border text-sm font-extrabold shadow-sm transition-colors ${
-                    index === 0
-                      ? "border-[#0f3d2e] bg-[#0f3d2e] text-white"
-                      : "border-[#d9e4df] bg-white text-[#0f3d2e]"
-                  }`}
-                >
-                  {getCategoryInitials(category.name) || <Utensils className="h-5 w-5" aria-hidden="true" />}
-                </div>
-                <span className={`line-clamp-1 max-w-full break-words text-[11px] leading-4 ${index === 0 ? "font-bold text-[#0f3d2e]" : "font-medium text-[#555f59]"}`}>
-                  {category.name}
-                </span>
-                <span className="text-[9px] font-medium leading-3 text-[#8b938f]">
-                  {category.items.length} {category.items.length === 1 ? "item" : "items"}
-                </span>
-              </a>
-            ))}
-          </div>
-        </div>
-      ) : null}
     </section>
   );
+}
+
+function CategoryPill({
+  active,
+  count,
+  icon,
+  label,
+  onClick
+}: {
+  active: boolean;
+  count: number;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`grid min-h-[4.65rem] min-w-[5.4rem] shrink-0 place-items-center gap-1 rounded-2xl border px-3 py-2 text-center shadow-sm transition active:scale-[0.98] ${
+        active ? "border-[#91ddb5] bg-[#8fe3b7] text-[#063d22]" : "border-[#8bdab0] bg-white text-[#163a2a]"
+      }`}
+      aria-pressed={active}
+    >
+      <span className="grid h-6 place-items-center">{icon}</span>
+      <span className="line-clamp-1 max-w-[4.7rem] break-words text-sm font-bold leading-5">{label}</span>
+      <span className={active ? "text-[10px] font-black text-[#063d22]/70" : "text-[10px] font-bold text-[#60736a]"}>
+        {count}
+      </span>
+    </button>
+  );
+}
+
+function CategoryIcon({ name }: { name: string }) {
+  const normalized = name.toLowerCase();
+
+  if (normalized.includes("salad") || normalized.includes("veg") || normalized.includes("green")) {
+    return <Leaf className="h-5 w-5" aria-hidden="true" />;
+  }
+
+  if (normalized.includes("popular") || normalized.includes("special") || normalized.includes("best")) {
+    return <Flame className="h-5 w-5" aria-hidden="true" />;
+  }
+
+  return <Utensils className="h-5 w-5" aria-hidden="true" />;
 }
 
 function MenuCategorySection({
@@ -1212,12 +1300,12 @@ function MenuCategorySection({
 
   return (
     <section id={`category-${category.menuCategoryId}`} className="scroll-mt-28">
-      <div className="flex items-center justify-between pt-1">
-        <h2 className="text-[22px] font-black leading-[1.25] tracking-tight text-[#001c11]">{category.name}</h2>
-        <p className="rounded-full bg-white px-3 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-[#006d36] shadow-sm">{items.length} items</p>
+      <div className="flex items-center justify-between gap-3 pt-1">
+        <h2 className="min-w-0 truncate text-[22px] font-black leading-[1.25] text-[#063d22]">{category.name}</h2>
+        <p className="shrink-0 rounded-full bg-[#eef8f2] px-3 py-1 text-[11px] font-black uppercase tracking-normal text-[#0f7a43]">{items.length} items</p>
       </div>
 
-      <div className="mt-4 grid gap-5">
+      <div className="mt-4 grid grid-cols-2 gap-4">
         {items.map((item) => {
           const variants = item.variants ?? [];
           const hasVariants = variants.length > 0;
@@ -1229,74 +1317,119 @@ function MenuCategorySection({
           const displayPrice = hasVariants ? Math.min(...variants.map((variant) => variant.price)) : item.price;
 
           return (
-            <article key={item.menuItemId} className="grid min-h-[196px] grid-cols-[minmax(0,1fr)_8.5rem] gap-4 rounded-[2rem] border border-[#e4eee8] bg-white p-5 shadow-[0_14px_34px_rgba(0,44,24,0.08)] transition-transform active:scale-[0.99]">
-              <div className="flex min-w-0 flex-col">
-                <div className="min-w-0">
-                  <div className="mb-2 flex min-w-0 items-center gap-2">
-                    <MenuItemDietIcon dietTypeCode={item.dietTypeCode} />
-                    <span className="text-[10px] font-black uppercase tracking-[0.14em] text-[#006d36]">{item.dietTypeCode === "NonVeg" ? "Non-veg" : item.dietTypeCode === "Unspecified" ? "Chef pick" : item.dietTypeCode}</span>
-                  </div>
-                  <h3 className="line-clamp-2 min-w-0 break-words text-[21px] font-black leading-[1.18] tracking-tight text-[#001c11]">{item.name}</h3>
-                  <p className="mt-2 line-clamp-2 break-words text-[13px] font-semibold leading-5 text-[#5a625e]">{item.description || "Freshly prepared by the kitchen."}</p>
-                </div>
-
-                <div className="mt-auto flex min-h-12 flex-wrap items-end justify-between gap-x-3 gap-y-2 pt-3">
-                  <p className="min-w-[5.75rem] flex-1 break-words text-[22px] font-black leading-6 text-[#001c11]">
-                    {hasVariants ? `From ${formatPrice(displayPrice)}` : formatPrice(displayPrice)}
-                  </p>
-                  {canOrder ? (
-                    hasVariants ? (
-                      <button
-                        type="button"
-                        className="inline-flex h-10 min-w-[6rem] shrink-0 items-center justify-center rounded-full bg-[#beedd7] px-4 text-xs font-black uppercase tracking-normal text-[#002116] shadow-sm"
-                        onClick={() => onChooseVariant(item, category.name)}
-                        aria-label={`Choose variant for ${item.name}`}
-                      >
-                        {quantity > 0 ? `${quantity} Added` : "Choose"}
-                      </button>
-                    ) : singleQuantity > 0 ? (
-                      <div className="flex h-10 w-[7.25rem] shrink-0 items-center justify-between overflow-hidden rounded-full border border-[#bfe6cf] bg-[#ebfff2] shadow-sm">
-                        <button
-                          type="button"
-                          className="grid h-10 w-9 place-items-center text-[#006d36]"
-                          onClick={() => onDecrement(singleCartLineId)}
-                          aria-label={`Remove one ${item.name}`}
-                        >
-                          <Minus className="h-4 w-4" aria-hidden="true" />
-                        </button>
-                        <span className="grid h-10 min-w-8 place-items-center text-sm font-black text-[#001c11]">{singleQuantity}</span>
-                        <button
-                          type="button"
-                          className="grid h-10 w-9 place-items-center text-[#006d36]"
-                          onClick={() => onAdd(item, category.name, null)}
-                          aria-label={`Add one ${item.name}`}
-                        >
-                          <Plus className="h-4 w-4" aria-hidden="true" />
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-full bg-[#beedd7] px-5 text-xs font-black uppercase tracking-normal text-[#002116] shadow-sm"
-                        onClick={() => onAdd(item, category.name, null)}
-                        aria-label={`Add ${item.name}`}
-                      >
-                        <Plus className="h-4 w-4" aria-hidden="true" />
-                        Add
-                      </button>
-                    )
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="h-full min-h-[156px] overflow-hidden rounded-[1.6rem]">
-                <FoodThumb imageAltText={item.imageAltText} imageUrl={item.imageUrl} name={item.name} />
-              </div>
-            </article>
+            <MenuDishCard
+              canOrder={canOrder}
+              categoryName={category.name}
+              displayPrice={displayPrice}
+              hasVariants={hasVariants}
+              item={item}
+              key={item.menuItemId}
+              quantity={quantity}
+              singleCartLineId={singleCartLineId}
+              singleQuantity={singleQuantity}
+              onAdd={onAdd}
+              onChooseVariant={onChooseVariant}
+              onDecrement={onDecrement}
+            />
           );
         })}
       </div>
     </section>
+  );
+}
+
+function MenuDishCard({
+  canOrder,
+  categoryName,
+  displayPrice,
+  hasVariants,
+  item,
+  onAdd,
+  onChooseVariant,
+  onDecrement,
+  quantity,
+  singleCartLineId,
+  singleQuantity
+}: {
+  canOrder: boolean;
+  categoryName: string;
+  displayPrice: number;
+  hasVariants: boolean;
+  item: PublicQrMenuItem;
+  onAdd: (item: PublicQrMenuItem, categoryName: string, variant?: PublicQrMenuItem["variants"][number] | null) => void;
+  onChooseVariant: (item: PublicQrMenuItem, categoryName: string) => void;
+  onDecrement: (cartLineId: string) => void;
+  quantity: number;
+  singleCartLineId: string;
+  singleQuantity: number;
+}) {
+  const priceLabel = hasVariants ? `From ${formatPrice(displayPrice)}` : formatPrice(displayPrice);
+
+  return (
+    <article className="relative min-w-0 overflow-hidden rounded-[22px] border border-[#eef2ee] bg-white shadow-[0_12px_26px_rgba(6,67,34,0.11)] transition-transform active:scale-[0.99]">
+      <div className="aspect-[1.22/1] overflow-hidden bg-[#eef8f2]">
+        <FoodThumb imageAltText={item.imageAltText} imageUrl={item.imageUrl} name={item.name} className="h-full min-h-0 rounded-none" />
+      </div>
+
+      <div className="min-h-[8.9rem] p-3 pb-12">
+        <div className="mb-1.5 flex min-w-0 items-center gap-1.5">
+          <MenuItemDietIcon dietTypeCode={item.dietTypeCode} />
+          {hasVariants ? <span className="rounded-full bg-[#eef8f2] px-2 py-0.5 text-[10px] font-black text-[#0f7a43]">Options</span> : null}
+        </div>
+        <h3 className="line-clamp-2 min-h-[2.35rem] break-words text-[15px] font-black leading-[1.18] text-[#08291a]">{item.name}</h3>
+        <p className="mt-1 line-clamp-2 min-h-[2.35rem] break-words text-[12px] font-medium leading-[1.25] text-[#27352f]">
+          {item.description || "Freshly prepared by the kitchen."}
+        </p>
+        <p className="mt-2 truncate pr-11 text-[18px] font-black leading-6 text-[#063d22]">{priceLabel}</p>
+      </div>
+
+      {canOrder ? (
+        hasVariants ? (
+          <button
+            type="button"
+            className="absolute bottom-3 right-3 grid h-10 w-10 place-items-center rounded-xl bg-[#8fe3b7] text-[#063d22] shadow-[0_8px_18px_rgba(6,67,34,0.18)]"
+            onClick={() => onChooseVariant(item, categoryName)}
+            aria-label={`Choose variant for ${item.name}`}
+          >
+            <Plus className="h-5 w-5" aria-hidden="true" />
+            {quantity > 0 ? (
+              <span className="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-[#063d22] px-1 text-[10px] font-black text-white">
+                {quantity > 99 ? "99+" : quantity}
+              </span>
+            ) : null}
+          </button>
+        ) : singleQuantity > 0 ? (
+          <div className="absolute bottom-3 right-3 flex h-10 w-[6.45rem] items-center justify-between overflow-hidden rounded-xl bg-[#8fe3b7] text-[#063d22] shadow-[0_8px_18px_rgba(6,67,34,0.18)]">
+            <button
+              type="button"
+              className="grid h-10 w-8 place-items-center"
+              onClick={() => onDecrement(singleCartLineId)}
+              aria-label={`Remove one ${item.name}`}
+            >
+              <Minus className="h-4 w-4" aria-hidden="true" />
+            </button>
+            <span className="grid h-10 min-w-8 place-items-center text-sm font-black">{singleQuantity}</span>
+            <button
+              type="button"
+              className="grid h-10 w-8 place-items-center"
+              onClick={() => onAdd(item, categoryName, null)}
+              aria-label={`Add one ${item.name}`}
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="absolute bottom-3 right-3 grid h-10 w-10 place-items-center rounded-xl bg-[#8fe3b7] text-[#063d22] shadow-[0_8px_18px_rgba(6,67,34,0.18)]"
+            onClick={() => onAdd(item, categoryName, null)}
+            aria-label={`Add ${item.name}`}
+          >
+            <Plus className="h-5 w-5" aria-hidden="true" />
+          </button>
+        )
+      ) : null}
+    </article>
   );
 }
 
@@ -1472,141 +1605,211 @@ function CartPage({
   }
 
   return (
-    <section className="min-h-dvh flex-1 bg-[#f4f7f6] px-4 py-5 pb-32">
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#006d36]">
-            {cartCount} selected item{cartCount === 1 ? "" : "s"}
-          </p>
-          <h1 className="mt-1 text-2xl font-black leading-8 text-[#001c11]">Cart</h1>
-        </div>
-        <button type="button" className="rounded-full border border-[#d9e4df] bg-white px-4 py-2 text-sm font-black text-[#001c11] shadow-sm" onClick={onBackToMenu}>
-          Menu
+    <section className="min-h-dvh flex-1 bg-gradient-to-b from-[#e9fff5] via-[#fbfcfa] to-white px-4 pb-36 pt-5">
+      <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center gap-3">
+        <button type="button" className="grid h-10 w-10 place-items-center rounded-full text-[#063d22]" onClick={onBackToMenu} aria-label="Back to menu">
+          <ArrowLeft className="h-6 w-6" aria-hidden="true" />
         </button>
+        <div className="min-w-0 text-center">
+          <h1 className="truncate text-2xl font-black leading-8 text-[#0a1510]">Checkout</h1>
+          <div className="mt-1 flex items-center justify-center gap-2 text-sm font-semibold text-[#60736a]">
+            <span className="h-2.5 w-2.5 rounded-full bg-[#83dcb0]" />
+            <span className="h-2.5 w-2.5 rounded-full bg-[#83dcb0]" />
+            <span className="h-2.5 w-2.5 rounded-full bg-[#83dcb0]" />
+            <span>Review order</span>
+          </div>
+        </div>
+        <span aria-hidden="true" />
       </div>
 
       {cartLines.length > 0 ? (
-        <div className="space-y-4">
-          <section className="overflow-hidden rounded-[1.75rem] border border-[#e1ebe5] bg-white shadow-[0_14px_34px_rgba(0,44,24,0.08)]">
-            <div className="flex items-center justify-between border-b border-[#e6eeea] p-4">
-              <h2 className="text-lg font-black text-[#001c11]">Review items</h2>
-              <span className="text-xs font-black uppercase tracking-[0.12em] text-[#5a625e]">{cartCount} items</span>
-            </div>
-            <div className="divide-y divide-[#e6eeea]">
-            {cartLines.map((line) => (
-              <div key={line.cartLineId} className="p-4">
-                <div className="grid grid-cols-[4.25rem_1fr_auto] gap-4">
-                  <FoodThumb imageAltText={line.item.imageAltText} imageUrl={line.item.imageUrl} name={line.item.name} compact />
-                  <div className="min-w-0">
-                    <p className="line-clamp-2 break-words text-[15px] font-black leading-5 text-[#001c11]">{formatCartItemName(line)}</p>
-                    <DietTypePill dietTypeCode={line.item.dietTypeCode} compact />
-                    <p className="mt-1 text-xs font-semibold text-[#5a625e]">{line.categoryName}</p>
-                    <p className="mt-2 text-sm font-black text-[#001c11]">{formatPrice(getCartLinePrice(line))}</p>
-                  </div>
-                  <div className="flex flex-col items-end justify-between gap-2">
-                    <button
-                      type="button"
-                      className="grid h-9 w-9 place-items-center rounded-xl border border-[#bfe6cf] bg-[#f1fbf5] text-[#006d36]"
-                      onClick={() => onDecrement(line.cartLineId)}
-                      aria-label={`Remove one ${line.item.name}`}
-                    >
-                      {line.quantity === 1 ? (
-                        <Trash2 className="h-4 w-4" aria-hidden="true" />
-                      ) : (
-                        <Minus className="h-4 w-4" aria-hidden="true" />
-                      )}
-                    </button>
-                    <span className="rounded-full bg-[#ebfff2] px-3 py-1 text-sm font-black text-[#006d36]">x{line.quantity}</span>
-                  </div>
-                </div>
-                <label className="mt-3 block">
-                  <span className="text-[11px] font-black uppercase tracking-[0.12em] text-[#006d36]">Item note</span>
-                  <textarea
-                    className="mt-1 min-h-14 w-full resize-none rounded-xl border border-[#e1ebe5] bg-[#f8fbf9] px-3 py-2 text-sm outline-none focus:border-[#006d36]"
-                    value={line.itemNote}
-                    onChange={(event) => onItemNoteChange(line.cartLineId, event.target.value)}
-                    maxLength={200}
-                    placeholder="Less spicy, no onion, no ice..."
-                  />
-                </label>
+        <>
+          <section className="mt-5 overflow-hidden rounded-[28px] border border-white/70 bg-white/95 p-4 shadow-[0_18px_38px_rgba(6,67,34,0.13)]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xl font-black uppercase tracking-normal text-[#565b58]">Order summary</p>
+                <h2 className="mt-2 text-xl font-black text-[#0a1510]">Cart items</h2>
               </div>
-            ))}
+              <span className="grid h-8 min-w-8 place-items-center rounded-full bg-[#d9f8e7] px-2 text-sm font-black text-[#0f7a43]">{cartCount}</span>
             </div>
-          </section>
 
-          <button type="button" className="flex w-full items-center justify-between rounded-[1.5rem] border-2 border-dashed border-[#bfe6cf] bg-white p-4 text-left shadow-sm transition-transform active:scale-[0.99]" onClick={openPromoDialog}>
-            <span className="flex items-center gap-3">
-              <span className="grid h-11 w-11 place-items-center rounded-full bg-[#f1fbf5] text-[#006d36]">
-                <TicketPercent className="h-5 w-5" aria-hidden="true" />
-              </span>
-              <span>
-                <span className="block text-base font-black text-[#001c11]">{promoCode ? `Code applied: ${promoCode}` : "Apply coupon"}</span>
-                <span className="mt-0.5 block text-xs font-semibold text-[#006d36]">{promoCode ? "Tap to change coupon" : "Check available promo benefits"}</span>
-              </span>
-            </span>
-            <ChevronRight className="h-5 w-5 text-[#006d36]" aria-hidden="true" />
-          </button>
-
-          <div className="rounded-[1.5rem] border border-[#e1ebe5] bg-white p-5 shadow-[0_14px_34px_rgba(0,44,24,0.08)]">
-            <h2 className="mb-4 text-lg font-black text-[#001c11]">Payment summary</h2>
-            <div className="flex items-center justify-between text-sm text-[#5a625e]">
-              <span>Subtotal</span>
-              <span className="font-black text-[#001c11]">{formatPrice(cartTotal)}</span>
-            </div>
-            {cartEstimate.discountAmount > 0 ? (
-              <div className="mt-2 rounded-xl border border-[#bfe6cf] bg-[#f1fbf5] px-3 py-2">
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <span className="font-black text-[#006d36]">{cartEstimate.appliedOffer?.title ?? "Offer discount"}</span>
-                  <span className="font-black text-[#006d36]">-{formatPrice(cartEstimate.discountAmount)}</span>
+            <div className="mt-4 divide-y divide-[#edf2ef] rounded-[18px] border border-[#edf2ef] bg-[#fbfcfa]">
+              {cartLines.map((line) => (
+                <div key={line.cartLineId} className="p-3">
+                  <div className="grid grid-cols-[3.7rem_minmax(0,1fr)_auto] gap-3">
+                    <FoodThumb imageAltText={line.item.imageAltText} imageUrl={line.item.imageUrl} name={line.item.name} compact className="h-14 w-14 rounded-xl" />
+                    <div className="min-w-0">
+                      <p className="line-clamp-2 break-words text-[15px] font-semibold leading-5 text-[#0a1510]">{formatCartItemName(line)}</p>
+                      <p className="mt-1 text-sm font-semibold text-[#0a1510]">
+                        {formatPrice(getCartLinePrice(line))} x {line.quantity}
+                      </p>
+                      <DietTypePill dietTypeCode={line.item.dietTypeCode} compact />
+                    </div>
+                    <div className="flex flex-col items-end justify-between gap-2">
+                      <p className="whitespace-nowrap text-base font-black text-[#0a1510]">{formatPrice(getCartLinePrice(line) * line.quantity)}</p>
+                      <button
+                        type="button"
+                        className="grid h-8 w-8 place-items-center rounded-xl border border-[#c9ead7] bg-white text-[#0f7a43]"
+                        onClick={() => onDecrement(line.cartLineId)}
+                        aria-label={`Remove one ${line.item.name}`}
+                      >
+                        {line.quantity === 1 ? <Trash2 className="h-4 w-4" aria-hidden="true" /> : <Minus className="h-4 w-4" aria-hidden="true" />}
+                      </button>
+                    </div>
+                  </div>
+                  <label className="mt-3 block">
+                    <span className="text-[11px] font-black uppercase tracking-normal text-[#60736a]">Item note</span>
+                    <textarea
+                      className="mt-1 min-h-12 w-full resize-none rounded-xl border border-[#e1ebe5] bg-white px-3 py-2 text-sm outline-none focus:border-[#0f7a43]"
+                      value={line.itemNote}
+                      onChange={(event) => onItemNoteChange(line.cartLineId, event.target.value)}
+                      maxLength={200}
+                      placeholder="Less spicy, no onion, no ice..."
+                    />
+                  </label>
                 </div>
-                {cartEstimate.appliedOffer?.discountText ? <p className="mt-1 text-xs font-semibold text-[#4e6256]">{cartEstimate.appliedOffer.discountText}</p> : null}
-              </div>
-            ) : null}
-            {cartEstimate.taxAmount > 0 ? (
-              <div className="mt-2 flex items-center justify-between text-sm text-[#5a625e]">
-                <span>Tax</span>
-                <span className="font-black text-[#001c11]">{formatPrice(cartEstimate.taxAmount)}</span>
-              </div>
-            ) : null}
-            {cartEstimate.serviceChargeAmount > 0 ? (
-              <div className="mt-2 flex items-center justify-between text-sm text-[#5a625e]">
-                <span>Service charge</span>
-                <span className="font-black text-[#001c11]">{formatPrice(cartEstimate.serviceChargeAmount)}</span>
-              </div>
-            ) : null}
-            {Math.abs(cartEstimate.roundingAmount) >= 0.01 ? (
-              <div className="mt-2 flex items-center justify-between text-sm text-[#5a625e]">
-                <span>Rounding</span>
-                <span className="font-black text-[#001c11]">{formatSignedPrice(cartEstimate.roundingAmount)}</span>
-              </div>
-            ) : null}
-            <div className="mt-3 flex items-center justify-between border-t border-[#e6eeea] pt-3">
-              <span className="text-base font-black text-[#001c11]">Total payable</span>
-              <span className="text-2xl font-black text-[#006d36]">{formatPrice(cartEstimate.totalAmount)}</span>
+              ))}
             </div>
+
+            <button type="button" className="mt-4 flex w-full items-center justify-between rounded-[18px] border border-dashed border-[#9cddb9] bg-[#f1fbf5] p-3 text-left transition-transform active:scale-[0.99]" onClick={openPromoDialog}>
+              <span className="flex min-w-0 items-center gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white text-[#0f7a43]">
+                  <TicketPercent className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-black text-[#063d22]">{promoCode ? `Code applied: ${promoCode}` : "Apply coupon"}</span>
+                  <span className="mt-0.5 block truncate text-xs font-semibold text-[#0f7a43]">{promoCode ? "Tap to change coupon" : "Check available promo benefits"}</span>
+                </span>
+              </span>
+              <ChevronRight className="h-5 w-5 shrink-0 text-[#0f7a43]" aria-hidden="true" />
+            </button>
+
+            <div className="mt-5">
+              <h2 className="text-base font-black uppercase tracking-normal text-[#565b58]">Price breakdown</h2>
+              <div className="mt-3 space-y-2 text-base text-[#0a1510]">
+                <div className="flex items-center justify-between gap-3">
+                  <span>Subtotal:</span>
+                  <span className="font-semibold">{formatPrice(cartTotal)}</span>
+                </div>
+                {cartEstimate.discountAmount > 0 ? (
+                  <div className="rounded-xl border border-[#c9ead7] bg-[#f1fbf5] px-3 py-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-semibold text-[#0f7a43]">{cartEstimate.appliedOffer?.title ?? "Offer discount"}:</span>
+                      <span className="font-semibold text-[#0f7a43]">-{formatPrice(cartEstimate.discountAmount)}</span>
+                    </div>
+                    {cartEstimate.appliedOffer?.discountText ? <p className="mt-1 text-xs font-semibold text-[#60736a]">{cartEstimate.appliedOffer.discountText}</p> : null}
+                  </div>
+                ) : null}
+                {cartEstimate.taxAmount > 0 ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Tax:</span>
+                    <span className="font-semibold">{formatPrice(cartEstimate.taxAmount)}</span>
+                  </div>
+                ) : null}
+                {cartEstimate.serviceChargeAmount > 0 ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Service charge:</span>
+                    <span className="font-semibold">{formatPrice(cartEstimate.serviceChargeAmount)}</span>
+                  </div>
+                ) : null}
+                {Math.abs(cartEstimate.roundingAmount) >= 0.01 ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Rounding:</span>
+                    <span className="font-semibold">{formatSignedPrice(cartEstimate.roundingAmount)}</span>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center justify-between gap-3 rounded-[18px] bg-white px-4 py-4 shadow-[0_10px_22px_rgba(6,67,34,0.12)]">
+              <span className="text-2xl font-black text-[#0a1510]">Order Total</span>
+              <span className="text-2xl font-black text-[#0a1510]">{formatPrice(cartEstimate.totalAmount)}</span>
+            </div>
+
             {promoCode ? (
               <button type="button" className="mt-3 text-xs font-black text-[#9a3d00]" onClick={() => onPromoCodeChange("")}>
                 Remove coupon
               </button>
             ) : null}
-          </div>
+
+            <div className="mt-5 space-y-4">
+              <div>
+                <h2 className="text-xl font-black text-[#0a1510]">Payment method</h2>
+                <div className="mt-2 rounded-[16px] border border-[#0f6b3a] bg-[#f1fbf5] px-4 py-3">
+                  <p className="text-sm font-black text-[#063d22]">Pay at restaurant</p>
+                  <p className="mt-1 text-sm leading-5 text-[#0a1510]">Your order will be sent to the staff. Payment can be collected at the counter or table.</p>
+                </div>
+              </div>
+
+              <div>
+                <h2 className="text-xl font-black text-[#0a1510]">Customer details</h2>
+                <div className="mt-2 grid gap-3">
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-normal text-[#60736a]">
+                      Name{orderSettings.requireCustomerName ? " *" : ""}
+                    </span>
+                    <input
+                      className="mt-1 h-12 w-full rounded-xl border border-[#d9e4df] bg-white px-3 text-sm outline-none focus:border-[#0f7a43]"
+                      value={customerName}
+                      onChange={(event) => onCustomerNameChange(event.target.value)}
+                      maxLength={120}
+                    />
+                  </label>
+                  <CountryPhoneInput
+                    countryCode={customerPhoneCountryCode}
+                    label="WhatsApp"
+                    required={orderSettings.requireCustomerWhatsApp}
+                    value={customerWhatsApp}
+                    onChange={onCustomerWhatsAppChange}
+                    onCountryChange={(countryCode, value) => {
+                      onCustomerPhoneCountryChange(countryCode);
+                      onCustomerWhatsAppChange(value);
+                    }}
+                  />
+                </div>
+              </div>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-normal text-[#60736a]">Order notes</span>
+                <textarea
+                  className="mt-1 min-h-20 w-full resize-none rounded-xl border border-[#d9e4df] bg-white px-3 py-2 text-sm outline-none focus:border-[#0f7a43]"
+                  value={notes}
+                  onChange={(event) => onNotesChange(event.target.value)}
+                  maxLength={500}
+                  placeholder="Any table instructions for the staff"
+                />
+              </label>
+
+              <label className="flex items-start gap-3 rounded-2xl border border-[#d9e4df] bg-white p-4">
+                <input
+                  type="checkbox"
+                  checked={marketingConsent}
+                  onChange={(event) => onMarketingConsentChange(event.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-[#b9c8c0] text-[#0f7a43] focus:ring-[#0f7a43]"
+                />
+                <span className="text-sm font-semibold leading-5 text-[#414844]">
+                  Send me WhatsApp updates and offers from this restaurant.
+                </span>
+              </label>
+            </div>
+          </section>
 
           {promoDialogOpen ? (
             <div className="fixed inset-0 z-50 grid place-items-end bg-black/45 px-4 pb-4 sm:place-items-center sm:p-4">
               <div className="w-full max-w-sm rounded-3xl bg-white p-4 shadow-modal">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#006d36]">Promo code</p>
-                    <h2 className="mt-1 text-xl font-black text-[#001c11]">Apply coupon</h2>
+                    <p className="text-xs font-black uppercase tracking-normal text-[#0f7a43]">Promo code</p>
+                    <h2 className="mt-1 text-xl font-black text-[#0a1510]">Apply coupon</h2>
                   </div>
-                  <button type="button" className="grid h-10 w-10 place-items-center rounded-full bg-[#f8f9fa] text-[#001c11]" onClick={() => setPromoDialogOpen(false)} aria-label="Close promo code">
+                  <button type="button" className="grid h-10 w-10 place-items-center rounded-full bg-[#f8f9fa] text-[#0a1510]" onClick={() => setPromoDialogOpen(false)} aria-label="Close promo code">
                     <X className="h-4 w-4" aria-hidden="true" />
                   </button>
                 </div>
                 <label className="mt-4 block">
-                  <span className="text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant">Enter code</span>
+                  <span className="text-xs font-bold uppercase tracking-normal text-[#60736a]">Enter code</span>
                   <input
-                    className="mt-1 h-12 w-full rounded-xl border border-[#d9e4df] bg-[#f8f9fa] px-3 text-sm font-black uppercase tracking-normal outline-none focus:border-[#006d36]"
+                    className="mt-1 h-12 w-full rounded-xl border border-[#d9e4df] bg-[#f8f9fa] px-3 text-sm font-black uppercase tracking-normal outline-none focus:border-[#0f7a43]"
                     value={promoDraft}
                     onChange={(event) => {
                       setPromoDraft(event.target.value.toUpperCase().replace(/\s+/g, "").slice(0, 40));
@@ -1618,7 +1821,7 @@ function CartPage({
                   />
                 </label>
                 {promoMessage ? <p className="mt-2 text-xs font-semibold text-[#9a3d00]">{promoMessage}</p> : null}
-                <button type="button" className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#001c11] px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60" onClick={applyPromoCode} disabled={isPromoApplying}>
+                <button type="button" className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#063d22] px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60" onClick={applyPromoCode} disabled={isPromoApplying}>
                   {isPromoApplying ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
                   {isPromoApplying ? "Checking" : "Apply"}
                 </button>
@@ -1626,85 +1829,31 @@ function CartPage({
             </div>
           ) : null}
 
-          <div className="grid gap-3">
-            <label className="block">
-              <span className="text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant">
-                Name{orderSettings.requireCustomerName ? " *" : ""}
-              </span>
-              <input
-                className="mt-1 h-12 w-full rounded-xl border border-[#d9e4df] bg-white px-3 text-sm outline-none focus:border-[#006d36]"
-                value={customerName}
-                onChange={(event) => onCustomerNameChange(event.target.value)}
-                maxLength={120}
-              />
-            </label>
-            <CountryPhoneInput
-              countryCode={customerPhoneCountryCode}
-              label="WhatsApp"
-              required={orderSettings.requireCustomerWhatsApp}
-              value={customerWhatsApp}
-              onChange={onCustomerWhatsAppChange}
-              onCountryChange={(countryCode, value) => {
-                onCustomerPhoneCountryChange(countryCode);
-                onCustomerWhatsAppChange(value);
-              }}
-            />
-          </div>
-
-          <label className="block">
-            <span className="text-xs font-bold uppercase tracking-[0.12em] text-on-surface-variant">Notes</span>
-            <textarea
-              className="mt-1 min-h-24 w-full resize-none rounded-xl border border-[#d9e4df] bg-white px-3 py-2 text-sm outline-none focus:border-[#006d36]"
-              value={notes}
-              onChange={(event) => onNotesChange(event.target.value)}
-              maxLength={500}
-            />
-          </label>
-
-          <label className="flex items-start gap-3 rounded-2xl border border-[#d9e4df] bg-white p-4 shadow-sm">
-            <input
-              type="checkbox"
-              checked={marketingConsent}
-              onChange={(event) => onMarketingConsentChange(event.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-[#b9c8c0] text-[#006d36] focus:ring-[#006d36]"
-            />
-            <span className="text-sm font-semibold leading-5 text-[#414844]">
-              Send me WhatsApp updates and offers from this restaurant.
-            </span>
-          </label>
-
-          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#e1ebe5] bg-white/95 px-4 py-3 shadow-[0_-10px_30px_rgba(0,44,24,0.10)] backdrop-blur">
+          <div className="fixed inset-x-0 bottom-0 z-30 bg-white/95 px-4 py-3 shadow-[0_-10px_30px_rgba(6,67,34,0.12)] backdrop-blur">
             <div className="mx-auto flex max-w-md items-center gap-4">
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#5a625e]">Total amount</p>
-                <p className="mt-0.5 text-xl font-black text-[#006d36]">{formatPrice(cartEstimate.totalAmount)}</p>
-              </div>
               <button
                 type="button"
-                className="inline-flex h-14 min-w-[10rem] items-center justify-center gap-2 rounded-[1.25rem] bg-[#001c11] px-5 text-base font-black text-white shadow-[0_12px_28px_rgba(0,28,17,0.22)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-14 min-w-0 flex-1 items-center justify-center gap-3 rounded-[1.35rem] bg-[#064322] px-5 text-base font-black uppercase tracking-normal text-white shadow-[0_12px_28px_rgba(6,67,34,0.24)] disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={cartCount === 0 || submitState.kind === "submitting"}
                 onClick={onSubmit}
               >
                 {submitState.kind === "submitting" ? "Sending" : "Place order"}
-                <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                <span className="font-black text-white/65">{formatPrice(cartEstimate.totalAmount)}</span>
               </button>
             </div>
+            <p className="mx-auto mt-2 max-w-md text-center text-xs font-semibold text-[#60736a]">You are securely sending your order to the restaurant.</p>
           </div>
-          </div>
-        ) : (
-          <div className="flex min-h-[280px] flex-col items-center justify-center rounded-2xl border border-[#d9e4df] bg-white p-5 text-center shadow-sm">
-            <ReceiptText className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <p className="mt-3 text-sm font-bold text-ink">Your cart is empty</p>
-            <p className="mt-1 text-sm text-on-surface-variant">Add menu items to see total amount and place an order.</p>
-            <button
-              type="button"
-              className="mt-4 rounded-xl bg-[#001c11] px-4 py-2 text-sm font-bold text-white"
-              onClick={onBackToMenu}
-            >
-              Back to menu
-            </button>
-          </div>
-        )}
+        </>
+      ) : (
+        <div className="mt-8 flex min-h-[320px] flex-col items-center justify-center rounded-[28px] border border-[#d9e4df] bg-white p-6 text-center shadow-[0_18px_38px_rgba(6,67,34,0.10)]">
+          <ReceiptText className="h-9 w-9 text-[#0f7a43]" aria-hidden="true" />
+          <p className="mt-4 text-lg font-black text-[#0a1510]">Your cart is empty</p>
+          <p className="mt-2 text-sm leading-6 text-[#60736a]">Add menu items to see total amount and place an order.</p>
+          <button type="button" className="mt-5 rounded-xl bg-[#064322] px-4 py-3 text-sm font-black text-white" onClick={onBackToMenu}>
+            Back to menu
+          </button>
+        </div>
+      )}
     </section>
   );
 }
@@ -1983,20 +2132,30 @@ function VariantPickerSheet({
 
 function CategorySheet({
   categories,
-  onClose
+  onClose,
+  onSelect,
+  selectedCategoryId
 }: {
   categories: PublicQrMenuCategory[];
   onClose: () => void;
+  onSelect: (categoryId: string) => void;
+  selectedCategoryId: string;
 }) {
+  const totalItemCount = categories.reduce((total, category) => total + category.items.length, 0);
+
   return (
     <aside className="fixed inset-x-0 bottom-0 z-30">
       <div className="mx-auto w-full max-w-md px-4 pb-5">
-        <div className="rounded-xl border border-line bg-white p-3 shadow-modal">
-          <div className="flex items-center justify-between gap-3 border-b border-line pb-3">
-            <p className="text-sm font-extrabold uppercase text-ink">Categories</p>
+        <div className="rounded-[28px] border border-[#d9e4df] bg-white p-4 shadow-modal">
+          <div className="mx-auto mb-3 h-1 w-12 rounded-full bg-[#dce8e1]" />
+          <div className="flex items-center justify-between gap-3 border-b border-[#edf2ef] pb-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-normal text-[#0f7a43]">Categories</p>
+              <h2 className="mt-0.5 text-xl font-black text-[#063d22]">Browse menu</h2>
+            </div>
             <button
               type="button"
-              className="grid h-9 w-9 place-items-center rounded-full border border-line text-on-surface-variant"
+              className="grid h-10 w-10 place-items-center rounded-full border border-[#d9e4df] text-[#27352f]"
               onClick={onClose}
               aria-label="Close categories"
             >
@@ -2004,17 +2163,39 @@ function CategorySheet({
             </button>
           </div>
 
-          <div className="max-h-[45vh] overflow-y-auto py-2">
+          <div className="max-h-[48vh] overflow-y-auto py-2">
+            <button
+              type="button"
+              className={`flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl px-3 text-left text-sm font-black ${
+                selectedCategoryId === AllPublicCategoryId ? "bg-[#d9f8e7] text-[#063d22]" : "text-[#27352f] hover:bg-[#f5faf7]"
+              }`}
+              onClick={() => onSelect(AllPublicCategoryId)}
+            >
+              <span className="flex min-w-0 items-center gap-3">
+                <span className="grid h-8 w-8 place-items-center rounded-xl bg-white text-[#0f7a43]">
+                  <Flame className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <span>All items</span>
+              </span>
+              <span className="text-xs font-black text-[#60736a]">{totalItemCount}</span>
+            </button>
             {categories.map((category) => (
-              <a
+              <button
                 key={category.menuCategoryId}
-                href={`#category-${category.menuCategoryId}`}
-                className="flex min-h-12 items-center justify-between border-b border-line px-1 text-sm font-bold text-ink last:border-b-0"
-                onClick={onClose}
+                type="button"
+                className={`mt-1 flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl px-3 text-left text-sm font-black ${
+                  selectedCategoryId === category.menuCategoryId ? "bg-[#d9f8e7] text-[#063d22]" : "text-[#27352f] hover:bg-[#f5faf7]"
+                }`}
+                onClick={() => onSelect(category.menuCategoryId)}
               >
-                <span>{category.name}</span>
-                <span className="text-xs font-semibold text-on-surface-variant">{category.items.length}</span>
-              </a>
+                <span className="flex min-w-0 items-center gap-3">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-white text-[#0f7a43]">
+                    <CategoryIcon name={category.name} />
+                  </span>
+                  <span className="truncate">{category.name}</span>
+                </span>
+                <span className="text-xs font-black text-[#60736a]">{category.items.length}</span>
+              </button>
             ))}
           </div>
         </div>
@@ -2093,7 +2274,19 @@ function getCategoryInitials(name: string): string {
     .join("");
 }
 
-function FoodThumb({ compact = false, imageAltText, imageUrl, name }: { compact?: boolean; imageAltText?: string | null; imageUrl?: string | null; name: string }) {
+function FoodThumb({
+  className = "",
+  compact = false,
+  imageAltText,
+  imageUrl,
+  name
+}: {
+  className?: string;
+  compact?: boolean;
+  imageAltText?: string | null;
+  imageUrl?: string | null;
+  name: string;
+}) {
   const initials = name
     .split(/\s+/)
     .filter(Boolean)
@@ -2102,7 +2295,7 @@ function FoodThumb({ compact = false, imageAltText, imageUrl, name }: { compact?
     .join("");
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-br from-orange-100 via-white to-emerald-100 ${compact ? "mx-auto h-12 w-12" : "h-full min-h-[144px] w-full"}`}>
+    <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-br from-orange-100 via-white to-emerald-100 ${compact ? "mx-auto h-12 w-12" : "h-full min-h-[144px] w-full"} ${className}`}>
       {imageUrl ? (
         <img src={imageUrl} alt={imageAltText ?? name} className="absolute inset-0 h-full w-full object-cover" />
       ) : (
