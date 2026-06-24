@@ -1364,6 +1364,7 @@ function MenuDishCard({
   singleQuantity: number;
 }) {
   const priceLabel = hasVariants ? `From ${formatPrice(displayPrice)}` : formatPrice(displayPrice);
+  const hasBaseQuantity = !hasVariants && singleQuantity > 0;
 
   return (
     <article className="group flex min-w-0 flex-col overflow-hidden rounded-[20px] bg-white shadow-[0_10px_24px_rgba(6,67,34,0.10)] transition duration-150 active:scale-[0.985] active:shadow-[0_6px_16px_rgba(6,67,34,0.14)]">
@@ -1381,8 +1382,8 @@ function MenuDishCard({
           {item.description || "Freshly prepared by the kitchen."}
         </p>
 
-        <div className="mt-auto flex min-h-11 items-end justify-between gap-1.5 pt-2">
-          <p className="min-w-[2.75rem] flex-1 truncate text-[16px] font-black leading-6 text-[#063d22]">{priceLabel}</p>
+        <div className={hasBaseQuantity ? "mt-auto grid gap-1.5 pt-2" : "mt-auto flex min-h-11 items-end justify-between gap-1.5 pt-2"}>
+          <p className={hasBaseQuantity ? "w-full truncate text-[17px] font-black leading-6 text-[#063d22]" : "min-w-[2.75rem] flex-1 truncate text-[16px] font-black leading-6 text-[#063d22]"}>{priceLabel}</p>
           {canOrder ? (
             hasVariants ? (
               <button
@@ -1399,19 +1400,19 @@ function MenuDishCard({
                 ) : null}
               </button>
             ) : singleQuantity > 0 ? (
-              <div className="flex h-11 w-[4.7rem] shrink-0 items-center justify-between overflow-hidden rounded-[14px] bg-[#8fe3b7] text-[#063d22] shadow-[0_8px_18px_rgba(6,67,34,0.16)]">
+              <div className="flex h-10 w-[4.7rem] shrink-0 items-center justify-between justify-self-end overflow-hidden rounded-[14px] bg-[#8fe3b7] text-[#063d22] shadow-[0_8px_18px_rgba(6,67,34,0.16)]">
                 <button
                   type="button"
-                  className="grid h-11 w-6 place-items-center transition active:scale-90"
+                  className="grid h-10 w-6 place-items-center transition active:scale-90"
                   onClick={() => onDecrement(singleCartLineId)}
                   aria-label={`Remove one ${item.name}`}
                 >
                   <Minus className="h-4 w-4" aria-hidden="true" />
                 </button>
-                <span key={singleQuantity} className="grid h-11 min-w-6 place-items-center text-sm font-black animate-[pulse_220ms_ease-out_1]">{singleQuantity}</span>
+                <span key={singleQuantity} className="grid h-10 min-w-6 place-items-center text-sm font-black animate-[pulse_220ms_ease-out_1]">{singleQuantity}</span>
                 <button
                   type="button"
-                  className="grid h-11 w-6 place-items-center transition active:scale-90"
+                  className="grid h-10 w-6 place-items-center transition active:scale-90"
                   onClick={() => onAdd(item, categoryName, null)}
                   aria-label={`Add one ${item.name}`}
                 >
