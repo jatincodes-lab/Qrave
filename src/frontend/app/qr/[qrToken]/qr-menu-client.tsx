@@ -1367,20 +1367,20 @@ function MenuDishCard({
 
   return (
     <article className="relative min-w-0 overflow-hidden rounded-[22px] border border-[#eef2ee] bg-white shadow-[0_12px_26px_rgba(6,67,34,0.11)] transition-transform active:scale-[0.99]">
-      <div className="aspect-[1.22/1] overflow-hidden bg-[#eef8f2]">
+      <div className="aspect-[1.12/1] overflow-hidden bg-[#eef8f2]">
         <FoodThumb imageAltText={item.imageAltText} imageUrl={item.imageUrl} name={item.name} className="h-full min-h-0 rounded-none" />
       </div>
 
-      <div className="min-h-[8.9rem] p-3 pb-12">
-        <div className="mb-1.5 flex min-w-0 items-center gap-1.5">
+      <div className="min-h-[7rem] p-2.5 pb-11">
+        <div className="mb-1 flex min-w-0 items-center gap-1.5">
           <MenuItemDietIcon dietTypeCode={item.dietTypeCode} />
           {hasVariants ? <span className="rounded-full bg-[#eef8f2] px-2 py-0.5 text-[10px] font-black text-[#0f7a43]">Options</span> : null}
         </div>
-        <h3 className="line-clamp-2 min-h-[2.35rem] break-words text-[15px] font-black leading-[1.18] text-[#08291a]">{item.name}</h3>
-        <p className="mt-1 line-clamp-2 min-h-[2.35rem] break-words text-[12px] font-medium leading-[1.25] text-[#27352f]">
+        <h3 className="line-clamp-2 min-h-[2.1rem] break-words text-[14px] font-black leading-[1.15] text-[#08291a]">{item.name}</h3>
+        <p className="mt-1 line-clamp-1 min-h-[1rem] break-words text-[11px] font-medium leading-[1.2] text-[#27352f]">
           {item.description || "Freshly prepared by the kitchen."}
         </p>
-        <p className="mt-2 truncate pr-11 text-[18px] font-black leading-6 text-[#063d22]">{priceLabel}</p>
+        <p className="mt-1.5 truncate pr-11 text-[17px] font-black leading-6 text-[#063d22]">{priceLabel}</p>
       </div>
 
       {canOrder ? (
