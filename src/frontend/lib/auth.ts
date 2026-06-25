@@ -2,6 +2,13 @@ const TokenStorageKey = "qrapp.admin.accessToken";
 const SessionStorageKey = "qrapp.admin.session";
 const SuperAdminTokenStorageKey = "qrapp.superadmin.accessToken";
 const SuperAdminSessionStorageKey = "qrapp.superadmin.session";
+const TokenExpirySkewSeconds = 30;
+
+type JwtPayload = {
+  exp?: number;
+  role_code?: string;
+  branch_id?: string;
+};
 
 export type StoredAdminSession = {
   tenant: {
@@ -40,10 +47,15 @@ export function getAccessToken(): string | null {
     return null;
   }
 
-  return window.localStorage.getItem(TokenStorageKey);
+  return getValidStoredToken(TokenStorageKey, clearAccessToken);
 }
 
 export function setAccessToken(token: string): void {
+  if (!isUsableJwt(token)) {
+    clearAccessToken();
+    return;
+  }
+
   window.localStorage.setItem(TokenStorageKey, token);
 }
 
@@ -83,10 +95,15 @@ export function getSuperAdminAccessToken(): string | null {
     return null;
   }
 
-  return window.localStorage.getItem(SuperAdminTokenStorageKey);
+  return getValidStoredToken(SuperAdminTokenStorageKey, clearSuperAdminSession);
 }
 
 export function setSuperAdminAccessToken(token: string): void {
+  if (!isUsableJwt(token)) {
+    clearSuperAdminSession();
+    return;
+  }
+
   window.localStorage.setItem(SuperAdminTokenStorageKey, token);
 }
 
@@ -129,19 +146,52 @@ export function getCurrentBranchId(): string | null {
   return getTokenPayload()?.branch_id ?? null;
 }
 
-function getTokenPayload(): { role_code?: string; branch_id?: string } | null {
+export function getAccessTokenExpiresAt(): number | null {
+  const payload = getTokenPayload();
+  return payload?.exp ? payload.exp * 1000 : null;
+}
+
+function getTokenPayload(): JwtPayload | null {
   const token = getAccessToken();
   if (!token) {
     return null;
   }
 
+  return readJwtPayload(token);
+}
+
+function getValidStoredToken(storageKey: string, clearSession: () => void): string | null {
+  const token = window.localStorage.getItem(storageKey);
+  if (!token) {
+    return null;
+  }
+
+  if (!isUsableJwt(token)) {
+    clearSession();
+    return null;
+  }
+
+  return token;
+}
+
+function isUsableJwt(token: string): boolean {
+  const payload = readJwtPayload(token);
+  if (!payload?.exp) {
+    return false;
+  }
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  return payload.exp > nowSeconds + TokenExpirySkewSeconds;
+}
+
+function readJwtPayload(token: string): JwtPayload | null {
   const [, payload] = token.split(".");
   if (!payload) {
     return null;
   }
 
   try {
-    return JSON.parse(window.atob(toBase64(payload))) as { role_code?: string; branch_id?: string };
+    return JSON.parse(window.atob(toBase64(payload))) as JwtPayload;
   } catch {
     return null;
   }

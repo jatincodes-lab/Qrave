@@ -38,10 +38,11 @@ import {
   type AdminSearchResult,
   type BranchListItem
 } from "../lib/api";
-import { getAdminSession, getCurrentRoleCode, type StoredAdminSession } from "../lib/auth";
+import { clearAccessToken, getAccessTokenExpiresAt, getAdminSession, getCurrentRoleCode, type StoredAdminSession } from "../lib/auth";
 import { createAdminOrderConnection, stopConnection, type AdminOrderRealtimeEvent, type AdminWaiterCallRealtimeEvent } from "../lib/realtime";
 
 const SidebarCollapsedStorageKey = "qrapp.admin.sidebarCollapsed";
+const SessionExpirySkewMs = 30_000;
 
 type AdminShellProps = {
   active: "dashboard" | "branches" | "menu" | "orders" | "kitchen" | "offers" | "customers" | "campaigns" | "staff" | "reports" | "analytics" | "billing" | "settings";
@@ -130,6 +131,25 @@ export function AdminShell({
   }, []);
 
   useEffect(() => {
+    const expiresAt = getAccessTokenExpiresAt();
+    if (!expiresAt) {
+      router.replace("/admin/login");
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      clearAccessToken();
+      router.replace("/admin/login?reason=session-expired");
+    }, Math.max(0, expiresAt - Date.now() - SessionExpirySkewMs));
+
+    return () => window.clearTimeout(timeoutId);
+  }, [router]);
+
+  useEffect(() => {
+    if (!getAccessTokenExpiresAt()) {
+      return;
+    }
+
     void loadNotifications();
   }, [selectedBranchId]);
 
@@ -184,6 +204,10 @@ export function AdminShell({
   }, [selectedBranchId, trimmedSearchQuery]);
 
   useEffect(() => {
+    if (!getAccessTokenExpiresAt()) {
+      return;
+    }
+
     const connection = createAdminOrderConnection();
 
     const refreshNotifications = (branchId: string) => {
