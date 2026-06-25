@@ -23,7 +23,7 @@ import {
   X
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { CountryPhoneInput } from "../../../components/country-phone-input";
 import { useToast } from "../../../components/ui/toast";
 import {
@@ -235,7 +235,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
 
     const params = new URLSearchParams(window.location.search);
     if (params.get("view") === "previous-orders") {
-      setActiveView("customerOrders");
+      openCustomerOrders();
     }
   }, [recognizedCustomer]);
 
@@ -371,6 +371,12 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
       cartLines: toStoredCartLines(cart)
     });
   }, [cart, currentMenu.qrToken, customerName, customerPhoneCountryCode, customerWhatsApp, isDraftRestored, marketingConsent, notes]);
+
+  useLayoutEffect(() => {
+    if (activeView !== "menu" || submitState.kind === "success") {
+      resetScrollToTop();
+    }
+  }, [activeView, submitState.kind]);
 
   function addItem(item: PublicQrMenuItem, categoryName: string, variant: PublicQrMenuItem["variants"][number] | null = null) {
     if (!canOrder) {
@@ -568,7 +574,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
       setNotes("");
       setPromoCode("");
       setMarketingConsent(false);
-      setActiveView("cart");
+      openCart();
       setSubmitState({ kind: "success", order, promoCode: appliedPromoCode });
     } catch (caught) {
       setSubmitState({ kind: "idle" });
@@ -585,7 +591,15 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
   }
 
   function openCustomerOrders() {
+    resetScrollToTop();
     setActiveView("customerOrders");
+  }
+
+  function openCart() {
+    resetScrollToTop();
+    setActiveView("cart");
+    window.requestAnimationFrame(resetScrollToTop);
+    window.setTimeout(resetScrollToTop, 60);
   }
 
   function handleHeaderBack() {
@@ -654,7 +668,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
           onForgetCustomer={forgetRememberedCustomer}
           onReorder={(order) => {
             addRecentOrderToCart(order);
-            setActiveView("cart");
+            openCart();
           }}
         />
       ) : activeView === "cart" ? (
@@ -694,7 +708,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
             recognizedCustomer={recognizedCustomer}
             tableName={currentMenu.tableName}
             onBack={handleHeaderBack}
-            onCartOpen={() => setActiveView("cart")}
+            onCartOpen={openCart}
             onCustomerOrdersOpen={openCustomerOrders}
           />
           {flyingItem ? <FlyingCartItem key={flyingItem.key} item={flyingItem.item} /> : null}
@@ -743,7 +757,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
               totalAmount={cartEstimate.totalAmount}
               pulseKey={barPulseKey}
               recentItem={recentItem ?? cartLines[cartLines.length - 1]?.item ?? null}
-              onOpen={() => setActiveView("cart")}
+              onOpen={openCart}
             />
           ) : null}
 
@@ -2340,6 +2354,29 @@ function OrderItemThumb({ item, name }: { item?: PublicQrMenuItem; name: string 
       <span className="sr-only">{name}</span>
     </div>
   );
+}
+
+function resetScrollToTop() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const previousHtmlScrollBehavior = document.documentElement.style.scrollBehavior;
+  const previousBodyScrollBehavior = document.body.style.scrollBehavior;
+  const scrollingElement = document.scrollingElement ?? document.documentElement;
+
+  document.documentElement.style.scrollBehavior = "auto";
+  document.body.style.scrollBehavior = "auto";
+  window.scrollTo(0, 0);
+  scrollingElement.scrollTop = 0;
+  scrollingElement.scrollLeft = 0;
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
+
+  window.requestAnimationFrame(() => {
+    document.documentElement.style.scrollBehavior = previousHtmlScrollBehavior;
+    document.body.style.scrollBehavior = previousBodyScrollBehavior;
+  });
 }
 
 function valueOrNull(value: string): string | null {
