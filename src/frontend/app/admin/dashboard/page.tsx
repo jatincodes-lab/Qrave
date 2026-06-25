@@ -63,6 +63,7 @@ type BranchDashboardStats = {
   currentSummary: OrderReportSummary;
   previousSummary: OrderReportSummary;
   orderReports: OrderReportListItem[];
+  previousOrderReports: OrderReportListItem[];
   itemReports: ItemReport[];
   customerReports: CustomerReport[];
   activeOrders: AdminOrder[];
@@ -81,6 +82,11 @@ type TrendPoint = {
   label: string;
   orders: number;
   revenue: number;
+};
+
+type SparklinePoint = {
+  label: string;
+  value: number;
 };
 
 type BarPoint = {
@@ -186,6 +192,7 @@ export default function AdminDashboardPage() {
   const pendingWaiterCalls = dashboardData?.waiterCalls.filter((call) => !["Resolved", "Cancelled"].includes(call.statusCode)).length ?? 0;
   const recentOrders = useMemo(() => [...(dashboardData?.orderReports ?? [])].sort(sortByCreatedDesc).slice(0, 6), [dashboardData?.orderReports]);
   const healthWarnings = useMemo(() => buildHealthWarnings(dashboardData?.branchStats ?? []), [dashboardData?.branchStats]);
+  const newCustomerTrendData = useMemo(() => buildCustomerTrendData(dashboardData?.customerReports ?? [], range, dateRangeKey), [dashboardData?.customerReports, dateRangeKey, range]);
 
   return (
     <AdminShell
@@ -254,28 +261,32 @@ export default function AdminDashboardPage() {
                     label="Total revenue"
                     value={formatMoney(dashboardData?.currentSummary.totalOrderValue ?? 0)}
                     change={formatChange(dashboardData?.currentSummary.totalOrderValue ?? 0, dashboardData?.previousSummary.totalOrderValue ?? 0)}
-                    sparkline={trendData.map((point) => point.revenue)}
+                    sparkline={trendData.map((point) => ({ label: point.label, value: point.revenue }))}
+                    sparklineFormatter={formatMoney}
                   />
                   <KpiCard
                     icon={<ShoppingBag size={20} />}
                     label="Total orders"
                     value={formatNumber(dashboardData?.currentSummary.totalOrders ?? 0)}
                     change={formatChange(dashboardData?.currentSummary.totalOrders ?? 0, dashboardData?.previousSummary.totalOrders ?? 0)}
-                    sparkline={trendData.map((point) => point.orders)}
+                    sparkline={trendData.map((point) => ({ label: point.label, value: point.orders }))}
+                    sparklineFormatter={formatNumber}
                   />
                   <KpiCard
                     icon={<ClipboardList size={20} />}
                     label="Average order value"
                     value={formatMoney(dashboardData?.currentSummary.averageOrderValue ?? 0)}
                     change={formatChange(dashboardData?.currentSummary.averageOrderValue ?? 0, dashboardData?.previousSummary.averageOrderValue ?? 0)}
-                    sparkline={trendData.map((point) => point.revenue / Math.max(point.orders, 1))}
+                    sparkline={trendData.map((point) => ({ label: point.label, value: point.orders > 0 ? point.revenue / point.orders : 0 }))}
+                    sparklineFormatter={formatMoney}
                   />
                   <KpiCard
                     icon={<Users size={20} />}
                     label="New customers"
                     value={formatNumber(newCustomerCount)}
                     note={`${formatNumber(customerCount)} total in range`}
-                    sparkline={dashboardData?.customerReports.slice(0, 8).map((customer) => customer.totalValue) ?? []}
+                    sparkline={newCustomerTrendData}
+                    sparklineFormatter={formatNumber}
                   />
                 </section>
 
@@ -375,6 +386,7 @@ async function loadBranchDashboardData(branch: BranchListItem, range: DateRange,
     currentSummary,
     previousSummary,
     orderReports,
+    previousOrderReports,
     itemReports,
     customerReports,
     activeOrders,
@@ -383,6 +395,7 @@ async function loadBranchDashboardData(branch: BranchListItem, range: DateRange,
     safeDashboardRequest(() => getOrderReportSummary(currentFilter), emptyOrderReportSummary()),
     safeDashboardRequest(() => getOrderReportSummary(previousFilter), emptyOrderReportSummary()),
     safeDashboardRequest(() => getOrderReportOrders(currentFilter), []),
+    safeDashboardRequest(() => getOrderReportOrders(previousFilter), []),
     safeDashboardRequest(() => getItemReport(currentFilter), []),
     safeDashboardRequest(() => getCustomerReport(currentFilter), []),
     safeDashboardRequest(() => getAdminOrders(branch.branchId, false), []),
@@ -394,6 +407,7 @@ async function loadBranchDashboardData(branch: BranchListItem, range: DateRange,
     currentSummary,
     previousSummary,
     orderReports,
+    previousOrderReports,
     itemReports,
     customerReports,
     activeOrders,
@@ -425,17 +439,25 @@ function emptyOrderReportSummary(): OrderReportSummary {
 }
 
 function combineBranchDashboardData(branchStats: BranchDashboardStats[]): DashboardData {
+  const normalizedBranchStats = branchStats.map((branch) => ({
+    ...branch,
+    currentSummary: buildAccurateOrderSummary(branch.orderReports, branch.currentSummary),
+    previousSummary: buildAccurateOrderSummary(branch.previousOrderReports, branch.previousSummary)
+  }));
+  const orderReports = normalizedBranchStats.flatMap((branch) => branch.orderReports);
+  const previousOrderReports = normalizedBranchStats.flatMap((branch) => branch.previousOrderReports);
+
   return {
-    branchStats,
-    currentSummary: sumSummaries(branchStats.map((branch) => branch.currentSummary)),
-    previousSummary: sumSummaries(branchStats.map((branch) => branch.previousSummary)),
-    orderReports: branchStats.flatMap((branch) => branch.orderReports),
-    itemReports: mergeItemReports(branchStats.flatMap((branch) => branch.itemReports)),
-    customerReports: mergeCustomerReports(branchStats.flatMap((branch) => branch.customerReports)),
-    activeOrders: branchStats
+    branchStats: normalizedBranchStats,
+    currentSummary: buildAccurateOrderSummary(orderReports, sumSummaries(normalizedBranchStats.map((branch) => branch.currentSummary))),
+    previousSummary: buildAccurateOrderSummary(previousOrderReports, sumSummaries(normalizedBranchStats.map((branch) => branch.previousSummary))),
+    orderReports,
+    itemReports: mergeItemReports(normalizedBranchStats.flatMap((branch) => branch.itemReports)),
+    customerReports: mergeCustomerReports(normalizedBranchStats.flatMap((branch) => branch.customerReports)),
+    activeOrders: normalizedBranchStats
       .flatMap((branch) => branch.activeOrders.map((order) => ({ ...order, branchName: branch.branch.name })))
       .sort(sortAdminOrdersByCreatedDesc),
-    waiterCalls: branchStats
+    waiterCalls: normalizedBranchStats
       .flatMap((branch) => branch.waiterCalls.map((call) => ({ ...call, branchName: branch.branch.name })))
       .filter((call) => !["Resolved", "Cancelled"].includes(call.statusCode))
       .sort(sortWaiterCallsByCreatedDesc)
@@ -456,6 +478,26 @@ function sumSummaries(summaries: OrderReportSummary[]): OrderReportSummary {
     totalOrderValue,
     averageOrderValue: totalOrders > 0 ? totalOrderValue / totalOrders : 0,
     averageReadyMinutes: completedOrders > 0 ? readyTimeWeight / completedOrders : 0
+  };
+}
+
+function buildAccurateOrderSummary(orders: OrderReportListItem[], fallback: OrderReportSummary): OrderReportSummary {
+  if (orders.length === 0) {
+    return fallback.totalOrders > 0 ? fallback : emptyOrderReportSummary();
+  }
+
+  const billableOrders = orders.filter((order) => order.orderStatusCode !== "Cancelled");
+  const totalOrderValue = billableOrders.reduce((total, order) => total + order.totalAmount, 0);
+  const completedOrders = orders.filter((order) => order.orderStatusCode === "Completed").length;
+  const cancelledOrders = orders.filter((order) => order.orderStatusCode === "Cancelled").length;
+
+  return {
+    totalOrders: orders.length,
+    completedOrders,
+    cancelledOrders,
+    totalOrderValue,
+    averageOrderValue: billableOrders.length > 0 ? totalOrderValue / billableOrders.length : 0,
+    averageReadyMinutes: fallback.averageReadyMinutes
   };
 }
 
@@ -558,6 +600,26 @@ function buildTrendData(orders: OrderReportListItem[], range: DateRange, rangeKe
   }
 
   return points.map(({ key: _key, ...point }) => point);
+}
+
+function buildCustomerTrendData(customers: CustomerReport[], range: DateRange, rangeKey: DateRangeKey): SparklinePoint[] {
+  const points = createTrendBuckets(range, rangeKey);
+  const pointMap = new Map(points.map((point) => [point.key, point]));
+
+  for (const customer of customers) {
+    if (!customer.firstVisitAtUtc) {
+      continue;
+    }
+
+    const date = new Date(customer.firstVisitAtUtc);
+    const key = rangeKey === "today" ? `${Math.floor(date.getHours() / 3) * 3}` : toDateInputValue(date);
+    const point = pointMap.get(key);
+    if (point) {
+      point.orders += 1;
+    }
+  }
+
+  return points.map((point) => ({ label: point.label, value: point.orders }));
 }
 
 function createTrendBuckets(range: DateRange, rangeKey: DateRangeKey): (TrendPoint & { key: string })[] {
@@ -711,13 +773,15 @@ function KpiCard({
   label,
   note,
   sparkline,
+  sparklineFormatter = formatNumber,
   value
 }: {
   change?: { label: string; tone: "up" | "down" | "neutral" };
   icon: ReactNode;
   label: string;
   note?: string;
-  sparkline?: number[];
+  sparkline?: SparklinePoint[];
+  sparklineFormatter?: (value: number) => string;
   value: string;
 }) {
   const toneClass = change?.tone === "up"
@@ -740,7 +804,7 @@ function KpiCard({
           <p className="text-[1.75rem] font-semibold leading-tight text-on-surface">{value}</p>
           <p className="mt-1 text-xs font-semibold text-on-surface-variant">{note ?? "vs previous period"}</p>
         </div>
-        <Sparkline values={sparkline ?? []} />
+        <Sparkline data={sparkline ?? []} valueFormatter={sparklineFormatter} />
       </CardContent>
     </Card>
   );
@@ -760,13 +824,50 @@ function MiniMetric({ icon, label, value }: { icon: ReactNode; label: string; va
   );
 }
 
-function Sparkline({ values }: { values: number[] }) {
-  const points = buildSvgPoints(values.length > 0 ? values : [0, 0], 130, 40, 5);
+function Sparkline({ data, valueFormatter }: { data: SparklinePoint[]; valueFormatter: (value: number) => string }) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const safeData = data.length > 0 ? data : [{ label: "No data", value: 0 }, { label: "No data", value: 0 }];
+  const points = buildSvgPoints(safeData.map((point) => point.value), 130, 44, 6);
+  const activePoint = activeIndex === null ? null : points.coordinates[activeIndex];
+  const activeData = activeIndex === null ? null : safeData[activeIndex];
 
   return (
-    <svg className="mt-auto h-14 w-full pt-3" viewBox="0 0 130 40" role="img" aria-label="Trend">
-      <path d={`${points.areaPath} L 125 38 L 5 38 Z`} fill="#dfe9f8" opacity="0.9" />
+    <svg className="mt-auto h-16 w-full pt-3" viewBox="0 0 130 44" role="img" aria-label="Trend" onMouseLeave={() => setActiveIndex(null)}>
+      <path d={`${points.areaPath} L 124 40 L 6 40 Z`} fill="#fff1e7" opacity="0.95" />
       <polyline points={points.polyline} fill="none" stroke="#6f94c7" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      {points.coordinates.map((point, index) => (
+        <g key={`${safeData[index]?.label ?? index}-${index}`}>
+          <rect
+            x={index === 0 ? 0 : (points.coordinates[index - 1].x + point.x) / 2}
+            y="0"
+            width={
+              index === points.coordinates.length - 1
+                ? 130 - (points.coordinates[index - 1]?.x ? (points.coordinates[index - 1].x + point.x) / 2 : 0)
+                : ((points.coordinates[index + 1].x + point.x) / 2) - (index === 0 ? 0 : (points.coordinates[index - 1].x + point.x) / 2)
+            }
+            height="44"
+            fill="transparent"
+            tabIndex={0}
+            role="button"
+            aria-label={`${safeData[index].label}: ${valueFormatter(safeData[index].value)}`}
+            onMouseEnter={() => setActiveIndex(index)}
+            onFocus={() => setActiveIndex(index)}
+            onBlur={() => setActiveIndex(null)}
+          />
+        </g>
+      ))}
+      {activePoint && activeData ? (
+        <g pointerEvents="none">
+          <line x1={activePoint.x} y1="6" x2={activePoint.x} y2="40" stroke="#6f94c7" strokeOpacity="0.25" strokeWidth="1" />
+          <circle cx={activePoint.x} cy={activePoint.y} r="3.5" fill="#ffffff" stroke="#6f94c7" strokeWidth="2" />
+          <g transform={`translate(${Math.min(Math.max(activePoint.x, 28), 102)} 4)`}>
+            <rect x="-27" y="-2" width="54" height="17" rx="5" fill="#1f2933" />
+            <text x="0" y="10" textAnchor="middle" className="fill-white text-[8px] font-bold">
+              {valueFormatter(activeData.value)}
+            </text>
+          </g>
+        </g>
+      ) : null}
     </svg>
   );
 }
