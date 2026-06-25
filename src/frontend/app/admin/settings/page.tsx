@@ -1,7 +1,18 @@
 "use client";
 
-import { FormEvent, ReactNode, useEffect, useState } from "react";
-import { Save, Settings, Store } from "lucide-react";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import {
+  BellRing,
+  CheckCircle2,
+  ClipboardList,
+  CreditCard,
+  LockKeyhole,
+  Save,
+  Settings,
+  Store,
+  UserRound
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { AdminShell } from "../../../components/admin-shell";
 import { EmptyBranchState, PageError, PageLoading } from "../../../components/admin-page-common";
 import { Badge } from "../../../components/ui/badge";
@@ -51,11 +62,50 @@ const DefaultPasswordForm = {
   newPassword: ""
 };
 
+type SettingsSection = "ordering" | "billing" | "customer" | "security";
+
+const SettingsSections: Array<{
+  description: string;
+  icon: LucideIcon;
+  id: SettingsSection;
+  label: string;
+  requiresBranchAccess?: boolean;
+}> = [
+  {
+    id: "ordering",
+    label: "Ordering",
+    description: "QR orders and waiter calls",
+    icon: ClipboardList,
+    requiresBranchAccess: true
+  },
+  {
+    id: "billing",
+    label: "Billing",
+    description: "Tax, charges, discounts",
+    icon: CreditCard,
+    requiresBranchAccess: true
+  },
+  {
+    id: "customer",
+    label: "Customer details",
+    description: "Checkout information",
+    icon: UserRound,
+    requiresBranchAccess: true
+  },
+  {
+    id: "security",
+    label: "Account security",
+    description: "Password for this login",
+    icon: LockKeyhole
+  }
+];
+
 export default function AdminSettingsPage() {
   const workspace = useAdminWorkspace();
   const { toastSuccess } = useToast();
   const roleCode = getCurrentRoleCode();
   const canManageBranchSettings = roleCode === "owner" || roleCode === "admin" || roleCode === "manager";
+  const [activeSection, setActiveSection] = useState<SettingsSection>("ordering");
   const [settings, setSettings] = useState<BranchOrderSettings | null>(null);
   const [billingSettings, setBillingSettings] = useState<BranchBillingSettings | null>(null);
   const [form, setForm] = useState<SaveBranchOrderSettingsInput>(DefaultSettings);
@@ -65,6 +115,21 @@ export default function AdminSettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingBilling, setIsSavingBilling] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  const visibleSections = useMemo(
+    () => SettingsSections.filter((section) => canManageBranchSettings || !section.requiresBranchAccess),
+    [canManageBranchSettings]
+  );
+  const savedOrderForm = useMemo(() => (settings ? toForm(settings) : DefaultSettings), [settings]);
+  const savedBillingForm = useMemo(() => (billingSettings ? toBillingForm(billingSettings) : DefaultBillingSettings), [billingSettings]);
+  const isOrderDirty = !sameJson(form, savedOrderForm);
+  const isBillingDirty = !sameJson(billingForm, savedBillingForm);
+
+  useEffect(() => {
+    if (!canManageBranchSettings && activeSection !== "security") {
+      setActiveSection("security");
+    }
+  }, [activeSection, canManageBranchSettings]);
 
   useEffect(() => {
     if (!workspace.selectedBranch || !canManageBranchSettings) {
@@ -110,7 +175,7 @@ export default function AdminSettingsPage() {
 
       setSettings(saved);
       setForm(toForm(saved));
-      toastSuccess("Branch settings saved.");
+      toastSuccess("Ordering settings saved.");
     } catch (caught) {
       workspace.handleApiError(caught);
     } finally {
@@ -184,16 +249,16 @@ export default function AdminSettingsPage() {
       onSelectedBranchChange={workspace.setSelectedBranchId}
       selectedBranchId={workspace.selectedBranchId}
     >
-      <div className="mx-auto max-w-5xl space-y-6">
-        <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <header className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <Badge variant="secondary" className="gap-2">
               <Settings size={14} />
-              Settings
+              Settings center
             </Badge>
             <h1 className="mt-4 text-headline-lg text-primary">Branch settings</h1>
             <p className="mt-2 max-w-2xl text-body-md text-on-surface-variant">
-              Control customer ordering rules, required details, and waiter-call availability for each branch.
+              Configure ordering, customer checkout, billing, and account security for the selected branch.
             </p>
           </div>
         </header>
@@ -205,164 +270,499 @@ export default function AdminSettingsPage() {
         ) : !workspace.selectedBranch ? (
           <EmptyBranchState />
         ) : (
-          <section className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-            <div className="space-y-4">
-              <Card>
+          <>
+            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <StatusCard
+                icon={<Store size={19} />}
+                label="Selected branch"
+                value={workspace.selectedBranch.name}
+                note={[workspace.selectedBranch.city, workspace.selectedBranch.countryCode].filter(Boolean).join(", ") || "Location not added"}
+                tone="neutral"
+              />
+              <StatusCard
+                icon={<ClipboardList size={19} />}
+                label="QR ordering"
+                value={form.enableDirectQrOrdering ? "Enabled" : "Disabled"}
+                note={form.enableDirectQrOrdering ? "Customers can place orders" : "Customers can only browse"}
+                tone={form.enableDirectQrOrdering ? "success" : "muted"}
+              />
+              <StatusCard
+                icon={<BellRing size={19} />}
+                label="Waiter calls"
+                value={form.waiterCallEnabled ? "Enabled" : "Disabled"}
+                note={form.waiterCallEnabled ? "Guests can call staff" : "No QR staff requests"}
+                tone={form.waiterCallEnabled ? "success" : "muted"}
+              />
+              <StatusCard
+                icon={<CreditCard size={19} />}
+                label="Billing"
+                value={billingForm.taxEnabled || billingForm.serviceChargeEnabled ? "Configured" : "Basic"}
+                note={billingForm.taxEnabled ? `${billingForm.taxName || "Tax"} ${billingForm.taxRate || 0}%` : "No tax enabled"}
+                tone={billingForm.taxEnabled || billingForm.serviceChargeEnabled ? "success" : "neutral"}
+              />
+            </section>
+
+            <section className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]">
+              <Card className="h-fit border-outline-variant/70 bg-white shadow-soft-saas">
                 <CardHeader>
-                  <CardTitle>Workspace</CardTitle>
-                  <CardDescription>Current selected restaurant branch.</CardDescription>
+                  <CardTitle>Settings</CardTitle>
+                  <CardDescription>Choose one area to edit.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center gap-3 rounded-xl border border-outline-variant/70 bg-surface-container-low p-4">
-                    <div className="grid h-11 w-11 place-items-center rounded-xl bg-primary-fixed text-primary">
-                      <Store size={20} />
-                    </div>
-                    <div>
-                      <p className="font-extrabold text-on-surface">{workspace.selectedBranch.name}</p>
-                      <p className="mt-1 text-xs text-on-surface-variant">
-                        {[workspace.selectedBranch.city, workspace.selectedBranch.countryCode].filter(Boolean).join(", ") || "Location not added"}
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-sm leading-6 text-on-surface-variant">
-                    Profile fields such as address and phone are edited from the branch detail workspace.
-                  </p>
+                <CardContent className="space-y-2">
+                  {visibleSections.map((section) => (
+                    <SettingsNavButton
+                      key={section.id}
+                      active={activeSection === section.id}
+                      description={section.description}
+                      icon={section.icon}
+                      label={section.label}
+                      onClick={() => setActiveSection(section.id)}
+                    />
+                  ))}
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Account security</CardTitle>
-                  <CardDescription>Change the password for your current login.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={changePassword} className="space-y-3">
-                    <Field label="Current password">
-                      <Input
-                        autoComplete="current-password"
-                        type="password"
-                        value={passwordForm.currentPassword}
-                        onChange={(event) => setPasswordForm({ ...passwordForm, currentPassword: event.target.value })}
-                      />
-                    </Field>
-                    <Field label="New password">
-                      <Input
-                        autoComplete="new-password"
-                        type="password"
-                        value={passwordForm.newPassword}
-                        onChange={(event) => setPasswordForm({ ...passwordForm, newPassword: event.target.value })}
-                      />
-                    </Field>
-                    <Button type="submit" disabled={isChangingPassword}>
-                      <Save size={18} />
-                      {isChangingPassword ? "Changing..." : "Change password"}
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="space-y-4">
-              {canManageBranchSettings ? (
-                <>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>QR ordering controls</CardTitle>
-                      <CardDescription>These settings affect the public QR menu and customer checkout flow.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {isLoadingSettings ? (
-                        <PageLoading />
-                      ) : (
-                        <form onSubmit={saveSettings} className="space-y-3">
-                          <Toggle label="Enable direct QR ordering" description="Customers can place orders from the QR menu." checked={form.enableDirectQrOrdering} onChange={(value) => setForm({ ...form, enableDirectQrOrdering: value })} />
-                          <Toggle label="Require customer name" description="Ask for a name before order submission." checked={form.requireCustomerName} onChange={(value) => setForm({ ...form, requireCustomerName: value })} />
-                          <Toggle label="Require WhatsApp number" description="Ask for contact number during checkout." checked={form.requireCustomerWhatsApp} onChange={(value) => setForm({ ...form, requireCustomerWhatsApp: value })} />
-                          <Toggle label="Enable waiter calls" description="Customers can request staff from the QR menu." checked={form.waiterCallEnabled} onChange={(value) => setForm({ ...form, waiterCallEnabled: value })} />
-
-                          <div className="pt-2">
-                            <Button type="submit" disabled={isSaving}>
-                              <Save size={18} />
-                              {isSaving ? "Saving..." : "Save settings"}
-                            </Button>
-                          </div>
-                        </form>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Billing defaults</CardTitle>
-                      <CardDescription>These branch-level defaults are copied into each generated bill.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {isLoadingSettings ? (
-                        <PageLoading />
-                      ) : (
-                        <form onSubmit={saveBillingSettings} className="space-y-4">
-                          <Toggle label="Enable tax" description="Apply branch tax to generated bills." checked={billingForm.taxEnabled} onChange={(value) => setBillingForm({ ...billingForm, taxEnabled: value })} />
-                          <div className="grid gap-3 sm:grid-cols-3">
-                            <Field label="Tax name">
-                              <Input value={billingForm.taxName} onChange={(event) => setBillingForm({ ...billingForm, taxName: event.target.value })} />
-                            </Field>
-                            <Field label="Tax rate %">
-                              <Input type="number" min="0" max="100" step="0.001" value={billingForm.taxRate} onChange={(event) => setBillingForm({ ...billingForm, taxRate: Number(event.target.value) })} />
-                            </Field>
-                            <Field label="Tax mode">
-                              <select value={billingForm.taxMode} onChange={(event) => setBillingForm({ ...billingForm, taxMode: event.target.value as SaveBranchBillingSettingsInput["taxMode"] })} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
-                                <option value="Exclusive">Exclusive</option>
-                                <option value="Inclusive">Inclusive</option>
-                              </select>
-                            </Field>
-                          </div>
-
-                          <Toggle label="Enable service charge" description="Apply a service charge on generated bills." checked={billingForm.serviceChargeEnabled} onChange={(value) => setBillingForm({ ...billingForm, serviceChargeEnabled: value })} />
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <Field label="Service charge label">
-                              <Input value={billingForm.serviceChargeName} onChange={(event) => setBillingForm({ ...billingForm, serviceChargeName: event.target.value })} />
-                            </Field>
-                            <Field label="Service charge %">
-                              <Input type="number" min="0" max="100" step="0.001" value={billingForm.serviceChargeRate} onChange={(event) => setBillingForm({ ...billingForm, serviceChargeRate: Number(event.target.value) })} />
-                            </Field>
-                          </div>
-
-                          <Toggle label="Allow discounts" description="Bills can include a manual discount." checked={billingForm.discountEnabled} onChange={(value) => setBillingForm({ ...billingForm, discountEnabled: value })} />
-                          <Toggle label="Staff can apply discounts" description="Allow non-owner staff to discount bills." checked={billingForm.staffCanApplyDiscount} onChange={(value) => setBillingForm({ ...billingForm, staffCanApplyDiscount: value })} />
-                          <Field label="Rounding">
-                            <select value={billingForm.roundingMode} onChange={(event) => setBillingForm({ ...billingForm, roundingMode: event.target.value as SaveBranchBillingSettingsInput["roundingMode"] })} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
-                              <option value="NearestRupee">Nearest rupee</option>
-                              <option value="None">No rounding</option>
-                            </select>
-                          </Field>
-
-                          <Button type="submit" disabled={isSavingBilling}>
-                            <Save size={18} />
-                            {isSavingBilling ? "Saving..." : "Save billing"}
-                          </Button>
-                        </form>
-                      )}
-                    </CardContent>
-                  </Card>
-                </>
-              ) : (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Branch controls</CardTitle>
-                    <CardDescription>Your role does not include branch settings access.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm leading-6 text-on-surface-variant">
-                      Ask an owner, admin, or manager to change QR ordering, billing, tax, or service charge settings.
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          </section>
+              <div className="min-w-0">
+                {canManageBranchSettings && isLoadingSettings ? (
+                  <PageLoading />
+                ) : activeSection === "ordering" && canManageBranchSettings ? (
+                  <OrderingSection form={form} isDirty={isOrderDirty} isSaving={isSaving} onChange={setForm} onSubmit={saveSettings} />
+                ) : activeSection === "billing" && canManageBranchSettings ? (
+                  <BillingSection
+                    form={billingForm}
+                    isDirty={isBillingDirty}
+                    isSaving={isSavingBilling}
+                    onChange={setBillingForm}
+                    onSubmit={saveBillingSettings}
+                  />
+                ) : activeSection === "customer" && canManageBranchSettings ? (
+                  <CustomerDetailsSection form={form} isDirty={isOrderDirty} isSaving={isSaving} onChange={setForm} onSubmit={saveSettings} />
+                ) : (
+                  <SecuritySection
+                    form={passwordForm}
+                    isChanging={isChangingPassword}
+                    onChange={setPasswordForm}
+                    onSubmit={changePassword}
+                    canManageBranchSettings={canManageBranchSettings}
+                  />
+                )}
+              </div>
+            </section>
+          </>
         )}
       </div>
     </AdminShell>
+  );
+}
+
+function OrderingSection({
+  form,
+  isDirty,
+  isSaving,
+  onChange,
+  onSubmit
+}: {
+  form: SaveBranchOrderSettingsInput;
+  isDirty: boolean;
+  isSaving: boolean;
+  onChange: (form: SaveBranchOrderSettingsInput) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <SettingsPanel
+      badge="Ordering"
+      description="Control whether guests can place orders from the QR menu and request staff from their table."
+      icon={<ClipboardList size={18} />}
+      title="QR ordering controls"
+    >
+      <form onSubmit={onSubmit} className="space-y-5">
+        <div className="grid gap-3">
+          <ToggleCard
+            checked={form.enableDirectQrOrdering}
+            description="When enabled, customers can submit orders directly from the public QR menu."
+            label="Accept direct QR orders"
+            onChange={(value) => onChange({ ...form, enableDirectQrOrdering: value })}
+          />
+          <ToggleCard
+            checked={form.waiterCallEnabled}
+            description="When enabled, customers can call staff without placing a new order."
+            label="Allow waiter calls"
+            onChange={(value) => onChange({ ...form, waiterCallEnabled: value })}
+          />
+        </div>
+        <ImpactBox
+          title={form.enableDirectQrOrdering ? "Customers can order now" : "QR menu is browse-only"}
+          text={form.enableDirectQrOrdering ? "New orders will appear in Orders and Kitchen for this branch." : "Customers can view menu items, but checkout is blocked until ordering is enabled."}
+        />
+        <SectionActions dirty={isDirty} saving={isSaving} saveLabel="Save ordering" />
+      </form>
+    </SettingsPanel>
+  );
+}
+
+function CustomerDetailsSection({
+  form,
+  isDirty,
+  isSaving,
+  onChange,
+  onSubmit
+}: {
+  form: SaveBranchOrderSettingsInput;
+  isDirty: boolean;
+  isSaving: boolean;
+  onChange: (form: SaveBranchOrderSettingsInput) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <SettingsPanel
+      badge="Customer details"
+      description="Choose what information customers must enter before submitting a QR order."
+      icon={<UserRound size={18} />}
+      title="Checkout requirements"
+    >
+      <form onSubmit={onSubmit} className="space-y-5">
+        <div className="grid gap-3">
+          <ToggleCard
+            checked={form.requireCustomerName}
+            description="Helps staff identify the guest when serving or clarifying an order."
+            label="Require customer name"
+            onChange={(value) => onChange({ ...form, requireCustomerName: value })}
+          />
+          <ToggleCard
+            checked={form.requireCustomerWhatsApp}
+            description="Collects a WhatsApp number for order updates and customer history."
+            label="Require WhatsApp number"
+            onChange={(value) => onChange({ ...form, requireCustomerWhatsApp: value })}
+          />
+        </div>
+        <ImpactBox
+          title="Keep checkout short"
+          text="Ask only for details your staff actually uses. Fewer required fields usually means faster ordering."
+        />
+        <SectionActions dirty={isDirty} saving={isSaving} saveLabel="Save customer fields" />
+      </form>
+    </SettingsPanel>
+  );
+}
+
+function BillingSection({
+  form,
+  isDirty,
+  isSaving,
+  onChange,
+  onSubmit
+}: {
+  form: SaveBranchBillingSettingsInput;
+  isDirty: boolean;
+  isSaving: boolean;
+  onChange: (form: SaveBranchBillingSettingsInput) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <SettingsPanel
+      badge="Billing"
+      description="Set the default charges copied into generated bills for this branch."
+      icon={<CreditCard size={18} />}
+      title="Billing defaults"
+    >
+      <form onSubmit={onSubmit} className="space-y-5">
+        <SettingsGroup title="Tax" text="Apply tax to generated bills. Use inclusive mode when menu prices already include tax.">
+          <ToggleCard
+            checked={form.taxEnabled}
+            description="Adds tax rows to generated bills."
+            label="Enable tax"
+            onChange={(value) => onChange({ ...form, taxEnabled: value })}
+          />
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field label="Tax name">
+              <Input
+                disabled={!form.taxEnabled}
+                value={form.taxName}
+                onChange={(event) => onChange({ ...form, taxName: event.target.value })}
+              />
+            </Field>
+            <Field label="Tax rate %">
+              <Input
+                disabled={!form.taxEnabled}
+                type="number"
+                min="0"
+                max="100"
+                step="0.001"
+                value={form.taxRate}
+                onChange={(event) => onChange({ ...form, taxRate: Number(event.target.value) })}
+              />
+            </Field>
+            <Field label="Tax mode">
+              <SelectField
+                disabled={!form.taxEnabled}
+                value={form.taxMode}
+                onChange={(value) => onChange({ ...form, taxMode: value as SaveBranchBillingSettingsInput["taxMode"] })}
+                options={[
+                  { label: "Exclusive", value: "Exclusive" },
+                  { label: "Inclusive", value: "Inclusive" }
+                ]}
+              />
+            </Field>
+          </div>
+        </SettingsGroup>
+
+        <SettingsGroup title="Service charge" text="Apply a branch-level service charge on generated bills.">
+          <ToggleCard
+            checked={form.serviceChargeEnabled}
+            description="Adds a service charge row to generated bills."
+            label="Enable service charge"
+            onChange={(value) => onChange({ ...form, serviceChargeEnabled: value })}
+          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Service charge label">
+              <Input
+                disabled={!form.serviceChargeEnabled}
+                value={form.serviceChargeName}
+                onChange={(event) => onChange({ ...form, serviceChargeName: event.target.value })}
+              />
+            </Field>
+            <Field label="Service charge %">
+              <Input
+                disabled={!form.serviceChargeEnabled}
+                type="number"
+                min="0"
+                max="100"
+                step="0.001"
+                value={form.serviceChargeRate}
+                onChange={(event) => onChange({ ...form, serviceChargeRate: Number(event.target.value) })}
+              />
+            </Field>
+          </div>
+        </SettingsGroup>
+
+        <SettingsGroup title="Discounts and rounding" text="Control manual discounts and final bill rounding.">
+          <div className="grid gap-3 lg:grid-cols-2">
+          <ToggleCard
+            checked={form.discountEnabled}
+            description="Allows generated bills to include manual discounts."
+            label="Allow discounts"
+            onChange={(value) => onChange({ ...form, discountEnabled: value, staffCanApplyDiscount: value ? form.staffCanApplyDiscount : false })}
+          />
+            <ToggleCard
+              checked={form.staffCanApplyDiscount}
+              description="Lets non-owner staff apply discounts when billing."
+              disabled={!form.discountEnabled}
+              label="Staff can apply discounts"
+              onChange={(value) => onChange({ ...form, staffCanApplyDiscount: value })}
+            />
+          </div>
+          <Field label="Rounding">
+            <SelectField
+              value={form.roundingMode}
+              onChange={(value) => onChange({ ...form, roundingMode: value as SaveBranchBillingSettingsInput["roundingMode"] })}
+              options={[
+                { label: "Nearest rupee", value: "NearestRupee" },
+                { label: "No rounding", value: "None" }
+              ]}
+            />
+          </Field>
+        </SettingsGroup>
+
+        <SectionActions dirty={isDirty} saving={isSaving} saveLabel="Save billing" />
+      </form>
+    </SettingsPanel>
+  );
+}
+
+function SecuritySection({
+  canManageBranchSettings,
+  form,
+  isChanging,
+  onChange,
+  onSubmit
+}: {
+  canManageBranchSettings: boolean;
+  form: typeof DefaultPasswordForm;
+  isChanging: boolean;
+  onChange: (form: typeof DefaultPasswordForm) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <SettingsPanel
+      badge="Security"
+      description="Change the password used by the currently signed-in admin account."
+      icon={<LockKeyhole size={18} />}
+      title="Account security"
+    >
+      {!canManageBranchSettings ? (
+        <ImpactBox
+          title="Limited branch access"
+          text="Your role can update account security here. Ask an owner, admin, or manager to change branch operations and billing settings."
+        />
+      ) : null}
+      <form onSubmit={onSubmit} className="mt-5 max-w-xl space-y-4">
+        <Field label="Current password">
+          <Input
+            autoComplete="current-password"
+            type="password"
+            value={form.currentPassword}
+            onChange={(event) => onChange({ ...form, currentPassword: event.target.value })}
+          />
+        </Field>
+        <Field label="New password">
+          <Input
+            autoComplete="new-password"
+            type="password"
+            value={form.newPassword}
+            onChange={(event) => onChange({ ...form, newPassword: event.target.value })}
+          />
+        </Field>
+        <div className="pt-2">
+          <Button type="submit" disabled={isChanging}>
+            <Save size={17} />
+            {isChanging ? "Changing..." : "Change password"}
+          </Button>
+        </div>
+      </form>
+    </SettingsPanel>
+  );
+}
+
+function StatusCard({
+  icon,
+  label,
+  note,
+  tone,
+  value
+}: {
+  icon: ReactNode;
+  label: string;
+  note: string;
+  tone: "muted" | "neutral" | "success";
+  value: string;
+}) {
+  const toneClass = tone === "success" ? "bg-secondary-container text-primary" : tone === "muted" ? "bg-surface-container text-on-surface-variant" : "bg-primary-fixed text-primary";
+
+  return (
+    <Card className="border-outline-variant/70 bg-white shadow-soft-saas">
+      <CardContent className="flex min-h-28 items-center gap-4 p-5">
+        <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${toneClass}`}>{icon}</div>
+        <div className="min-w-0">
+          <p className="truncate text-xs font-extrabold uppercase tracking-wide text-on-surface-variant">{label}</p>
+          <p className="mt-1 truncate text-xl font-extrabold text-on-surface">{value}</p>
+          <p className="mt-1 truncate text-xs font-semibold text-on-surface-variant">{note}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SettingsNavButton({
+  active,
+  description,
+  icon: Icon,
+  label,
+  onClick
+}: {
+  active: boolean;
+  description: string;
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
+        active
+          ? "border-primary/20 bg-secondary-container text-primary"
+          : "border-transparent bg-white text-on-surface hover:border-outline-variant/70 hover:bg-surface-container-low"
+      }`}
+    >
+      <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${active ? "bg-white text-primary" : "bg-surface-container text-on-surface-variant"}`}>
+        <Icon size={18} />
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-extrabold">{label}</span>
+        <span className="mt-0.5 block truncate text-xs font-semibold opacity-70">{description}</span>
+      </span>
+    </button>
+  );
+}
+
+function SettingsPanel({
+  badge,
+  children,
+  description,
+  icon,
+  title
+}: {
+  badge: string;
+  children: ReactNode;
+  description: string;
+  icon: ReactNode;
+  title: string;
+}) {
+  return (
+    <Card className="border-outline-variant/70 bg-white shadow-soft-saas">
+      <CardHeader className="border-b border-outline-variant/60">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <Badge variant="secondary" className="gap-2">
+              {icon}
+              {badge}
+            </Badge>
+            <CardTitle className="mt-4 text-2xl">{title}</CardTitle>
+            <CardDescription className="mt-2 max-w-2xl">{description}</CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-5 sm:p-6">{children}</CardContent>
+    </Card>
+  );
+}
+
+function SettingsGroup({ children, text, title }: { children: ReactNode; text: string; title: string }) {
+  return (
+    <section className="rounded-xl border border-outline-variant/70 bg-surface-container-lowest p-4">
+      <div className="mb-4">
+        <h3 className="text-base font-extrabold text-on-surface">{title}</h3>
+        <p className="mt-1 text-sm leading-6 text-on-surface-variant">{text}</p>
+      </div>
+      <div className="space-y-4">{children}</div>
+    </section>
+  );
+}
+
+function ToggleCard({
+  checked,
+  description,
+  disabled = false,
+  label,
+  onChange
+}: {
+  checked: boolean;
+  description: string;
+  disabled?: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className={`flex cursor-pointer items-center justify-between gap-4 rounded-xl border p-4 transition-colors ${disabled ? "border-outline-variant/50 bg-surface-container-low opacity-70" : "border-outline-variant/70 bg-white hover:border-primary/25"}`}>
+      <span className="min-w-0">
+        <span className="flex items-center gap-2 text-sm font-extrabold text-on-surface">
+          {checked ? <CheckCircle2 size={16} className="text-primary" /> : null}
+          {label}
+        </span>
+        <span className="mt-1 block text-xs leading-5 text-on-surface-variant">{description}</span>
+      </span>
+      <span className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${checked ? "bg-primary" : "bg-outline-variant"}`}>
+        <input
+          type="checkbox"
+          checked={checked}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.checked)}
+          className="sr-only"
+        />
+        <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${checked ? "translate-x-6" : "translate-x-1"}`} />
+      </span>
+    </label>
   );
 }
 
@@ -375,15 +775,51 @@ function Field({ children, label }: { children: ReactNode; label: string }) {
   );
 }
 
-function Toggle({ checked, description, label, onChange }: { checked: boolean; description: string; label: string; onChange: (checked: boolean) => void }) {
+function SelectField({
+  disabled = false,
+  onChange,
+  options,
+  value
+}: {
+  disabled?: boolean;
+  onChange: (value: string) => void;
+  options: { label: string; value: string }[];
+  value: string;
+}) {
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-outline-variant/70 bg-white p-4">
-      <span>
-        <span className="block text-sm font-bold text-on-surface">{label}</span>
-        <span className="mt-1 block text-xs leading-5 text-on-surface-variant">{description}</span>
-      </span>
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="h-5 w-5 rounded border-outline-variant text-primary" />
-    </label>
+    <select
+      disabled={disabled}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm font-semibold text-on-surface outline-none transition-colors focus:border-primary/30 focus:ring-2 focus:ring-ring/20 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function ImpactBox({ text, title }: { text: string; title: string }) {
+  return (
+    <div className="rounded-xl border border-primary/15 bg-secondary-container/70 p-4">
+      <p className="text-sm font-extrabold text-primary">{title}</p>
+      <p className="mt-1 text-sm leading-6 text-on-surface-variant">{text}</p>
+    </div>
+  );
+}
+
+function SectionActions({ dirty, saveLabel, saving }: { dirty: boolean; saveLabel: string; saving: boolean }) {
+  return (
+    <div className="flex flex-col gap-3 border-t border-outline-variant/60 pt-5 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-sm font-semibold text-on-surface-variant">{dirty ? "You have unsaved changes." : "All changes are saved."}</p>
+      <Button type="submit" disabled={saving || !dirty} className="sm:w-fit">
+        <Save size={17} />
+        {saving ? "Saving..." : saveLabel}
+      </Button>
+    </div>
   );
 }
 
@@ -409,4 +845,8 @@ function toBillingForm(settings: BranchBillingSettings): SaveBranchBillingSettin
     staffCanApplyDiscount: settings.staffCanApplyDiscount,
     roundingMode: settings.roundingMode
   };
+}
+
+function sameJson(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
