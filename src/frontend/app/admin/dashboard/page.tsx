@@ -258,7 +258,7 @@ export default function AdminDashboardPage() {
               <DashboardSkeleton />
             ) : (
               <>
-                <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <section className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
                   <KpiCard
                     icon={<TrendingUp size={20} />}
                     label="Total revenue"
@@ -289,14 +289,14 @@ export default function AdminDashboardPage() {
                   />
                 </section>
 
-                <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                   <MiniMetric icon={<Clock3 size={18} />} label="Avg ready time" value={`${Math.round(dashboardData?.currentSummary.averageReadyMinutes ?? 0)} min`} />
                   <MiniMetric icon={<ClipboardList size={18} />} label="Open orders" value={formatNumber(openOrders)} />
                   <MiniMetric icon={<BellRing size={18} />} label="Waiter calls" value={formatNumber(pendingWaiterCalls)} />
                   <MiniMetric icon={<AlertTriangle size={18} />} label="Branch alerts" value={formatNumber(healthWarnings.length)} />
                 </section>
 
-                <section className="grid gap-4 xl:grid-cols-[1.35fr_0.85fr]">
+                <section className="grid gap-4">
                   <Card className="overflow-hidden">
                     <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
@@ -309,7 +309,9 @@ export default function AdminDashboardPage() {
                       <LineTrendChart data={trendData} />
                     </CardContent>
                   </Card>
+                </section>
 
+                <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
                   <Card>
                     <CardHeader>
                       <CardTitle>{branchScopeId === AllBranchesScope ? "Branch performance" : "Orders by status"}</CardTitle>
@@ -325,9 +327,7 @@ export default function AdminDashboardPage() {
                       )}
                     </CardContent>
                   </Card>
-                </section>
 
-                <section className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
                   <Card>
                     <CardHeader>
                       <CardTitle>Top selling items</CardTitle>
@@ -337,7 +337,9 @@ export default function AdminDashboardPage() {
                       <HorizontalBarChart data={topItemData} valueFormatter={formatCompactMoney} emptyLabel="No item sales yet" />
                     </CardContent>
                   </Card>
+                </section>
 
+                <section className="grid gap-4">
                   <Card>
                     <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
@@ -764,18 +766,24 @@ function KpiCard({
       : "bg-surface-container text-on-surface-variant";
 
   return (
-    <Card className="overflow-hidden">
-      <CardContent className="p-5">
+    <Card className="overflow-hidden border-outline-variant/80 bg-white shadow-soft-saas">
+      <CardContent className="flex min-h-[13rem] flex-col p-5">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="mb-3 grid h-10 w-10 place-items-center rounded-xl bg-secondary-container text-primary">{icon}</div>
-            <p className="truncate text-sm font-bold text-on-surface-variant">{label}</p>
-            <p className="mt-2 truncate text-3xl font-extrabold text-on-surface">{value}</p>
-            <p className="mt-1 truncate text-xs font-semibold text-on-surface-variant">{note ?? "vs previous period"}</p>
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-secondary-container text-primary">{icon}</div>
+            <p className="truncate text-sm font-extrabold text-on-surface-variant">{label}</p>
           </div>
           {change ? <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-extrabold ${toneClass}`}>{change.label}</span> : null}
         </div>
-        <Sparkline values={sparkline} />
+        <div className="mt-auto grid grid-cols-[minmax(0,1fr)_8.5rem] items-end gap-4">
+          <div className="min-w-0">
+            <p className="truncate text-[2rem] font-extrabold leading-tight text-on-surface">{value}</p>
+            <p className="mt-2 truncate text-xs font-semibold text-on-surface-variant">{note ?? "vs previous period"}</p>
+          </div>
+          <div className="min-w-0">
+            <Sparkline values={sparkline} className="h-14 w-full" />
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
@@ -783,23 +791,23 @@ function KpiCard({
 
 function MiniMetric({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
-    <Card>
-      <CardContent className="flex items-center gap-3 p-4">
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-fixed text-primary">{icon}</div>
+    <Card className="border-outline-variant/80 bg-white shadow-soft-saas">
+      <CardContent className="flex min-h-24 items-center gap-4 p-5">
+        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary-fixed text-primary">{icon}</div>
         <div className="min-w-0">
-          <p className="truncate text-xs font-bold uppercase tracking-wide text-on-surface-variant">{label}</p>
-          <p className="mt-1 truncate text-xl font-extrabold text-on-surface">{value}</p>
+          <p className="truncate text-[11px] font-extrabold uppercase tracking-wide text-on-surface-variant">{label}</p>
+          <p className="mt-1 truncate text-2xl font-extrabold leading-tight text-on-surface">{value}</p>
         </div>
       </CardContent>
     </Card>
   );
 }
 
-function Sparkline({ values }: { values: number[] }) {
+function Sparkline({ className = "h-12 w-full", values }: { className?: string; values: number[] }) {
   const points = buildSvgPoints(values.length > 0 ? values : [0, 0], 130, 40, 5);
 
   return (
-    <svg className="mt-4 h-10 w-full" viewBox="0 0 130 40" role="img" aria-label="Trend">
+    <svg className={className} viewBox="0 0 130 40" role="img" aria-label="Trend">
       <path d={`${points.areaPath} L 125 38 L 5 38 Z`} fill="#dfe9f8" opacity="0.9" />
       <polyline points={points.polyline} fill="none" stroke="#6f94c7" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
@@ -816,30 +824,28 @@ function LineTrendChart({ data }: { data: TrendPoint[] }) {
   }
 
   return (
-    <div className="overflow-x-auto">
-      <div className="min-w-[42rem]">
-        <div className="mb-4 flex flex-wrap items-center gap-4 text-xs font-bold text-on-surface-variant">
-          <LegendDot color="#5d8fd8" label="Revenue" />
-          <LegendDot color="#64c7c4" label="Orders" />
-          <span className="ml-auto">Peak {formatCompactMoney(maxRevenue)}</span>
-        </div>
-        <svg className="h-72 w-full" viewBox="0 0 720 280" role="img" aria-label="Sales trend chart">
-          {[40, 90, 140, 190, 240].map((y) => (
-            <line key={y} x1="36" y1={y} x2="700" y2={y} stroke="#d6dfd1" strokeWidth="1" />
-          ))}
-          <path d={`${revenuePoints.areaPath} L 694 254 L 26 254 Z`} fill="#dfe9f8" opacity="0.9" />
-          <polyline points={revenuePoints.polyline} fill="none" stroke="#5d8fd8" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-          <polyline points={orderPoints.polyline} fill="none" stroke="#64c7c4" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-          {data.map((point, index) => {
-            const x = revenuePoints.coordinates[index]?.x ?? 0;
-            return (
-              <text key={`${point.label}-${index}`} x={x} y="274" textAnchor="middle" className="fill-on-surface-variant text-[12px] font-semibold">
-                {index % Math.ceil(data.length / 8) === 0 ? point.label : ""}
-              </text>
-            );
-          })}
-        </svg>
+    <div className="w-full">
+      <div className="mb-4 flex flex-wrap items-center gap-4 text-xs font-bold text-on-surface-variant">
+        <LegendDot color="#5d8fd8" label="Revenue" />
+        <LegendDot color="#64c7c4" label="Orders" />
+        <span className="ml-auto">Peak {formatCompactMoney(maxRevenue)}</span>
       </div>
+      <svg className="h-72 w-full" viewBox="0 0 720 280" role="img" aria-label="Sales trend chart">
+        {[40, 90, 140, 190, 240].map((y) => (
+          <line key={y} x1="36" y1={y} x2="700" y2={y} stroke="#d6dfd1" strokeWidth="1" />
+        ))}
+        <path d={`${revenuePoints.areaPath} L 694 254 L 26 254 Z`} fill="#dfe9f8" opacity="0.9" />
+        <polyline points={revenuePoints.polyline} fill="none" stroke="#5d8fd8" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+        <polyline points={orderPoints.polyline} fill="none" stroke="#64c7c4" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+        {data.map((point, index) => {
+          const x = revenuePoints.coordinates[index]?.x ?? 0;
+          return (
+            <text key={`${point.label}-${index}`} x={x} y="274" textAnchor="middle" className="fill-on-surface-variant text-[12px] font-semibold">
+              {index % Math.ceil(data.length / 8) === 0 ? point.label : ""}
+            </text>
+          );
+        })}
+      </svg>
     </div>
   );
 }
