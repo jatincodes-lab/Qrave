@@ -251,8 +251,8 @@ export default function AdminDashboardPage() {
                 <section className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
                   <KpiCard
                     icon={<TrendingUp size={20} />}
-                    label="Revenue"
-                    value={formatCompactMoney(dashboardData?.currentSummary.totalOrderValue ?? 0)}
+                    label="Total revenue"
+                    value={formatMoney(dashboardData?.currentSummary.totalOrderValue ?? 0)}
                     change={formatChange(dashboardData?.currentSummary.totalOrderValue ?? 0, dashboardData?.previousSummary.totalOrderValue ?? 0)}
                     sparkline={trendData.map((point) => point.revenue)}
                   />
@@ -265,8 +265,8 @@ export default function AdminDashboardPage() {
                   />
                   <KpiCard
                     icon={<ClipboardList size={20} />}
-                    label="Avg order"
-                    value={formatCompactMoney(dashboardData?.currentSummary.averageOrderValue ?? 0)}
+                    label="Average order value"
+                    value={formatMoney(dashboardData?.currentSummary.averageOrderValue ?? 0)}
                     change={formatChange(dashboardData?.currentSummary.averageOrderValue ?? 0, dashboardData?.previousSummary.averageOrderValue ?? 0)}
                     sparkline={trendData.map((point) => point.revenue / Math.max(point.orders, 1))}
                   />
@@ -710,6 +710,7 @@ function KpiCard({
   icon,
   label,
   note,
+  sparkline,
   value
 }: {
   change?: { label: string; tone: "up" | "down" | "neutral" };
@@ -726,17 +727,20 @@ function KpiCard({
       : "bg-surface-container text-on-surface-variant";
 
   return (
-    <Card className="rounded-xl border-0 bg-surface-container-low shadow-none">
-      <CardContent className="min-h-[8.75rem] p-4">
-        <div className="flex items-center justify-between gap-3">
-          <p className="flex min-w-0 items-center gap-2 truncate text-[11px] font-extrabold uppercase tracking-wide text-on-surface-variant">
-            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white text-primary">{icon}</span>
+    <Card className="rounded-xl border-outline-variant/70 bg-white shadow-sm">
+      <CardContent className="flex min-h-[13.5rem] flex-col p-5">
+        <div className="flex items-start justify-between gap-3">
+          <p className="flex min-w-0 items-center gap-3 text-sm font-extrabold leading-5 text-on-surface-variant">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-secondary-container text-primary">{icon}</span>
             {label}
           </p>
           {change ? <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-extrabold ${toneClass}`}>{change.label}</span> : null}
         </div>
-        <p className="mt-5 truncate text-[1.75rem] font-semibold leading-tight text-on-surface">{value}</p>
-        <p className="mt-1 truncate text-xs font-semibold text-on-surface-variant">{note ?? "vs previous period"}</p>
+        <div className="mt-8">
+          <p className="text-[1.75rem] font-semibold leading-tight text-on-surface">{value}</p>
+          <p className="mt-1 text-xs font-semibold text-on-surface-variant">{note ?? "vs previous period"}</p>
+        </div>
+        <Sparkline values={sparkline ?? []} />
       </CardContent>
     </Card>
   );
@@ -753,6 +757,17 @@ function MiniMetric({ icon, label, value }: { icon: ReactNode; label: string; va
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function Sparkline({ values }: { values: number[] }) {
+  const points = buildSvgPoints(values.length > 0 ? values : [0, 0], 130, 40, 5);
+
+  return (
+    <svg className="mt-auto h-14 w-full pt-3" viewBox="0 0 130 40" role="img" aria-label="Trend">
+      <path d={`${points.areaPath} L 125 38 L 5 38 Z`} fill="#dfe9f8" opacity="0.9" />
+      <polyline points={points.polyline} fill="none" stroke="#6f94c7" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
