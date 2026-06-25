@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { KeyboardEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { KeyboardEvent, ReactNode, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   BarChart3,
   Bell,
@@ -27,7 +27,7 @@ import {
   Users,
   X
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Button } from "./ui/button";
 import {
   getAdminNotifications,
@@ -53,6 +53,14 @@ type AdminShellProps = {
   onSelectedBranchChange?: (branchId: string) => void;
   selectedBranchId?: string;
 };
+
+type AdminShellChromeProps = Omit<AdminShellProps, "children">;
+
+type AdminShellHostContextValue = {
+  register: (props: AdminShellChromeProps) => void;
+};
+
+const AdminShellHostContext = createContext<AdminShellHostContextValue | null>(null);
 
 type NavItem = {
   id: AdminShellProps["active"];
@@ -98,8 +106,108 @@ export function AdminShell({
   onSelectedBranchChange,
   selectedBranchId = ""
 }: AdminShellProps) {
+  const host = useContext(AdminShellHostContext);
+
+  if (host) {
+    return (
+      <AdminShellPageRegistration
+        active={active}
+        branchName={branchName}
+        branches={branches}
+        onLogout={onLogout}
+        onSelectedBranchChange={onSelectedBranchChange}
+        selectedBranchId={selectedBranchId}
+      >
+        {children}
+      </AdminShellPageRegistration>
+    );
+  }
+
+  return (
+    <AdminShellChrome
+      active={active}
+      branchName={branchName}
+      branches={branches}
+      onLogout={onLogout}
+      onSelectedBranchChange={onSelectedBranchChange}
+      selectedBranchId={selectedBranchId}
+    >
+      {children}
+    </AdminShellChrome>
+  );
+}
+
+export function AdminShellHost({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const pathname = usePathname();
+  const defaultLogout = useCallback(() => {
+    clearAccessToken();
+    router.replace("/admin/login?reason=logged-out");
+  }, [router]);
+  const [chromeProps, setChromeProps] = useState<AdminShellChromeProps>({
+    active: activeFromPathname(pathname),
+    branchName: "Restaurant workspace",
+    branches: [],
+    onLogout: defaultLogout,
+    selectedBranchId: ""
+  });
+
+  const register = useCallback((props: AdminShellChromeProps) => {
+    setChromeProps(props);
+  }, []);
+
+  const contextValue = useMemo(() => ({ register }), [register]);
+
+  useEffect(() => {
+    const routeActive = activeFromPathname(pathname);
+    setChromeProps((current) => (current.active === routeActive ? current : { ...current, active: routeActive }));
+  }, [pathname]);
+
+  return (
+    <AdminShellHostContext.Provider value={contextValue}>
+      <AdminShellChrome {...chromeProps} onLogout={chromeProps.onLogout ?? defaultLogout}>
+        {children}
+      </AdminShellChrome>
+    </AdminShellHostContext.Provider>
+  );
+}
+
+function AdminShellPageRegistration({
+  active,
+  branchName,
+  branches,
+  children,
+  onLogout,
+  onSelectedBranchChange,
+  selectedBranchId
+}: AdminShellProps) {
+  const host = useContext(AdminShellHostContext);
+
+  useLayoutEffect(() => {
+    host?.register({
+      active,
+      branchName,
+      branches,
+      onLogout,
+      onSelectedBranchChange,
+      selectedBranchId
+    });
+  }, [active, branchName, branches, host, onLogout, onSelectedBranchChange, selectedBranchId]);
+
+  return <>{children}</>;
+}
+
+function AdminShellChrome({
+  active,
+  branchName = "Main Branch",
+  branches = [],
+  children,
+  onLogout,
+  onSelectedBranchChange,
+  selectedBranchId = ""
+}: AdminShellProps) {
+  const router = useRouter();
+  const [isCollapsed, setIsCollapsed] = useState(() => readStoredSidebarCollapsed());
   const [roleCode, setRoleCode] = useState<string | null>(null);
   const [adminSession, setAdminSession] = useState<StoredAdminSession | null>(null);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -324,7 +432,7 @@ export function AdminShell({
               </p>
               <div className="space-y-1">
                 {group.items.map((item) => (
-                  <NavButton key={item.id} item={item} active={item.id === active} collapsed={isCollapsed} />
+                  <NavButton key={item.id} item={item} active={item.id === active} collapsed={isCollapsed} onNavigate={() => setIsMobileOpen(false)} />
                 ))}
               </div>
             </div>
@@ -673,7 +781,46 @@ function formatRelativeTime(value: string) {
   return `${diffDays}d ago`;
 }
 
-function NavButton({ item, active, collapsed }: { item: NavItem; active: boolean; collapsed: boolean }) {
+function activeFromPathname(pathname: string | null): AdminShellProps["active"] {
+  if (!pathname) {
+    return "dashboard";
+  }
+
+  const segment = pathname.split("/").filter(Boolean)[1];
+  switch (segment) {
+    case "analytics":
+    case "billing":
+    case "branches":
+    case "campaigns":
+    case "customers":
+    case "kitchen":
+    case "menu":
+    case "offers":
+    case "orders":
+    case "reports":
+    case "settings":
+    case "staff":
+      return segment;
+    case "setup":
+      return "dashboard";
+    default:
+      return "dashboard";
+  }
+}
+
+function readStoredSidebarCollapsed(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  try {
+    return window.localStorage.getItem(SidebarCollapsedStorageKey) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function NavButton({ item, active, collapsed, onNavigate }: { item: NavItem; active: boolean; collapsed: boolean; onNavigate: () => void }) {
   const Icon = item.icon;
   const classes = [
     "group flex h-12 items-center rounded-xl text-sm font-semibold transition-colors",
@@ -697,7 +844,7 @@ function NavButton({ item, active, collapsed }: { item: NavItem; active: boolean
 
   if (item.href && !item.soon) {
     return (
-      <Link href={item.href} className={classes} title={collapsed ? item.label : undefined}>
+      <Link href={item.href} className={classes} title={collapsed ? item.label : undefined} onClick={onNavigate}>
         {content}
       </Link>
     );
