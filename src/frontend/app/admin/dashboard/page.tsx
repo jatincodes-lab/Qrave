@@ -6,7 +6,6 @@ import type { ReactNode } from "react";
 import {
   AlertTriangle,
   ArrowRight,
-  BarChart3,
   BellRing,
   CalendarDays,
   ClipboardList,
@@ -198,21 +197,16 @@ export default function AdminDashboardPage() {
       selectedBranchId={workspace.selectedBranchId}
     >
       <div className="mx-auto max-w-7xl space-y-6">
-        <header className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <header className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <Badge variant="secondary" className="gap-2">
-              <BarChart3 size={14} />
-              Sales dashboard
-            </Badge>
-            <h1 className="mt-4 text-headline-lg text-primary">Branch performance</h1>
-            <p className="mt-2 max-w-2xl text-body-md text-on-surface-variant">
+            <h1 className="text-2xl font-semibold tracking-normal text-on-surface">Branch performance</h1>
+            <p className="mt-1 max-w-2xl text-sm font-medium text-on-surface-variant">
               Revenue, orders, customers, and live operations for the branches assigned to this account.
             </p>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <DashboardSelect
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <DashboardPillSelect
               icon={<CalendarDays size={16} />}
-              label="Date range"
               value={dateRangeKey}
               onChange={(value) => setDateRangeKey(value as DateRangeKey)}
               options={[
@@ -222,9 +216,8 @@ export default function AdminDashboardPage() {
                 { label: "This month", value: "month" }
               ]}
             />
-            <DashboardSelect
+            <DashboardPillSelect
               icon={<Store size={16} />}
-              label="Branch"
               value={branchScopeId}
               onChange={setBranchScopeId}
               options={[
@@ -232,7 +225,7 @@ export default function AdminDashboardPage() {
                 ...activeBranches.map((branch) => ({ label: branch.name, value: branch.branchId }))
               ]}
             />
-            <Button type="button" variant="outline" onClick={() => setReloadKey((current) => current + 1)} disabled={isLoadingDashboard || !hasBranchData} className="h-11">
+            <Button type="button" variant="outline" onClick={() => setReloadKey((current) => current + 1)} disabled={isLoadingDashboard || !hasBranchData} className="h-9 rounded-lg border-outline-variant/70 bg-white px-3 text-sm shadow-none">
               <RefreshCw size={16} className={isLoadingDashboard ? "animate-spin" : ""} />
               Refresh
             </Button>
@@ -247,22 +240,19 @@ export default function AdminDashboardPage() {
           <EmptyBranchState />
         ) : (
           <>
-            <div className="flex flex-col gap-2 rounded-xl border border-outline-variant/70 bg-white px-4 py-3 text-sm text-on-surface-variant sm:flex-row sm:items-center sm:justify-between">
-              <span>
-                Showing {branchScopeLabel} from {formatDisplayDate(range.dateFrom)} to {formatDisplayDate(range.dateTo)}
-              </span>
-              <span className="font-semibold">{lastUpdatedAt ? `Updated ${formatTime(lastUpdatedAt)}` : "Waiting for data"}</span>
-            </div>
+            <p className="text-xs font-semibold text-on-surface-variant">
+              {formatDisplayDate(range.dateFrom)} - {formatDisplayDate(range.dateTo)} · {branchScopeLabel} · {lastUpdatedAt ? `Updated ${formatTime(lastUpdatedAt)}` : "Waiting for data"}
+            </p>
 
             {isLoadingDashboard && !dashboardData ? (
               <DashboardSkeleton />
             ) : (
               <>
-                <section className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+                <section className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
                   <KpiCard
                     icon={<TrendingUp size={20} />}
-                    label="Total revenue"
-                    value={formatMoney(dashboardData?.currentSummary.totalOrderValue ?? 0)}
+                    label="Revenue"
+                    value={formatCompactMoney(dashboardData?.currentSummary.totalOrderValue ?? 0)}
                     change={formatChange(dashboardData?.currentSummary.totalOrderValue ?? 0, dashboardData?.previousSummary.totalOrderValue ?? 0)}
                     sparkline={trendData.map((point) => point.revenue)}
                   />
@@ -275,8 +265,8 @@ export default function AdminDashboardPage() {
                   />
                   <KpiCard
                     icon={<ClipboardList size={20} />}
-                    label="Average order value"
-                    value={formatMoney(dashboardData?.currentSummary.averageOrderValue ?? 0)}
+                    label="Avg order"
+                    value={formatCompactMoney(dashboardData?.currentSummary.averageOrderValue ?? 0)}
                     change={formatChange(dashboardData?.currentSummary.averageOrderValue ?? 0, dashboardData?.previousSummary.averageOrderValue ?? 0)}
                     sparkline={trendData.map((point) => point.revenue / Math.max(point.orders, 1))}
                   />
@@ -289,7 +279,7 @@ export default function AdminDashboardPage() {
                   />
                 </section>
 
-                <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <MiniMetric icon={<Clock3 size={18} />} label="Avg ready time" value={`${Math.round(dashboardData?.currentSummary.averageReadyMinutes ?? 0)} min`} />
                   <MiniMetric icon={<ClipboardList size={18} />} label="Open orders" value={formatNumber(openOrders)} />
                   <MiniMetric icon={<BellRing size={18} />} label="Waiter calls" value={formatNumber(pendingWaiterCalls)} />
@@ -297,24 +287,34 @@ export default function AdminDashboardPage() {
                 </section>
 
                 <section className="grid gap-4">
-                  <Card className="overflow-hidden">
-                    <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <Card className="overflow-hidden rounded-xl border-outline-variant/70 bg-white shadow-sm">
+                    <CardHeader className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
                       <div>
-                        <CardTitle>Sales trends over time</CardTitle>
-                        <CardDescription>Revenue and order volume for the selected range.</CardDescription>
+                        <CardTitle className="text-base">Sales over time</CardTitle>
+                        <CardDescription>Daily revenue and order volume · {formatShortRange(range)}</CardDescription>
                       </div>
                       <Badge variant="outline">{getRangeLabel(dateRangeKey)}</Badge>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="px-5 pb-5 pt-0">
                       <LineTrendChart data={trendData} />
                     </CardContent>
                   </Card>
                 </section>
 
-                <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-                  <Card>
+                <section className="grid gap-4 xl:grid-cols-2">
+                  <Card className="rounded-xl border-outline-variant/70 bg-white shadow-sm">
                     <CardHeader>
-                      <CardTitle>{branchScopeId === AllBranchesScope ? "Branch performance" : "Orders by status"}</CardTitle>
+                      <CardTitle className="text-base">Top selling items</CardTitle>
+                      <CardDescription>Ranked by revenue this week.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <HorizontalBarChart data={topItemData} valueFormatter={formatCompactMoney} emptyLabel="No item sales yet" />
+                    </CardContent>
+                  </Card>
+
+                  <Card className="rounded-xl border-outline-variant/70 bg-white shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-base">{branchScopeId === AllBranchesScope ? "Branch performance" : "Orders by status"}</CardTitle>
                       <CardDescription>
                         {branchScopeId === AllBranchesScope ? "Revenue by assigned branch." : "Current range order mix."}
                       </CardDescription>
@@ -327,73 +327,36 @@ export default function AdminDashboardPage() {
                       )}
                     </CardContent>
                   </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Top selling items</CardTitle>
-                      <CardDescription>Ranked by revenue in the selected range.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <HorizontalBarChart data={topItemData} valueFormatter={formatCompactMoney} emptyLabel="No item sales yet" />
-                    </CardContent>
-                  </Card>
                 </section>
 
                 <section className="grid gap-4">
-                  <Card>
-                    <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <CardTitle>Recent sales orders</CardTitle>
-                        <CardDescription>Latest orders from the selected branch scope.</CardDescription>
-                      </div>
-                      <Link href="/admin/reports" className="inline-flex items-center gap-2 text-sm font-bold text-primary hover:text-primary-container">
-                        View reports
-                        <ArrowRight size={15} />
-                      </Link>
-                    </CardHeader>
-                    <CardContent>
-                      <RecentOrdersTable orders={recentOrders} showBranch={branchScopeId === AllBranchesScope} />
-                    </CardContent>
-                  </Card>
-                </section>
-
-                <section className="grid gap-4 lg:grid-cols-3">
-                  <AttentionPanel
-                    title="Live orders"
-                    description="Active kitchen and service flow."
-                    emptyLabel="No active orders"
-                    items={(dashboardData?.activeOrders ?? []).slice(0, 5).map((order) => ({
-                      key: order.orderId,
-                      title: `Table ${order.tableName}`,
-                      meta: `${order.branchName} - ${order.orderStatusCode}`,
-                      value: formatMoney(order.totalAmount),
-                      href: "/admin/orders"
-                    }))}
-                  />
-                  <AttentionPanel
-                    title="Waiter calls"
-                    description="Requests still needing action."
-                    emptyLabel="No pending waiter calls"
-                    items={(dashboardData?.waiterCalls ?? []).slice(0, 5).map((call) => ({
-                      key: call.waiterCallId,
-                      title: `Table ${call.tableName}`,
-                      meta: `${call.branchName} - ${call.statusCode}`,
-                      value: formatRelativeTime(call.createdAtUtc),
-                      href: "/admin/orders"
-                    }))}
-                  />
-                  <AttentionPanel
-                    title="Branch alerts"
-                    description="Operational issues from current dashboard data."
-                    emptyLabel="No operational alerts"
-                    items={healthWarnings.slice(0, 6).map((warning) => ({
+                  <AlertCards
+                    items={healthWarnings.slice(0, 4).map((warning) => ({
                       key: `${warning.branchId}-${warning.label}`,
                       title: warning.label,
                       meta: warning.branchName,
-                      value: "Fix",
-                      href: warning.href
+                      href: warning.href,
+                      tone: warning.label.toLowerCase().includes("30m") || warning.label.toLowerCase().includes("cancellation") ? "error" : "warning"
                     }))}
                   />
+                </section>
+
+                <section className="grid gap-4">
+                  <Card className="rounded-xl border-outline-variant/70 bg-white shadow-sm">
+                    <CardHeader className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <CardTitle className="text-base">Recent orders</CardTitle>
+                        <CardDescription>Latest from {branchScopeId === AllBranchesScope ? "all branches" : branchScopeLabel}.</CardDescription>
+                      </div>
+                      <Link href="/admin/reports" className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-outline-variant/70 bg-surface-container-low px-3 text-xs font-bold text-on-surface-variant hover:bg-surface-container">
+                        View all
+                        <ArrowRight size={15} />
+                      </Link>
+                    </CardHeader>
+                    <CardContent className="px-5 pb-5 pt-0">
+                      <RecentOrdersTable orders={recentOrders} showBranch={branchScopeId === AllBranchesScope} />
+                    </CardContent>
+                  </Card>
                 </section>
               </>
             )}
@@ -710,28 +673,26 @@ function buildHealthWarnings(branchStats: BranchDashboardStats[]) {
   });
 }
 
-function DashboardSelect({
+function DashboardPillSelect({
   icon,
-  label,
   onChange,
   options,
   value
 }: {
   icon: ReactNode;
-  label: string;
   onChange: (value: string) => void;
   options: { label: string; value: string }[];
   value: string;
 }) {
   return (
-    <label className="block min-w-[12rem]">
-      <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-on-surface-variant">{label}</span>
+    <label className="block min-w-[10rem]">
+      <span className="sr-only">Dashboard filter</span>
       <span className="relative block">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-primary/75">{icon}</span>
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">{icon}</span>
         <select
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="h-11 w-full appearance-none rounded-xl border border-outline-variant/70 bg-white py-1 pl-10 pr-9 text-sm font-bold text-on-surface shadow-sm outline-none transition-colors hover:border-primary/25 focus:border-primary/30 focus:ring-2 focus:ring-ring/15"
+          className="h-9 w-full appearance-none rounded-lg border border-outline-variant/70 bg-surface-container-low py-1 pl-9 pr-8 text-sm font-semibold text-on-surface-variant outline-none transition-colors hover:bg-surface-container focus:border-primary/30 focus:ring-2 focus:ring-ring/15"
         >
           {options.map((option) => (
             <option key={option.value} value={option.value}>
@@ -749,41 +710,33 @@ function KpiCard({
   icon,
   label,
   note,
-  sparkline,
   value
 }: {
   change?: { label: string; tone: "up" | "down" | "neutral" };
   icon: ReactNode;
   label: string;
   note?: string;
-  sparkline: number[];
+  sparkline?: number[];
   value: string;
 }) {
   const toneClass = change?.tone === "up"
     ? "bg-emerald-100 text-emerald-800"
     : change?.tone === "down"
-      ? "bg-orange-100 text-orange-800"
+      ? "bg-red-100 text-red-800"
       : "bg-surface-container text-on-surface-variant";
 
   return (
-    <Card className="overflow-hidden border-outline-variant/80 bg-white shadow-soft-saas">
-      <CardContent className="flex min-h-[13rem] flex-col p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-secondary-container text-primary">{icon}</div>
-            <p className="truncate text-sm font-extrabold text-on-surface-variant">{label}</p>
-          </div>
+    <Card className="rounded-xl border-0 bg-surface-container-low shadow-none">
+      <CardContent className="min-h-[8.75rem] p-4">
+        <div className="flex items-center justify-between gap-3">
+          <p className="flex min-w-0 items-center gap-2 truncate text-[11px] font-extrabold uppercase tracking-wide text-on-surface-variant">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white text-primary">{icon}</span>
+            {label}
+          </p>
           {change ? <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-extrabold ${toneClass}`}>{change.label}</span> : null}
         </div>
-        <div className="mt-auto grid grid-cols-[minmax(0,1fr)_8.5rem] items-end gap-4">
-          <div className="min-w-0">
-            <p className="truncate text-[2rem] font-extrabold leading-tight text-on-surface">{value}</p>
-            <p className="mt-2 truncate text-xs font-semibold text-on-surface-variant">{note ?? "vs previous period"}</p>
-          </div>
-          <div className="min-w-0">
-            <Sparkline values={sparkline} className="h-14 w-full" />
-          </div>
-        </div>
+        <p className="mt-5 truncate text-[1.75rem] font-semibold leading-tight text-on-surface">{value}</p>
+        <p className="mt-1 truncate text-xs font-semibold text-on-surface-variant">{note ?? "vs previous period"}</p>
       </CardContent>
     </Card>
   );
@@ -791,26 +744,15 @@ function KpiCard({
 
 function MiniMetric({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
-    <Card className="border-outline-variant/80 bg-white shadow-soft-saas">
-      <CardContent className="flex min-h-24 items-center gap-4 p-5">
-        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-primary-fixed text-primary">{icon}</div>
+    <Card className="rounded-xl border-outline-variant/70 bg-white shadow-sm">
+      <CardContent className="flex min-h-[4.75rem] items-center gap-3 p-4">
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-secondary-container text-primary">{icon}</div>
         <div className="min-w-0">
-          <p className="truncate text-[11px] font-extrabold uppercase tracking-wide text-on-surface-variant">{label}</p>
-          <p className="mt-1 truncate text-2xl font-extrabold leading-tight text-on-surface">{value}</p>
+          <p className="truncate text-xl font-semibold leading-none text-on-surface">{value}</p>
+          <p className="mt-1 truncate text-[11px] font-bold uppercase tracking-wide text-on-surface-variant">{label}</p>
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function Sparkline({ className = "h-12 w-full", values }: { className?: string; values: number[] }) {
-  const points = buildSvgPoints(values.length > 0 ? values : [0, 0], 130, 40, 5);
-
-  return (
-    <svg className={className} viewBox="0 0 130 40" role="img" aria-label="Trend">
-      <path d={`${points.areaPath} L 125 38 L 5 38 Z`} fill="#dfe9f8" opacity="0.9" />
-      <polyline points={points.polyline} fill="none" stroke="#6f94c7" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   );
 }
 
@@ -830,7 +772,7 @@ function LineTrendChart({ data }: { data: TrendPoint[] }) {
         <LegendDot color="#64c7c4" label="Orders" />
         <span className="ml-auto">Peak {formatCompactMoney(maxRevenue)}</span>
       </div>
-      <svg className="h-72 w-full" viewBox="0 0 720 280" role="img" aria-label="Sales trend chart">
+        <svg className="h-48 w-full sm:h-56" viewBox="0 0 720 280" role="img" aria-label="Sales trend chart">
         {[40, 90, 140, 190, 240].map((y) => (
           <line key={y} x1="36" y1={y} x2="700" y2={y} stroke="#d6dfd1" strokeWidth="1" />
         ))}
@@ -858,16 +800,17 @@ function VerticalBarChart({ data, valueFormatter }: { data: BarPoint[]; valueFor
   }
 
   return (
-    <div className="h-80">
-      <div className="flex h-64 items-end gap-3 border-b border-outline-variant/70 px-2">
+    <div className="h-56">
+      <div className="flex h-40 items-end gap-3 border-b border-outline-variant/70 px-2">
         {data.map((point, index) => (
           <div key={point.label} className="flex h-full min-w-0 flex-1 flex-col justify-end gap-2">
             <div className="text-center text-xs font-bold text-on-surface">{valueFormatter(point.value)}</div>
             <div
               className="mx-auto w-full max-w-14 rounded-t-xl"
               style={{
-                height: `${Math.max(8, (point.value / max) * 190)}px`,
-                background: `linear-gradient(180deg, ${ChartColors[index % ChartColors.length]}, #c8d4e2)`
+                height: `${Math.max(8, (point.value / max) * 118)}px`,
+                backgroundColor: `${ChartColors[index % ChartColors.length]}26`,
+                border: `1px solid ${ChartColors[index % ChartColors.length]}`
               }}
             />
           </div>
@@ -954,34 +897,30 @@ function DonutChart({ centerCaption, centerLabel, data }: { centerCaption: strin
   );
 }
 
-function RecentOrdersTable({ orders, showBranch }: { orders: OrderReportListItem[]; showBranch: boolean }) {
+function RecentOrdersTable({ orders, showBranch: _showBranch }: { orders: OrderReportListItem[]; showBranch: boolean }) {
   if (orders.length === 0) {
     return <EmptyChart label="No recent orders for this range" />;
   }
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[42rem] text-left text-sm">
+      <table className="w-full min-w-[34rem] text-left text-sm">
         <thead>
-          <tr className="border-b border-outline-variant/70 text-xs font-bold uppercase tracking-wide text-on-surface-variant">
-            <th className="py-3 pr-3">Order</th>
-            <th className="px-3 py-3">Customer</th>
-            {showBranch ? <th className="px-3 py-3">Branch</th> : null}
-            <th className="px-3 py-3">Status</th>
-            <th className="px-3 py-3">Time</th>
-            <th className="py-3 pl-3 text-right">Amount</th>
+          <tr className="border-b border-outline-variant/70 text-[11px] font-bold uppercase tracking-wide text-on-surface-variant">
+            <th className="pb-3 pr-3">Order</th>
+            <th className="px-3 pb-3">Customer</th>
+            <th className="px-3 pb-3">Status</th>
+            <th className="pb-3 pl-3 text-right">Amount</th>
           </tr>
         </thead>
         <tbody>
           {orders.map((order) => (
             <tr key={order.orderId} className="border-b border-outline-variant/50 last:border-0">
-              <td className="py-3 pr-3 font-bold text-on-surface">#{shortId(order.orderId)}</td>
+              <td className="py-3 pr-3 font-mono text-xs font-semibold text-on-surface-variant">#{shortId(order.orderId)}</td>
               <td className="px-3 py-3 text-on-surface-variant">{order.customerName || `Table ${order.tableName}`}</td>
-              {showBranch ? <td className="px-3 py-3 text-on-surface-variant">{order.branchName}</td> : null}
               <td className="px-3 py-3">
                 <StatusBadge status={order.orderStatusCode} />
               </td>
-              <td className="px-3 py-3 text-on-surface-variant">{formatRelativeTime(order.createdAtUtc)}</td>
               <td className="py-3 pl-3 text-right font-extrabold text-on-surface">{formatMoney(order.totalAmount)}</td>
             </tr>
           ))}
@@ -991,41 +930,32 @@ function RecentOrdersTable({ orders, showBranch }: { orders: OrderReportListItem
   );
 }
 
-function AttentionPanel({
-  description,
-  emptyLabel,
-  items,
-  title
+function AlertCards({
+  items
 }: {
-  description: string;
-  emptyLabel: string;
-  items: { href: string; key: string; meta: string; title: string; value: string }[];
-  title: string;
+  items: { href: string; key: string; meta: string; title: string; tone: "error" | "warning" }[];
 }) {
+  if (items.length === 0) {
+    return null;
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {items.length > 0 ? (
-          items.map((item) => (
-            <Link key={item.key} href={item.href} className="flex items-center justify-between gap-3 rounded-xl border border-outline-variant/70 bg-white p-3 transition-colors hover:border-primary/25 hover:bg-secondary-container/40">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-on-surface">{item.title}</p>
-                <p className="mt-1 truncate text-xs text-on-surface-variant">{item.meta}</p>
-              </div>
-              <span className="shrink-0 rounded-full bg-surface-container px-3 py-1 text-xs font-extrabold text-on-surface-variant">{item.value}</span>
-            </Link>
-          ))
-        ) : (
-          <div className="grid min-h-32 place-items-center rounded-xl border border-dashed border-outline-variant/80 bg-surface-container-low px-4 text-center text-sm font-semibold text-on-surface-variant">
-            {emptyLabel}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <div className="grid gap-3 lg:grid-cols-2">
+      {items.map((item) => (
+        <Link
+          key={item.key}
+          href={item.href}
+          className="flex items-start gap-3 rounded-xl border border-outline-variant/70 bg-white p-4 transition-colors hover:border-primary/25 hover:bg-surface-container-low"
+        >
+          <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${item.tone === "error" ? "bg-red-500" : "bg-amber-500"}`} />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold text-on-surface">{item.title}</span>
+            <span className="mt-1 block truncate text-xs font-medium text-on-surface-variant">{item.meta}</span>
+          </span>
+          <span className="shrink-0 rounded-lg border border-outline-variant/70 bg-surface-container-low px-3 py-1 text-xs font-bold text-on-surface-variant">Fix</span>
+        </Link>
+      ))}
+    </div>
   );
 }
 
@@ -1132,31 +1062,14 @@ function formatDisplayDate(value: string): string {
   return parseLocalDate(value).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-function formatTime(value: Date): string {
-  return value.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+function formatShortRange(range: DateRange): string {
+  const from = parseLocalDate(range.dateFrom).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const to = parseLocalDate(range.dateTo).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return `${from}-${to}`;
 }
 
-function formatRelativeTime(value: string): string {
-  const timestamp = new Date(value).getTime();
-  if (Number.isNaN(timestamp)) {
-    return "";
-  }
-
-  const diffMinutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
-  if (diffMinutes < 1) {
-    return "Now";
-  }
-
-  if (diffMinutes < 60) {
-    return `${diffMinutes}m`;
-  }
-
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) {
-    return `${diffHours}h`;
-  }
-
-  return `${Math.floor(diffHours / 24)}d`;
+function formatTime(value: Date): string {
+  return value.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
 function minutesSince(value: string): number {
