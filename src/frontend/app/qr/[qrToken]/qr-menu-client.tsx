@@ -66,6 +66,19 @@ type StoredCustomerProfile = {
   expiresAtUtc: string;
 };
 
+type StoredOrderTrackingAccess = {
+  version: 1;
+  qrToken: string;
+  orderId: string;
+  token: string;
+  expiresAtUtc: string;
+};
+
+type OrderTrackingAccessInput = {
+  token: string;
+  expiresAtUtc: string;
+};
+
 type StoredQrMenuDraft = {
   version: 1;
   customerName: string;
@@ -552,6 +565,7 @@ export function QrMenuClient({ menu }: { menu: PublicQrMenu }) {
     try {
       const created = await createPublicQrOrder(currentMenu.qrToken, qrSession.qrSessionId, input);
       const order = created.order;
+      writeOrderTrackingAccess(currentMenu.qrToken, order.orderId, created.orderTrackingAccess);
       if (created.customerAccess && order.customerWhatsApp) {
         writeCustomerProfile(currentMenu.branchId, {
           version: 1,
@@ -2476,6 +2490,30 @@ function getQrMenuDraftKey(qrToken: string): string {
 
 function getCustomerProfileKey(branchId: string): string {
   return `qrave:customer-profile:${branchId}`;
+}
+
+function getOrderTrackingAccessKey(qrToken: string, orderId: string): string {
+  return `qrave:order-tracking:${qrToken}:${orderId}`;
+}
+
+function writeOrderTrackingAccess(qrToken: string, orderId: string, access: OrderTrackingAccessInput) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const record: StoredOrderTrackingAccess = {
+    version: 1,
+    qrToken,
+    orderId,
+    token: access.token,
+    expiresAtUtc: access.expiresAtUtc
+  };
+
+  try {
+    window.localStorage.setItem(getOrderTrackingAccessKey(qrToken, orderId), JSON.stringify(record));
+  } catch {
+    // Restricted browsers can block storage. The order is still placed, but tracking may require customer access.
+  }
 }
 
 function readCustomerProfile(branchId: string): StoredCustomerProfile | null {

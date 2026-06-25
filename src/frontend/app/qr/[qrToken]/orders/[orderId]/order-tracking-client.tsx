@@ -9,17 +9,17 @@ const StatusSteps = ["Placed", "Accepted", "Preparing", "Ready", "Served"] as co
 
 export function OrderTrackingClient({
   initialMenu,
-  initialOrder,
   orderId,
   qrToken
 }: {
   initialMenu: PublicQrMenu;
-  initialOrder: PublicQrOrder;
   orderId: string;
   qrToken: string;
 }) {
   const { toastError, toastSuccess } = useToast();
-  const [order, setOrder] = useState(initialOrder);
+  const [order, setOrder] = useState<PublicQrOrder | null>(null);
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "denied" | "missing-token" | "unavailable">("loading");
+  const [loadMessage, setLoadMessage] = useState("Loading order...");
   const [returnTarget, setReturnTarget] = useState<"menu" | "previous-orders">("menu");
   const [feedback, setFeedback] = useState<OrderFeedback | null>(null);
   const [feedbackRating, setFeedbackRating] = useState(5);
@@ -27,17 +27,18 @@ export function OrderTrackingClient({
   const [isFeedbackRequested, setIsFeedbackRequested] = useState(false);
   const [isSavingFeedback, setIsSavingFeedback] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [orderTrackingToken, setOrderTrackingToken] = useState<string | null>(null);
   const [customerDeviceToken, setCustomerDeviceToken] = useState<string | null>(null);
   const [isCancelPanelOpen, setIsCancelPanelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [itemCancelRequest, setItemCancelRequest] = useState<{ item: PublicQrOrderItem; quantity: string; reason: string } | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const [savingItemRequestId, setSavingItemRequestId] = useState<string | null>(null);
-  const currentStepIndex = useMemo(() => StatusSteps.findIndex((status) => status === order.orderStatusCode), [order.orderStatusCode]);
-  const isCancelled = order.orderStatusCode === "Cancelled";
-  const isCompleted = order.orderStatusCode === "Completed";
-  const canCancelOrder = order.orderStatusCode === "Placed";
-  const canRequestItemCancellation = ["Placed", "Accepted", "Preparing"].includes(order.orderStatusCode);
+  const currentStepIndex = useMemo(() => StatusSteps.findIndex((status) => status === order?.orderStatusCode), [order?.orderStatusCode]);
+  const isCancelled = order?.orderStatusCode === "Cancelled";
+  const isCompleted = order?.orderStatusCode === "Completed";
+  const canCancelOrder = order?.orderStatusCode === "Placed";
+  const canRequestItemCancellation = order ? ["Placed", "Accepted", "Preparing"].includes(order.orderStatusCode) : false;
   const shouldReturnToPreviousOrders = returnTarget === "previous-orders";
   const shouldShowFeedback = isCompleted || isFeedbackRequested;
 
@@ -52,18 +53,29 @@ export function OrderTrackingClient({
   }, []);
 
   useEffect(() => {
-    setCustomerDeviceToken(readCustomerDeviceToken(initialMenu.branchId));
-  }, [initialMenu.branchId]);
+    const trackingToken = readOrderTrackingToken(qrToken, orderId);
+    const deviceToken = readCustomerDeviceToken(initialMenu.branchId);
+    setOrderTrackingToken(trackingToken);
+    setCustomerDeviceToken(deviceToken);
+
+    if (!trackingToken && !deviceToken) {
+      setLoadState("missing-token");
+      setLoadMessage("This order can only be viewed from the device used to place it.");
+      return;
+    }
+
+    void loadOrder(trackingToken, deviceToken);
+  }, [initialMenu.branchId, orderId, qrToken]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      if (!document.hidden) {
+      if (!document.hidden && order) {
         void refreshOrder();
       }
     }, 10_000);
 
     return () => window.clearInterval(timer);
-  }, [orderId, qrToken]);
+  }, [order, orderId, qrToken, orderTrackingToken, customerDeviceToken]);
 
   useEffect(() => {
     if (!shouldShowFeedback) {
@@ -86,13 +98,54 @@ export function OrderTrackingClient({
     return () => window.clearTimeout(timer);
   }, [shouldShowFeedback, feedback]);
 
+  async function loadOrder(trackingToken: string | null, deviceToken: string | null) {
+    setLoadState("loading");
+    setLoadMessage("Loading order...");
+
+    try {
+      const loaded = await getPublicQrOrder(qrToken, orderId, {
+        orderTrackingToken: trackingToken,
+        customerDeviceToken: deviceToken
+      });
+      setOrder(loaded);
+      setLoadState("ready");
+    } catch (caught) {
+      setOrder(null);
+      if (caught instanceof ApiError && caught.status === 403) {
+        setLoadState("denied");
+        setLoadMessage("This order can only be viewed from the device used to place it.");
+      } else if (caught instanceof ApiError && caught.status === 404) {
+        setLoadState("unavailable");
+        setLoadMessage("This order link is invalid or no longer available for this QR table.");
+      } else {
+        setLoadState("unavailable");
+        setLoadMessage(caught instanceof ApiError ? caught.message : "Could not load order status.");
+      }
+    }
+  }
+
   async function refreshOrder() {
+    if (!orderTrackingToken && !customerDeviceToken) {
+      setLoadState("missing-token");
+      setLoadMessage("This order can only be viewed from the device used to place it.");
+      return;
+    }
+
     setIsRefreshing(true);
 
     try {
-      setOrder(await getPublicQrOrder(qrToken, orderId));
+      setOrder(await getPublicQrOrder(qrToken, orderId, {
+        orderTrackingToken,
+        customerDeviceToken
+      }));
+      setLoadState("ready");
     } catch (caught) {
-      toastError(caught instanceof ApiError ? caught.message : "Could not refresh order status.");
+      if (caught instanceof ApiError && caught.status === 403) {
+        setLoadState("denied");
+        setLoadMessage("This order can only be viewed from the device used to place it.");
+      } else {
+        toastError(caught instanceof ApiError ? caught.message : "Could not refresh order status.");
+      }
     } finally {
       setIsRefreshing(false);
     }
@@ -203,6 +256,37 @@ export function OrderTrackingClient({
   function handleBack() {
     const menuUrl = `/qr/${encodeURIComponent(qrToken)}`;
     window.location.assign(shouldReturnToPreviousOrders ? `${menuUrl}?view=previous-orders` : menuUrl);
+  }
+
+  if (!order) {
+    const isLoading = loadState === "loading";
+    const Icon = isLoading ? Loader2 : loadState === "missing-token" || loadState === "denied" ? AlertCircle : Clock3;
+
+    return (
+      <section className="flex min-h-dvh flex-1 flex-col bg-[#f8f9fa] px-4 py-5 pb-8">
+        <button type="button" onClick={handleBack} className="inline-flex w-fit items-center gap-2 text-sm font-black text-[#006d36]">
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          {shouldReturnToPreviousOrders ? "Previous orders" : "Menu"}
+        </button>
+        <div className="grid flex-1 place-items-center">
+          <div className="w-full max-w-sm rounded-2xl border border-[#d9e4df] bg-white p-5 text-center shadow-sm">
+            <Icon className={`mx-auto h-10 w-10 text-[#006d36] ${isLoading ? "animate-spin" : ""}`} aria-hidden="true" />
+            <h1 className="mt-4 text-xl font-black text-[#001c11]">{isLoading ? "Loading order" : "Order unavailable"}</h1>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#5a625e]">{loadMessage}</p>
+            {!isLoading ? (
+              <button
+                type="button"
+                onClick={() => void loadOrder(orderTrackingToken, customerDeviceToken)}
+                className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#006d36] px-4 text-sm font-black text-white"
+              >
+                <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                Retry
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </section>
+    );
   }
 
   return (
@@ -555,6 +639,43 @@ type StoredCustomerProfile = {
   expiresAtUtc: string;
 };
 
+type StoredOrderTrackingAccess = {
+  version: 1;
+  qrToken: string;
+  orderId: string;
+  token: string;
+  expiresAtUtc: string;
+};
+
+function readOrderTrackingToken(qrToken: string, orderId: string): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const storageKey = `qrave:order-tracking:${qrToken}:${orderId}`;
+  try {
+    const rawAccess = window.localStorage.getItem(storageKey);
+    if (!rawAccess) {
+      return null;
+    }
+
+    const parsed: unknown = JSON.parse(rawAccess);
+    if (!isStoredOrderTrackingAccess(parsed) || parsed.qrToken !== qrToken || parsed.orderId !== orderId || Date.parse(parsed.expiresAtUtc) <= Date.now()) {
+      window.localStorage.removeItem(storageKey);
+      return null;
+    }
+
+    return parsed.token;
+  } catch {
+    try {
+      window.localStorage.removeItem(storageKey);
+    } catch {
+      // Ignore storage failures in restricted browsers.
+    }
+    return null;
+  }
+}
+
 function readCustomerDeviceToken(branchId: string): string | null {
   if (typeof window === "undefined") {
     return null;
@@ -582,6 +703,23 @@ function readCustomerDeviceToken(branchId: string): string | null {
     }
     return null;
   }
+}
+
+function isStoredOrderTrackingAccess(value: unknown): value is StoredOrderTrackingAccess {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const access = value as Partial<StoredOrderTrackingAccess>;
+  return (
+    access.version === 1 &&
+    typeof access.qrToken === "string" &&
+    typeof access.orderId === "string" &&
+    typeof access.token === "string" &&
+    access.token.length === 43 &&
+    typeof access.expiresAtUtc === "string" &&
+    Number.isFinite(Date.parse(access.expiresAtUtc))
+  );
 }
 
 function isStoredCustomerProfile(value: unknown): value is StoredCustomerProfile {

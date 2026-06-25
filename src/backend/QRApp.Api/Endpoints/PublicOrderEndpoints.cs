@@ -41,7 +41,8 @@ public static class PublicOrderEndpoints
                 return ApiProblemResponses.Validation(result.Errors);
             }
 
-            var order = result.Value!;
+            var created = result.Value!;
+            var order = created.Order;
             try
             {
                 await notificationService.CreateAsync(
@@ -83,7 +84,7 @@ public static class PublicOrderEndpoints
 
             return Results.Created(
                 $"/api/v1/public/orders/{order.OrderId}",
-                new PublicOrderCreatedResponse(order, customerAccess));
+                new PublicOrderCreatedResponse(order, created.OrderTrackingAccess, customerAccess));
         }
         catch (Exception ex)
         when (ex is PostgresException)
@@ -238,16 +239,32 @@ public static class PublicOrderEndpoints
     private static async Task<IResult> GetOrderAsync(
         string qrToken,
         Guid orderId,
+        HttpContext httpContext,
         IOrderService orderService,
         ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
         try
         {
-            var result = await orderService.GetByQrTokenAsync(qrToken, orderId, cancellationToken);
-            return result.IsSuccess
-                ? Results.Ok(result.Value)
-                : ApiProblemResponses.Validation(result.Errors);
+            var result = await orderService.GetByQrTokenAsync(
+                qrToken,
+                orderId,
+                ReadOrderTrackingToken(httpContext),
+                ReadCustomerDeviceToken(httpContext),
+                cancellationToken);
+            if (!result.IsSuccess)
+            {
+                return ApiProblemResponses.Validation(result.Errors);
+            }
+
+            var lookup = result.Value!;
+            return lookup.Code switch
+            {
+                PublicOrderLookupResultCode.Found => Results.Ok(lookup.Order),
+                PublicOrderLookupResultCode.NotFound => ApiProblemResponses.NotFound("Order was not found for this QR menu."),
+                PublicOrderLookupResultCode.Forbidden => ApiProblemResponses.Forbidden("This order can only be viewed from the device used to place it."),
+                _ => ApiProblemResponses.ServerError("Order could not be read.")
+            };
         }
         catch (Exception ex)
         when (ex is PostgresException)
@@ -306,5 +323,10 @@ public static class PublicOrderEndpoints
     private static string ReadCustomerDeviceToken(HttpContext httpContext)
     {
         return httpContext.Request.Headers["X-Customer-Device-Token"].FirstOrDefault() ?? string.Empty;
+    }
+
+    private static string ReadOrderTrackingToken(HttpContext httpContext)
+    {
+        return httpContext.Request.Headers["X-Order-Tracking-Token"].FirstOrDefault() ?? string.Empty;
     }
 }

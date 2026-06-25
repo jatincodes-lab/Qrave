@@ -4,15 +4,17 @@ namespace QRApp.Application.Orders;
 
 public interface IOrderService
 {
-    Task<OperationResult<PublicOrderResponse>> CreateFromQrTokenAsync(
+    Task<OperationResult<PublicOrderCreationResult>> CreateFromQrTokenAsync(
         string qrToken,
         Guid qrSessionId,
         CreatePublicQrOrderRequest request,
         CancellationToken cancellationToken);
 
-    Task<OperationResult<PublicOrderResponse>> GetByQrTokenAsync(
+    Task<OperationResult<PublicOrderLookupResult>> GetByQrTokenAsync(
         string qrToken,
         Guid orderId,
+        string? orderTrackingToken,
+        string? customerDeviceToken,
         CancellationToken cancellationToken);
 
     Task<OperationResult<PublicOrderCancelResult>> CancelFromQrTokenAsync(

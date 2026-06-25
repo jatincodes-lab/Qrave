@@ -29,6 +29,8 @@ public sealed class OrderServiceTests
         Assert.Equal("Priya", repository.Request!.CustomerName);
         Assert.Equal("9876543210", repository.Request.CustomerWhatsApp);
         Assert.Equal("Less spicy", repository.Request.Notes);
+        Assert.NotNull(result.Value!.OrderTrackingAccess);
+        Assert.Equal(43, result.Value.OrderTrackingAccess.Token.Length);
         var item = Assert.Single(repository.Request.Items);
         Assert.Equal(itemId, item.MenuItemId);
         Assert.Equal(3, item.Quantity);
@@ -86,12 +88,13 @@ public sealed class OrderServiceTests
         var repository = new FakeOrderRepository();
         var service = new OrderService(repository);
 
-        var result = await service.GetByQrTokenAsync(" demo-table-1 ", orderId, CancellationToken.None);
+        var result = await service.GetByQrTokenAsync(" demo-table-1 ", orderId, new string('t', 43), null, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal("demo-table-1", repository.QrToken);
-        Assert.Equal(orderId, result.Value!.OrderId);
-        Assert.Equal("Preparing", result.Value.OrderStatusCode);
+        Assert.Equal(64, repository.TrackingTokenHash!.Length);
+        Assert.Equal(orderId, result.Value!.Order!.OrderId);
+        Assert.Equal("Preparing", result.Value.Order.OrderStatusCode);
     }
 
     [Fact]
@@ -99,10 +102,33 @@ public sealed class OrderServiceTests
     {
         var service = new OrderService(new FakeOrderRepository());
 
-        var result = await service.GetByQrTokenAsync("demo-table-1", Guid.Empty, CancellationToken.None);
+        var result = await service.GetByQrTokenAsync("demo-table-1", Guid.Empty, new string('t', 43), null, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Contains(result.Errors, error => error.Field == "orderId");
+    }
+
+    [Fact]
+    public async Task GetByQrTokenAsync_WhenAccessTokenIsMissing_ReturnsValidationError()
+    {
+        var service = new OrderService(new FakeOrderRepository());
+
+        var result = await service.GetByQrTokenAsync("demo-table-1", Guid.NewGuid(), null, null, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains(result.Errors, error => error.Field == "AccessToken");
+    }
+
+    [Fact]
+    public async Task GetByQrTokenAsync_WhenRepositoryDeniesAccess_ReturnsForbiddenLookup()
+    {
+        var service = new OrderService(new FakeOrderRepository { LookupCode = PublicOrderLookupResultCode.Forbidden });
+
+        var result = await service.GetByQrTokenAsync("demo-table-1", Guid.NewGuid(), new string('t', 43), null, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(PublicOrderLookupResultCode.Forbidden, result.Value!.Code);
+        Assert.Null(result.Value.Order);
     }
 
     [Fact]
@@ -178,7 +204,9 @@ public sealed class OrderServiceTests
         public ValidatePublicQrPromoCodeRequest? PromoRequest { get; private set; }
         public Guid CancelOrderId { get; private set; }
         public string? CancelTokenHash { get; private set; }
+        public string? TrackingTokenHash { get; private set; }
         public string? CancelReason { get; private set; }
+        public PublicOrderLookupResultCode LookupCode { get; init; } = PublicOrderLookupResultCode.Found;
 
         public Task<PublicOrderResponse> CreateFromQrTokenAsync(
             string qrToken,
@@ -210,30 +238,51 @@ public sealed class OrderServiceTests
                 []));
         }
 
-        public Task<PublicOrderResponse> GetByQrTokenAsync(
+        public Task<bool> CreateOrderTrackingAccessAsync(
             string qrToken,
             Guid orderId,
+            string tokenHash,
+            DateTime expiresAtUtc,
+            CancellationToken cancellationToken)
+        {
+            TrackingTokenHash = tokenHash;
+            return Task.FromResult(true);
+        }
+
+        public Task<PublicOrderLookupResult> GetByQrTokenAsync(
+            string qrToken,
+            Guid orderId,
+            string? trackingTokenHash,
+            string? customerDeviceTokenHash,
             CancellationToken cancellationToken)
         {
             QrToken = qrToken;
+            TrackingTokenHash = trackingTokenHash;
 
-            return Task.FromResult(new PublicOrderResponse(
-                orderId,
-                Guid.NewGuid(),
-                Guid.NewGuid(),
-                Guid.NewGuid(),
-                "Preparing",
-                null,
-                null,
-                null,
-                100m,
-                100m,
-                null,
-                null,
-                0m,
-                DateTime.UtcNow,
-                DateTime.UtcNow,
-                []));
+            if (LookupCode != PublicOrderLookupResultCode.Found)
+            {
+                return Task.FromResult(new PublicOrderLookupResult(LookupCode, null));
+            }
+
+            return Task.FromResult(new PublicOrderLookupResult(
+                PublicOrderLookupResultCode.Found,
+                new PublicOrderResponse(
+                    orderId,
+                    Guid.NewGuid(),
+                    Guid.NewGuid(),
+                    Guid.NewGuid(),
+                    "Preparing",
+                    null,
+                    null,
+                    null,
+                    100m,
+                    100m,
+                    null,
+                    null,
+                    0m,
+                    DateTime.UtcNow,
+                    DateTime.UtcNow,
+                    [])));
         }
 
         public Task<PublicOrderCancelResult> CancelFromQrTokenAsync(

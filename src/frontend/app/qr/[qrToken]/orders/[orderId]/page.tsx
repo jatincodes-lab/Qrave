@@ -1,5 +1,5 @@
 import { AlertCircle, Clock3 } from "lucide-react";
-import { ApiError, getPublicQrMenu, getPublicQrOrder, type PublicQrMenu, type PublicQrOrder } from "../../../../../lib/api";
+import { ApiError, getPublicQrMenu, type PublicQrMenu } from "../../../../../lib/api";
 import { OrderTrackingClient } from "./order-tracking-client";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,6 @@ type OrderLoadResult =
   | {
       kind: "ready";
       menu: PublicQrMenu;
-      order: PublicQrOrder;
     }
   | {
       kind: "not-found";
@@ -40,7 +39,7 @@ export default async function OrderTrackingPage({ params }: OrderTrackingPagePro
   return (
     <main className="min-h-screen bg-surface text-ink">
       <section className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-white shadow-soft-saas">
-        <OrderTrackingClient initialMenu={result.menu} initialOrder={result.order} orderId={orderId} qrToken={qrToken} />
+        <OrderTrackingClient initialMenu={result.menu} orderId={orderId} qrToken={qrToken} />
       </section>
     </main>
   );
@@ -48,12 +47,11 @@ export default async function OrderTrackingPage({ params }: OrderTrackingPagePro
 
 async function loadOrder(qrToken: string, orderId: string): Promise<OrderLoadResult> {
   try {
-    const [menu, order] = await Promise.all([getPublicQrMenu(qrToken), getPublicQrOrder(qrToken, orderId)]);
+    const menu = await getPublicQrMenu(qrToken);
 
     return {
       kind: "ready",
-      menu,
-      order
+      menu
     };
   } catch (caught) {
     if (caught instanceof ApiError) {

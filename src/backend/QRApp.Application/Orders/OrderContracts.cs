@@ -33,6 +33,25 @@ public sealed record PublicOrderCancelResult(
     PublicOrderResponse? Order,
     string? CurrentStatusCode);
 
+public enum PublicOrderLookupResultCode
+{
+    Found,
+    NotFound,
+    Forbidden
+}
+
+public sealed record PublicOrderLookupResult(
+    PublicOrderLookupResultCode Code,
+    PublicOrderResponse? Order);
+
+public sealed record OrderTrackingAccessResponse(
+    string Token,
+    DateTime ExpiresAtUtc);
+
+public sealed record PublicOrderCreationResult(
+    PublicOrderResponse Order,
+    OrderTrackingAccessResponse OrderTrackingAccess);
+
 public sealed record PublicQrPromoCodeValidationResponse(
     string PromoCode,
     Guid BranchOfferId,
@@ -77,4 +96,5 @@ public sealed record PublicOrderResponse(
 
 public sealed record PublicOrderCreatedResponse(
     PublicOrderResponse Order,
+    OrderTrackingAccessResponse OrderTrackingAccess,
     QRApp.Application.Customers.CustomerDeviceAccessResponse? CustomerAccess);

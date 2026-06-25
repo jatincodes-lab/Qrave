@@ -9,9 +9,18 @@ public interface IOrderRepository
         CreatePublicQrOrderRequest request,
         CancellationToken cancellationToken);
 
-    Task<PublicOrderResponse> GetByQrTokenAsync(
+    Task<bool> CreateOrderTrackingAccessAsync(
         string qrToken,
         Guid orderId,
+        string tokenHash,
+        DateTime expiresAtUtc,
+        CancellationToken cancellationToken);
+
+    Task<PublicOrderLookupResult> GetByQrTokenAsync(
+        string qrToken,
+        Guid orderId,
+        string? trackingTokenHash,
+        string? customerDeviceTokenHash,
         CancellationToken cancellationToken);
 
     Task<PublicOrderCancelResult> CancelFromQrTokenAsync(

@@ -512,8 +512,14 @@ export type CustomerDeviceAccess = {
   expiresAtUtc: string;
 };
 
+export type OrderTrackingAccess = {
+  token: string;
+  expiresAtUtc: string;
+};
+
 export type PublicQrOrderCreated = {
   order: PublicQrOrder;
+  orderTrackingAccess: OrderTrackingAccess;
   customerAccess: CustomerDeviceAccess | null;
 };
 
@@ -1060,9 +1066,22 @@ export async function validatePublicQrPromoCode(qrToken: string, qrSessionId: st
   });
 }
 
-export async function getPublicQrOrder(qrToken: string, orderId: string): Promise<PublicQrOrder> {
+export async function getPublicQrOrder(
+  qrToken: string,
+  orderId: string,
+  access?: { orderTrackingToken?: string | null; customerDeviceToken?: string | null }
+): Promise<PublicQrOrder> {
+  const headers: Record<string, string> = {};
+  if (access?.orderTrackingToken) {
+    headers["X-Order-Tracking-Token"] = access.orderTrackingToken;
+  }
+  if (access?.customerDeviceToken) {
+    headers["X-Customer-Device-Token"] = access.customerDeviceToken;
+  }
+
   return request<PublicQrOrder>(`/api/v1/public/qr/${encodeURIComponent(qrToken)}/orders/${encodeURIComponent(orderId)}`, {
     method: "GET",
+    headers,
     requireAuth: false
   });
 }

@@ -49,33 +49,67 @@ public sealed class SqlOrderRepository(INpgsqlConnectionFactory connectionFactor
         return order with { Items = await GetItemsByOrderAsync(connection, null, order.OrderId, cancellationToken) };
     }
 
-    public async Task<PublicOrderResponse> GetByQrTokenAsync(
+    public async Task<bool> CreateOrderTrackingAccessAsync(
         string qrToken,
         Guid orderId,
+        string tokenHash,
+        DateTime expiresAtUtc,
         CancellationToken cancellationToken)
     {
         await using var connection = (NpgsqlConnection)connectionFactory.CreateConnection();
         await connection.OpenAsync(cancellationToken);
-        await using var command = new NpgsqlCommand(StoredProcedures.PublicOrderGetByQrToken, connection)
-        {
-            CommandType = CommandType.StoredProcedure
-        };
+        await using var command = new NpgsqlCommand(
+            """
+            INSERT INTO "OrderTrackingAccessTokens"
+                ("OrderTrackingAccessTokenId", "TenantId", "BranchId", "OrderId", "TokenHash", "ExpiresAtUtc")
+            SELECT gen_random_uuid(), o."TenantId", o."BranchId", o."OrderId", @p_tokenhash, @p_expiresatutc
+            FROM "Orders" o
+            JOIN "BranchTables" bt ON bt."TableId" = o."TableId"
+                AND bt."BranchId" = o."BranchId"
+                AND bt."TenantId" = o."TenantId"
+            WHERE bt."QrToken" = @p_qrtoken
+              AND bt."IsActive"
+              AND o."OrderId" = @p_orderid
+              AND public.tenant_public_access_allowed(o."TenantId")
+            RETURNING 1
+            """,
+            connection);
 
         command.AddString("@QrToken", qrToken, 80);
         command.AddGuid("@OrderId", orderId);
+        command.AddString("@TokenHash", tokenHash, 64);
+        command.AddDateTime("@ExpiresAtUtc", expiresAtUtc);
 
-        PublicOrderResponse order;
-        await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
+        return await command.ExecuteScalarAsync(cancellationToken) is not null;
+    }
+
+    public async Task<PublicOrderLookupResult> GetByQrTokenAsync(
+        string qrToken,
+        Guid orderId,
+        string? trackingTokenHash,
+        string? customerDeviceTokenHash,
+        CancellationToken cancellationToken)
+    {
+        await using var connection = (NpgsqlConnection)connectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        var existing = await GetOrderRecordByQrTokenAsync(connection, null, qrToken, orderId, cancellationToken);
+        if (existing is null)
         {
-            if (!await reader.ReadAsync(cancellationToken))
-            {
-                throw new DataException("PublicOrder_GetByQrToken did not return an order row.");
-            }
-
-            order = ReadOrder(reader);
+            return new PublicOrderLookupResult(PublicOrderLookupResultCode.NotFound, null);
         }
 
-        return order with { Items = await GetItemsByOrderAsync(connection, null, order.OrderId, cancellationToken) };
+        var hasTrackingAccess = trackingTokenHash is not null &&
+            await HasValidOrderTrackingAccessAsync(connection, null, existing, trackingTokenHash, cancellationToken);
+        var hasCustomerAccess = customerDeviceTokenHash is not null &&
+            await HasValidCustomerDeviceAccessAsync(connection, null, existing, customerDeviceTokenHash, cancellationToken);
+        if (!hasTrackingAccess && !hasCustomerAccess)
+        {
+            return new PublicOrderLookupResult(PublicOrderLookupResultCode.Forbidden, null);
+        }
+
+        var items = await GetItemsByOrderAsync(connection, null, existing.Order.OrderId, cancellationToken);
+        return new PublicOrderLookupResult(PublicOrderLookupResultCode.Found, existing.Order with { Items = items });
     }
 
     public async Task<PublicOrderCancelResult> CancelFromQrTokenAsync(
@@ -335,7 +369,7 @@ public sealed class SqlOrderRepository(INpgsqlConnectionFactory connectionFactor
 
     private static async Task<OrderRecord?> GetOrderRecordByQrTokenAsync(
         NpgsqlConnection connection,
-        NpgsqlTransaction transaction,
+        NpgsqlTransaction? transaction,
         string qrToken,
         Guid orderId,
         CancellationToken cancellationToken)
@@ -382,7 +416,7 @@ public sealed class SqlOrderRepository(INpgsqlConnectionFactory connectionFactor
 
     private static async Task<bool> HasValidCustomerDeviceAccessAsync(
         NpgsqlConnection connection,
-        NpgsqlTransaction transaction,
+        NpgsqlTransaction? transaction,
         OrderRecord order,
         string tokenHash,
         CancellationToken cancellationToken)
@@ -410,6 +444,36 @@ public sealed class SqlOrderRepository(INpgsqlConnectionFactory connectionFactor
         command.AddGuid("@TenantId", order.Order.TenantId);
         command.AddGuid("@BranchId", order.Order.BranchId);
         command.AddGuid("@CustomerId", order.CustomerId.Value);
+        command.AddString("@TokenHash", tokenHash, 64);
+
+        return await command.ExecuteScalarAsync(cancellationToken) is not null;
+    }
+
+    private static async Task<bool> HasValidOrderTrackingAccessAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction? transaction,
+        OrderRecord order,
+        string tokenHash,
+        CancellationToken cancellationToken)
+    {
+        await using var command = new NpgsqlCommand(
+            """
+            SELECT 1
+            FROM "OrderTrackingAccessTokens" access
+            WHERE access."TenantId" = @p_tenantid
+              AND access."BranchId" = @p_branchid
+              AND access."OrderId" = @p_orderid
+              AND access."TokenHash" = @p_tokenhash
+              AND access."RevokedAtUtc" IS NULL
+              AND access."ExpiresAtUtc" > public.app_now()
+            LIMIT 1
+            """,
+            connection,
+            transaction);
+
+        command.AddGuid("@TenantId", order.Order.TenantId);
+        command.AddGuid("@BranchId", order.Order.BranchId);
+        command.AddGuid("@OrderId", order.Order.OrderId);
         command.AddString("@TokenHash", tokenHash, 64);
 
         return await command.ExecuteScalarAsync(cancellationToken) is not null;

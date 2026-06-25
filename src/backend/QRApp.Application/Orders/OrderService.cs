@@ -11,10 +11,11 @@ public sealed class OrderService(IOrderRepository repository) : IOrderService
     private const int MinQrTokenLength = 8;
     private const int MaxQrTokenLength = 80;
     private const int DeviceTokenLength = 43;
+    private static readonly TimeSpan OrderTrackingAccessLifetime = TimeSpan.FromDays(7);
     private const int MaxCancellationReasonLength = 300;
     private static readonly Regex AllowedPhoneCharacters = new(@"^[0-9+\-().\s]+$", RegexOptions.Compiled);
 
-    public async Task<OperationResult<PublicOrderResponse>> CreateFromQrTokenAsync(
+    public async Task<OperationResult<PublicOrderCreationResult>> CreateFromQrTokenAsync(
         string qrToken,
         Guid qrSessionId,
         CreatePublicQrOrderRequest request,
@@ -24,7 +25,7 @@ public sealed class OrderService(IOrderRepository repository) : IOrderService
         var errors = Validate(cleanToken, qrSessionId, request);
         if (errors.Count > 0)
         {
-            return OperationResult<PublicOrderResponse>.Failed(errors.ToArray());
+            return OperationResult<PublicOrderCreationResult>.Failed(errors.ToArray());
         }
 
         var cleaned = new CreatePublicQrOrderRequest(
@@ -40,15 +41,34 @@ public sealed class OrderService(IOrderRepository repository) : IOrderService
             CleanPromoCode(request.PromoCode));
 
         var order = await repository.CreateFromQrTokenAsync(cleanToken, qrSessionId, Guid.NewGuid(), cleaned, cancellationToken);
-        return OperationResult<PublicOrderResponse>.Success(order);
+        var trackingToken = CreateToken();
+        var trackingExpiresAtUtc = DateTime.UtcNow.Add(OrderTrackingAccessLifetime);
+        var trackingCreated = await repository.CreateOrderTrackingAccessAsync(
+            cleanToken,
+            order.OrderId,
+            HashToken(trackingToken),
+            trackingExpiresAtUtc,
+            cancellationToken);
+
+        if (!trackingCreated)
+        {
+            throw new InvalidOperationException("Order tracking access could not be created.");
+        }
+
+        return OperationResult<PublicOrderCreationResult>.Success(
+            new PublicOrderCreationResult(order, new OrderTrackingAccessResponse(trackingToken, trackingExpiresAtUtc)));
     }
 
-    public async Task<OperationResult<PublicOrderResponse>> GetByQrTokenAsync(
+    public async Task<OperationResult<PublicOrderLookupResult>> GetByQrTokenAsync(
         string qrToken,
         Guid orderId,
+        string? orderTrackingToken,
+        string? customerDeviceToken,
         CancellationToken cancellationToken)
     {
         var cleanToken = TextRules.CleanRequired(qrToken);
+        var cleanTrackingToken = TextRules.CleanOptional(orderTrackingToken);
+        var cleanCustomerDeviceToken = TextRules.CleanOptional(customerDeviceToken);
         var errors = new List<ValidationFailure>();
 
         if (cleanToken.Length is < MinQrTokenLength or > MaxQrTokenLength)
@@ -61,13 +81,35 @@ public sealed class OrderService(IOrderRepository repository) : IOrderService
             errors.Add(new ValidationFailure(nameof(orderId), "Order is required."));
         }
 
-        if (errors.Count > 0)
+        var hasTrackingToken = !string.IsNullOrWhiteSpace(cleanTrackingToken);
+        var hasCustomerDeviceToken = !string.IsNullOrWhiteSpace(cleanCustomerDeviceToken);
+        if (!hasTrackingToken && !hasCustomerDeviceToken)
         {
-            return OperationResult<PublicOrderResponse>.Failed(errors.ToArray());
+            errors.Add(new ValidationFailure("AccessToken", "Order access token is required."));
         }
 
-        var order = await repository.GetByQrTokenAsync(cleanToken, orderId, cancellationToken);
-        return OperationResult<PublicOrderResponse>.Success(order);
+        if (hasTrackingToken && cleanTrackingToken!.Length != DeviceTokenLength)
+        {
+            errors.Add(new ValidationFailure(nameof(orderTrackingToken), "Order access token is invalid."));
+        }
+
+        if (hasCustomerDeviceToken && cleanCustomerDeviceToken!.Length != DeviceTokenLength)
+        {
+            errors.Add(new ValidationFailure(nameof(customerDeviceToken), "Customer access token is invalid."));
+        }
+
+        if (errors.Count > 0)
+        {
+            return OperationResult<PublicOrderLookupResult>.Failed(errors.ToArray());
+        }
+
+        var order = await repository.GetByQrTokenAsync(
+            cleanToken,
+            orderId,
+            hasTrackingToken ? HashToken(cleanTrackingToken!) : null,
+            hasCustomerDeviceToken ? HashToken(cleanCustomerDeviceToken!) : null,
+            cancellationToken);
+        return OperationResult<PublicOrderLookupResult>.Success(order);
     }
 
     public async Task<OperationResult<PublicOrderCancelResult>> CancelFromQrTokenAsync(
@@ -302,5 +344,13 @@ public sealed class OrderService(IOrderRepository repository) : IOrderService
     private static string HashToken(string token)
     {
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
+    }
+
+    private static string CreateToken()
+    {
+        return Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
     }
 }
