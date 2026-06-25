@@ -23,18 +23,15 @@ import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import {
+  ApiError,
   getAdminOrders,
-  getBranchOrderSettings,
-  getBranchTables,
   getCustomerReport,
   getItemReport,
-  getMenuItems,
   getOrderReportOrders,
   getOrderReportSummary,
   getWaiterCalls,
   type AdminOrder,
   type BranchListItem,
-  type BranchOrderSettings,
   type CustomerReport,
   type ItemReport,
   type OrderReportListItem,
@@ -71,9 +68,6 @@ type BranchDashboardStats = {
   customerReports: CustomerReport[];
   activeOrders: AdminOrder[];
   waiterCalls: WaiterCall[];
-  menuItems: number;
-  tables: number;
-  settings: BranchOrderSettings | null;
 };
 
 type EnrichedAdminOrder = AdminOrder & {
@@ -387,9 +381,9 @@ export default function AdminDashboardPage() {
                     }))}
                   />
                   <AttentionPanel
-                    title="Branch health"
-                    description="Configuration issues to resolve."
-                    emptyLabel="All selected branches look ready"
+                    title="Branch alerts"
+                    description="Operational issues from current dashboard data."
+                    emptyLabel="No operational alerts"
                     items={healthWarnings.slice(0, 6).map((warning) => ({
                       key: `${warning.branchId}-${warning.label}`,
                       title: warning.label,
@@ -419,21 +413,15 @@ async function loadBranchDashboardData(branch: BranchListItem, range: DateRange,
     itemReports,
     customerReports,
     activeOrders,
-    waiterCalls,
-    menuItems,
-    tables,
-    settings
+    waiterCalls
   ] = await Promise.all([
-    getOrderReportSummary(currentFilter),
-    getOrderReportSummary(previousFilter),
-    getOrderReportOrders(currentFilter),
-    getItemReport(currentFilter),
-    getCustomerReport(currentFilter),
-    getAdminOrders(branch.branchId, false),
-    getWaiterCalls(branch.branchId, false),
-    getMenuItems(branch.branchId),
-    getBranchTables(branch.branchId),
-    getBranchOrderSettings(branch.branchId)
+    safeDashboardRequest(() => getOrderReportSummary(currentFilter), emptyOrderReportSummary()),
+    safeDashboardRequest(() => getOrderReportSummary(previousFilter), emptyOrderReportSummary()),
+    safeDashboardRequest(() => getOrderReportOrders(currentFilter), []),
+    safeDashboardRequest(() => getItemReport(currentFilter), []),
+    safeDashboardRequest(() => getCustomerReport(currentFilter), []),
+    safeDashboardRequest(() => getAdminOrders(branch.branchId, false), []),
+    safeDashboardRequest(() => getWaiterCalls(branch.branchId, false), [])
   ]);
 
   return {
@@ -444,10 +432,30 @@ async function loadBranchDashboardData(branch: BranchListItem, range: DateRange,
     itemReports,
     customerReports,
     activeOrders,
-    waiterCalls,
-    menuItems: menuItems.length,
-    tables: tables.length,
-    settings
+    waiterCalls
+  };
+}
+
+async function safeDashboardRequest<T>(factory: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await factory();
+  } catch (caught) {
+    if (caught instanceof ApiError && caught.status === 401) {
+      throw caught;
+    }
+
+    return fallback;
+  }
+}
+
+function emptyOrderReportSummary(): OrderReportSummary {
+  return {
+    totalOrders: 0,
+    completedOrders: 0,
+    cancelledOrders: 0,
+    totalOrderValue: 0,
+    averageOrderValue: 0,
+    averageReadyMinutes: 0
   };
 }
 
@@ -664,20 +672,36 @@ function countNewCustomers(customers: CustomerReport[], range: DateRange): numbe
 function buildHealthWarnings(branchStats: BranchDashboardStats[]) {
   return branchStats.flatMap((branch) => {
     const warnings: { branchId: string; branchName: string; href: string; label: string }[] = [];
-    if (branch.menuItems === 0) {
-      warnings.push({ branchId: branch.branch.branchId, branchName: branch.branch.name, href: "/admin/menu", label: "No active menu items" });
+    const pendingWaiterCalls = branch.waiterCalls.filter((call) => !["Resolved", "Cancelled"].includes(call.statusCode)).length;
+    const activeOrders = branch.activeOrders.filter((order) => !ClosedOrderStatuses.includes(order.orderStatusCode));
+    const staleOrders = activeOrders.filter((order) => minutesSince(order.createdAtUtc) >= 30).length;
+    const cancellationRate = branch.currentSummary.totalOrders > 0 ? branch.currentSummary.cancelledOrders / branch.currentSummary.totalOrders : 0;
+
+    if (pendingWaiterCalls > 0) {
+      warnings.push({
+        branchId: branch.branch.branchId,
+        branchName: branch.branch.name,
+        href: "/admin/orders",
+        label: `${pendingWaiterCalls} waiter call${pendingWaiterCalls === 1 ? "" : "s"} pending`
+      });
     }
 
-    if (branch.tables === 0) {
-      warnings.push({ branchId: branch.branch.branchId, branchName: branch.branch.name, href: `/admin/branches/${branch.branch.branchId}?tab=tables`, label: "No table QR codes" });
+    if (staleOrders > 0) {
+      warnings.push({
+        branchId: branch.branch.branchId,
+        branchName: branch.branch.name,
+        href: "/admin/orders",
+        label: `${staleOrders} order${staleOrders === 1 ? "" : "s"} waiting 30m+`
+      });
     }
 
-    if (!branch.settings?.enableDirectQrOrdering) {
-      warnings.push({ branchId: branch.branch.branchId, branchName: branch.branch.name, href: "/admin/settings", label: "QR ordering disabled" });
-    }
-
-    if (!branch.settings?.waiterCallEnabled) {
-      warnings.push({ branchId: branch.branch.branchId, branchName: branch.branch.name, href: "/admin/settings", label: "Waiter calls disabled" });
+    if (branch.currentSummary.totalOrders >= 5 && cancellationRate >= 0.25) {
+      warnings.push({
+        branchId: branch.branch.branchId,
+        branchName: branch.branch.name,
+        href: "/admin/reports",
+        label: "High cancellation rate"
+      });
     }
 
     return warnings;
@@ -1127,6 +1151,15 @@ function formatRelativeTime(value: string): string {
   }
 
   return `${Math.floor(diffHours / 24)}d`;
+}
+
+function minutesSince(value: string): number {
+  const timestamp = new Date(value).getTime();
+  if (Number.isNaN(timestamp)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
 }
 
 function getRangeLabel(key: DateRangeKey): string {
