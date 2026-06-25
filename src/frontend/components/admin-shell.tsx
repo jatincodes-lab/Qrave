@@ -42,6 +42,7 @@ import { clearAccessToken, getAccessTokenExpiresAt, getAdminSession, getCurrentR
 import { createAdminOrderConnection, stopConnection, type AdminOrderRealtimeEvent, type AdminWaiterCallRealtimeEvent } from "../lib/realtime";
 
 const SidebarCollapsedStorageKey = "qrapp.admin.sidebarCollapsed";
+const SidebarScrollStorageKey = "qrapp.admin.sidebarScrollTop";
 const SessionExpirySkewMs = 30_000;
 
 type AdminShellProps = {
@@ -231,11 +232,37 @@ function AdminShellChrome({
   const unreadCount = useMemo(() => notifications.filter((notification) => !notification.isRead).length, [notifications]);
   const trimmedSearchQuery = searchQuery.trim();
   const showSearchDropdown = isSearchFocused && trimmedSearchQuery.length >= 2;
+  const sidebarNavRef = useRef<HTMLElement | null>(null);
+  const sidebarScrollFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
-    setIsCollapsed(window.localStorage.getItem(SidebarCollapsedStorageKey) === "true");
+    setIsCollapsed(readStoredSidebarCollapsed());
     setRoleCode(getCurrentRoleCode());
     setAdminSession(getAdminSession());
+  }, []);
+
+  useLayoutEffect(() => {
+    const nav = sidebarNavRef.current;
+    if (!nav) {
+      return;
+    }
+
+    const scrollTop = readStoredSidebarScrollTop();
+    nav.scrollTop = scrollTop;
+
+    const frameId = window.requestAnimationFrame(() => {
+      nav.scrollTop = scrollTop;
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [active, isCollapsed, visibleNavGroups.length]);
+
+  useEffect(() => {
+    return () => {
+      if (sidebarScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(sidebarScrollFrameRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -424,7 +451,21 @@ function AdminShellChrome({
           </button>
         </div>
 
-        <nav className={`scrollbar-hidden flex-1 overflow-y-auto px-3 py-5 ${isCollapsed ? "lg:px-2" : ""}`}>
+        <nav
+          ref={sidebarNavRef}
+          className={`scrollbar-hidden flex-1 overflow-y-auto px-3 py-5 ${isCollapsed ? "lg:px-2" : ""}`}
+          onScroll={(event) => {
+            const scrollTop = event.currentTarget.scrollTop;
+            if (sidebarScrollFrameRef.current !== null) {
+              window.cancelAnimationFrame(sidebarScrollFrameRef.current);
+            }
+
+            sidebarScrollFrameRef.current = window.requestAnimationFrame(() => {
+              writeStoredSidebarScrollTop(scrollTop);
+              sidebarScrollFrameRef.current = null;
+            });
+          }}
+        >
           {visibleNavGroups.map((group) => (
             <div key={group.label} className="mb-6">
               <p className={`mb-2 px-3 text-[11px] font-bold uppercase tracking-wider text-white/40 ${isCollapsed ? "lg:text-center lg:text-[0]" : ""}`}>
@@ -432,7 +473,16 @@ function AdminShellChrome({
               </p>
               <div className="space-y-1">
                 {group.items.map((item) => (
-                  <NavButton key={item.id} item={item} active={item.id === active} collapsed={isCollapsed} onNavigate={() => setIsMobileOpen(false)} />
+                  <NavButton
+                    key={item.id}
+                    item={item}
+                    active={item.id === active}
+                    collapsed={isCollapsed}
+                    onNavigate={() => {
+                      writeStoredSidebarScrollTop(sidebarNavRef.current?.scrollTop ?? 0);
+                      setIsMobileOpen(false);
+                    }}
+                  />
                 ))}
               </div>
             </div>
@@ -594,7 +644,7 @@ function AdminShellChrome({
               onClick={() => {
                 setIsCollapsed((current) => {
                   const next = !current;
-                  window.localStorage.setItem(SidebarCollapsedStorageKey, String(next));
+                  writeStoredSidebarCollapsed(next);
                   return next;
                 });
               }}
@@ -817,6 +867,35 @@ function readStoredSidebarCollapsed(): boolean {
     return window.localStorage.getItem(SidebarCollapsedStorageKey) === "true";
   } catch {
     return false;
+  }
+}
+
+function writeStoredSidebarCollapsed(value: boolean) {
+  try {
+    window.localStorage.setItem(SidebarCollapsedStorageKey, String(value));
+  } catch {
+    // Keep the in-memory state when storage is unavailable.
+  }
+}
+
+function readStoredSidebarScrollTop(): number {
+  if (typeof window === "undefined") {
+    return 0;
+  }
+
+  try {
+    const value = Number(window.localStorage.getItem(SidebarScrollStorageKey));
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function writeStoredSidebarScrollTop(value: number) {
+  try {
+    window.localStorage.setItem(SidebarScrollStorageKey, String(Math.max(0, Math.round(value))));
+  } catch {
+    // Scroll position is an enhancement; navigation should continue without it.
   }
 }
 
