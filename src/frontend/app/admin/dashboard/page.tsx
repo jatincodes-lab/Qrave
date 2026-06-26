@@ -8,6 +8,7 @@ import {
   ArrowRight,
   BellRing,
   CalendarDays,
+  CheckCircle2,
   ClipboardList,
   Clock3,
   RefreshCw,
@@ -103,7 +104,7 @@ type DonutPoint = {
 
 export default function AdminDashboardPage() {
   const workspace = useAdminWorkspace();
-  const [branchScopeId, setBranchScopeId] = useState(AllBranchesScope);
+  const [branchScopeId, setBranchScopeId] = useState("");
   const [dateRangeKey, setDateRangeKey] = useState<DateRangeKey>("7d");
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(false);
@@ -112,13 +113,14 @@ export default function AdminDashboardPage() {
 
   const activeBranches = workspace.activeBranches;
   const canCompareBranches = activeBranches.length > 1;
+  const effectiveBranchScopeId = branchScopeId || activeBranches[0]?.branchId || "";
   const scopedBranches = useMemo(() => {
-    if (branchScopeId === AllBranchesScope) {
+    if (effectiveBranchScopeId === AllBranchesScope) {
       return activeBranches;
     }
 
-    return activeBranches.filter((branch) => branch.branchId === branchScopeId);
-  }, [activeBranches, branchScopeId]);
+    return activeBranches.filter((branch) => branch.branchId === effectiveBranchScopeId);
+  }, [activeBranches, effectiveBranchScopeId]);
 
   const range = useMemo(() => getDateRange(dateRangeKey), [dateRangeKey]);
   const previousRange = useMemo(() => getPreviousDateRange(range), [range]);
@@ -135,12 +137,16 @@ export default function AdminDashboardPage() {
 
     setBranchScopeId((current) => {
       if (current === AllBranchesScope) {
-        return activeBranches.length > 1 ? AllBranchesScope : activeBranches[0].branchId;
+        return canCompareBranches ? AllBranchesScope : activeBranches[0].branchId;
       }
 
-      return activeBranches.some((branch) => branch.branchId === current) ? current : activeBranches[0].branchId;
+      if (activeBranches.some((branch) => branch.branchId === current)) {
+        return current;
+      }
+
+      return activeBranches[0].branchId;
     });
-  }, [activeBranches, workspace.isLoadingBranches]);
+  }, [activeBranches, canCompareBranches, workspace.isLoadingBranches]);
 
   useEffect(() => {
     if (workspace.isLoadingBranches || scopedBranches.length === 0) {
@@ -178,9 +184,9 @@ export default function AdminDashboardPage() {
     };
   }, [dateRangeKey, previousRange, range, reloadKey, scopedBranches, workspace.isLoadingBranches]);
 
-  const branchScopeLabel = branchScopeId === AllBranchesScope
+  const branchScopeLabel = effectiveBranchScopeId === AllBranchesScope
     ? "All assigned branches"
-    : activeBranches.find((branch) => branch.branchId === branchScopeId)?.name ?? workspace.selectedBranch?.name ?? "Restaurant workspace";
+    : activeBranches.find((branch) => branch.branchId === effectiveBranchScopeId)?.name ?? workspace.selectedBranch?.name ?? "Restaurant workspace";
   const hasBranchData = activeBranches.length > 0;
   const trendData = useMemo(() => buildTrendData(dashboardData?.orderReports ?? [], range, dateRangeKey), [dashboardData?.orderReports, dateRangeKey, range]);
   const branchPerformanceData = useMemo(() => buildBranchPerformanceData(dashboardData?.branchStats ?? []), [dashboardData?.branchStats]);
@@ -203,39 +209,45 @@ export default function AdminDashboardPage() {
       onSelectedBranchChange={workspace.setSelectedBranchId}
       selectedBranchId={workspace.selectedBranchId}
     >
-      <div className="mx-auto max-w-7xl space-y-6">
-        <header className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-normal text-on-surface">Branch performance</h1>
-            <p className="mt-1 max-w-2xl text-sm font-medium text-on-surface-variant">
-              Revenue, orders, customers, and live operations for the branches assigned to this account.
-            </p>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <DashboardPillSelect
-              icon={<CalendarDays size={16} />}
-              value={dateRangeKey}
-              onChange={(value) => setDateRangeKey(value as DateRangeKey)}
-              options={[
-                { label: "Today", value: "today" },
-                { label: "Last 7 days", value: "7d" },
-                { label: "Last 30 days", value: "30d" },
-                { label: "This month", value: "month" }
-              ]}
-            />
-            <DashboardPillSelect
-              icon={<Store size={16} />}
-              value={branchScopeId}
-              onChange={setBranchScopeId}
-              options={[
-                ...(canCompareBranches ? [{ label: "All assigned", value: AllBranchesScope }] : []),
-                ...activeBranches.map((branch) => ({ label: branch.name, value: branch.branchId }))
-              ]}
-            />
-            <Button type="button" variant="outline" onClick={() => setReloadKey((current) => current + 1)} disabled={isLoadingDashboard || !hasBranchData} className="h-9 rounded-lg border-outline-variant/70 bg-white px-3 text-sm shadow-none">
-              <RefreshCw size={16} className={isLoadingDashboard ? "animate-spin" : ""} />
-              Refresh
-            </Button>
+      <div className="mx-auto max-w-[88rem] space-y-5">
+        <header className="rounded-md border border-outline-variant/70 bg-white px-4 py-4 shadow-sm sm:px-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="min-w-0">
+              <Badge variant="secondary" className="mb-3 w-fit bg-secondary-container text-primary">
+                <Store size={14} />
+                {branchScopeLabel}
+              </Badge>
+              <h1 className="text-2xl font-semibold tracking-normal text-on-surface sm:text-[1.75rem]">Service dashboard</h1>
+              <p className="mt-1 max-w-2xl text-sm font-medium leading-6 text-on-surface-variant">
+                Revenue, active orders, customer flow, and branch exceptions for the selected service window.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 rounded-md border border-outline-variant/70 bg-surface-container-low p-2 sm:flex-row sm:items-center">
+              <DashboardPillSelect
+                icon={<CalendarDays size={16} />}
+                value={dateRangeKey}
+                onChange={(value) => setDateRangeKey(value as DateRangeKey)}
+                options={[
+                  { label: "Today", value: "today" },
+                  { label: "Last 7 days", value: "7d" },
+                  { label: "Last 30 days", value: "30d" },
+                  { label: "This month", value: "month" }
+                ]}
+              />
+              <DashboardPillSelect
+                icon={<Store size={16} />}
+                value={effectiveBranchScopeId}
+                onChange={setBranchScopeId}
+                options={[
+                  ...(canCompareBranches ? [{ label: "All assigned", value: AllBranchesScope }] : []),
+                  ...activeBranches.map((branch) => ({ label: branch.name, value: branch.branchId }))
+                ]}
+              />
+              <Button type="button" variant="outline" onClick={() => setReloadKey((current) => current + 1)} disabled={isLoadingDashboard || !hasBranchData} className="h-10 rounded-md border-outline-variant/70 bg-white px-3 text-sm shadow-none">
+                <RefreshCw size={16} className={isLoadingDashboard ? "animate-spin" : ""} />
+                Refresh
+              </Button>
+            </div>
           </div>
         </header>
 
@@ -247,9 +259,11 @@ export default function AdminDashboardPage() {
           <EmptyBranchState />
         ) : (
           <>
-            <p className="text-xs font-semibold text-on-surface-variant">
-              {formatDisplayDate(range.dateFrom)} - {formatDisplayDate(range.dateTo)} · {branchScopeLabel} · {lastUpdatedAt ? `Updated ${formatTime(lastUpdatedAt)}` : "Waiting for data"}
-            </p>
+            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-on-surface-variant">
+              <span className="rounded-md border border-outline-variant/70 bg-white px-3 py-1.5">{formatDisplayDate(range.dateFrom)} - {formatDisplayDate(range.dateTo)}</span>
+              <span className="rounded-md border border-outline-variant/70 bg-white px-3 py-1.5">{branchScopeLabel}</span>
+              <span className="rounded-md border border-outline-variant/70 bg-white px-3 py-1.5">{lastUpdatedAt ? `Updated ${formatTime(lastUpdatedAt)}` : "Waiting for data"}</span>
+            </div>
 
             {isLoadingDashboard && !dashboardData ? (
               <DashboardSkeleton />
@@ -290,48 +304,64 @@ export default function AdminDashboardPage() {
                   />
                 </section>
 
-                <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <MiniMetric icon={<Clock3 size={18} />} label="Avg ready time" value={`${Math.round(dashboardData?.currentSummary.averageReadyMinutes ?? 0)} min`} />
-                  <MiniMetric icon={<ClipboardList size={18} />} label="Open orders" value={formatNumber(openOrders)} />
-                  <MiniMetric icon={<BellRing size={18} />} label="Waiter calls" value={formatNumber(pendingWaiterCalls)} />
-                  <MiniMetric icon={<AlertTriangle size={18} />} label="Branch alerts" value={formatNumber(healthWarnings.length)} />
-                </section>
-
-                <section className="grid gap-4">
-                  <Card className="overflow-hidden rounded-xl border-outline-variant/70 bg-white shadow-sm">
-                    <CardHeader className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
+                <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.55fr)]">
+                  <Card className="overflow-hidden rounded-md border-outline-variant/70 bg-white shadow-sm">
+                    <CardHeader className="flex flex-col gap-3 border-b border-outline-variant/60 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
                       <div>
-                        <CardTitle className="text-base">Sales over time</CardTitle>
-                        <CardDescription>Daily revenue and order volume · {formatShortRange(range)}</CardDescription>
+                        <CardTitle className="text-base">Sales movement</CardTitle>
+                        <CardDescription>Daily revenue and order volume - {formatShortRange(range)}</CardDescription>
                       </div>
-                      <Badge variant="outline">{getRangeLabel(dateRangeKey)}</Badge>
+                      <Badge variant="outline" className="w-fit rounded-md">{getRangeLabel(dateRangeKey)}</Badge>
                     </CardHeader>
-                    <CardContent className="px-5 pb-5 pt-0">
+                    <CardContent className="px-5 pb-5 pt-5">
                       <LineTrendChart data={trendData} />
                     </CardContent>
                   </Card>
+                  <div className="space-y-4">
+                    <Card className="rounded-md border-outline-variant/70 bg-primary text-white shadow-sm">
+                      <CardHeader className="px-5 py-4">
+                        <CardTitle className="text-base text-white">Service snapshot</CardTitle>
+                        <CardDescription className="text-white/65">Live pressure for the selected branch scope.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="grid gap-3 px-5 pb-5 pt-0 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                        <SnapshotMetric icon={<Clock3 size={18} />} label="Avg ready time" value={`${Math.round(dashboardData?.currentSummary.averageReadyMinutes ?? 0)} min`} />
+                        <SnapshotMetric icon={<ClipboardList size={18} />} label="Open orders" value={formatNumber(openOrders)} />
+                        <SnapshotMetric icon={<BellRing size={18} />} label="Waiter calls" value={formatNumber(pendingWaiterCalls)} />
+                        <SnapshotMetric icon={<AlertTriangle size={18} />} label="Branch alerts" value={formatNumber(healthWarnings.length)} />
+                      </CardContent>
+                    </Card>
+                    <AlertCards
+                      items={healthWarnings.slice(0, 4).map((warning) => ({
+                        key: `${warning.branchId}-${warning.label}`,
+                        title: warning.label,
+                        meta: warning.branchName,
+                        href: warning.href,
+                        tone: warning.label.toLowerCase().includes("30m") || warning.label.toLowerCase().includes("cancellation") ? "error" : "warning"
+                      }))}
+                    />
+                  </div>
                 </section>
 
-                <section className="grid gap-4 xl:grid-cols-2">
-                  <Card className="rounded-xl border-outline-variant/70 bg-white shadow-sm">
+                <section className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+                  <Card className="rounded-md border-outline-variant/70 bg-white shadow-sm">
                     <CardHeader>
                       <CardTitle className="text-base">Top selling items</CardTitle>
-                      <CardDescription>Ranked by revenue this week.</CardDescription>
+                      <CardDescription>Ranked by revenue for the selected range.</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <HorizontalBarChart data={topItemData} valueFormatter={formatCompactMoney} emptyLabel="No item sales yet" />
                     </CardContent>
                   </Card>
 
-                  <Card className="rounded-xl border-outline-variant/70 bg-white shadow-sm">
+                  <Card className="rounded-md border-outline-variant/70 bg-white shadow-sm">
                     <CardHeader>
-                      <CardTitle className="text-base">{branchScopeId === AllBranchesScope ? "Branch performance" : "Orders by status"}</CardTitle>
+                      <CardTitle className="text-base">{effectiveBranchScopeId === AllBranchesScope ? "Branch performance" : "Orders by status"}</CardTitle>
                       <CardDescription>
-                        {branchScopeId === AllBranchesScope ? "Revenue by assigned branch." : "Current range order mix."}
+                        {effectiveBranchScopeId === AllBranchesScope ? "Revenue by assigned branch." : "Current range order mix."}
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      {branchScopeId === AllBranchesScope ? (
+                      {effectiveBranchScopeId === AllBranchesScope ? (
                         <VerticalBarChart data={branchPerformanceData} valueFormatter={formatCompactMoney} />
                       ) : (
                         <DonutChart data={statusData} centerLabel={formatNumber(dashboardData?.currentSummary.totalOrders ?? 0)} centerCaption="orders" />
@@ -341,31 +371,19 @@ export default function AdminDashboardPage() {
                 </section>
 
                 <section className="grid gap-4">
-                  <AlertCards
-                    items={healthWarnings.slice(0, 4).map((warning) => ({
-                      key: `${warning.branchId}-${warning.label}`,
-                      title: warning.label,
-                      meta: warning.branchName,
-                      href: warning.href,
-                      tone: warning.label.toLowerCase().includes("30m") || warning.label.toLowerCase().includes("cancellation") ? "error" : "warning"
-                    }))}
-                  />
-                </section>
-
-                <section className="grid gap-4">
-                  <Card className="rounded-xl border-outline-variant/70 bg-white shadow-sm">
+                  <Card className="rounded-md border-outline-variant/70 bg-white shadow-sm">
                     <CardHeader className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
                       <div>
                         <CardTitle className="text-base">Recent orders</CardTitle>
-                        <CardDescription>Latest from {branchScopeId === AllBranchesScope ? "all branches" : branchScopeLabel}.</CardDescription>
+                        <CardDescription>Latest from {effectiveBranchScopeId === AllBranchesScope ? "all branches" : branchScopeLabel}.</CardDescription>
                       </div>
-                      <Link href="/admin/reports" className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-outline-variant/70 bg-surface-container-low px-3 text-xs font-bold text-on-surface-variant hover:bg-surface-container">
+                      <Link href="/admin/reports" className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-outline-variant/70 bg-surface-container-low px-3 text-xs font-bold text-on-surface-variant hover:bg-surface-container">
                         View all
                         <ArrowRight size={15} />
                       </Link>
                     </CardHeader>
                     <CardContent className="px-5 pb-5 pt-0">
-                      <RecentOrdersTable orders={recentOrders} showBranch={branchScopeId === AllBranchesScope} />
+                      <RecentOrdersTable orders={recentOrders} showBranch={effectiveBranchScopeId === AllBranchesScope} />
                     </CardContent>
                   </Card>
                 </section>
@@ -754,7 +772,7 @@ function DashboardPillSelect({
         <select
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="h-9 w-full appearance-none rounded-lg border border-outline-variant/70 bg-surface-container-low py-1 pl-9 pr-8 text-sm font-semibold text-on-surface-variant outline-none transition-colors hover:bg-surface-container focus:border-primary/30 focus:ring-2 focus:ring-ring/15"
+          className="h-10 w-full appearance-none rounded-md border border-outline-variant/70 bg-white py-1 pl-9 pr-8 text-sm font-semibold text-on-surface outline-none transition-colors hover:bg-surface-container-low focus:border-primary/30 focus:ring-2 focus:ring-ring/15"
         >
           {options.map((option) => (
             <option key={option.value} value={option.value}>
@@ -785,23 +803,23 @@ function KpiCard({
   value: string;
 }) {
   const toneClass = change?.tone === "up"
-    ? "bg-emerald-100 text-emerald-800"
+    ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
     : change?.tone === "down"
-      ? "bg-red-100 text-red-800"
-      : "bg-surface-container text-on-surface-variant";
+      ? "bg-red-50 text-red-700 ring-1 ring-red-200"
+      : "bg-surface-container text-on-surface-variant ring-1 ring-outline-variant/70";
 
   return (
-    <Card className="rounded-xl border-outline-variant/70 bg-white shadow-sm">
-      <CardContent className="flex min-h-[13.5rem] flex-col p-5">
+    <Card className="rounded-md border-outline-variant/70 bg-white shadow-sm">
+      <CardContent className="flex min-h-[12rem] flex-col p-5">
         <div className="flex items-start justify-between gap-3">
-          <p className="flex min-w-0 items-center gap-3 text-sm font-extrabold leading-5 text-on-surface-variant">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-secondary-container text-primary">{icon}</span>
-            {label}
+          <p className="flex min-w-0 items-center gap-3 text-sm font-bold leading-5 text-on-surface-variant">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-secondary-container text-primary">{icon}</span>
+            <span className="truncate">{label}</span>
           </p>
-          {change ? <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-extrabold ${toneClass}`}>{change.label}</span> : null}
+          {change ? <span className={`shrink-0 rounded-md px-2.5 py-1 text-xs font-extrabold ${toneClass}`}>{change.label}</span> : null}
         </div>
-        <div className="mt-8">
-          <p className="text-[1.75rem] font-semibold leading-tight text-on-surface">{value}</p>
+        <div className="mt-6">
+          <p className="truncate text-[1.75rem] font-semibold leading-tight text-on-surface">{value}</p>
           <p className="mt-1 text-xs font-semibold text-on-surface-variant">{note ?? "vs previous period"}</p>
         </div>
         <Sparkline data={sparkline ?? []} valueFormatter={sparklineFormatter} />
@@ -810,17 +828,15 @@ function KpiCard({
   );
 }
 
-function MiniMetric({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+function SnapshotMetric({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
-    <Card className="rounded-xl border-outline-variant/70 bg-white shadow-sm">
-      <CardContent className="flex min-h-[4.75rem] items-center gap-3 p-4">
-        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-secondary-container text-primary">{icon}</div>
-        <div className="min-w-0">
-          <p className="truncate text-xl font-semibold leading-none text-on-surface">{value}</p>
-          <p className="mt-1 truncate text-[11px] font-bold uppercase tracking-wide text-on-surface-variant">{label}</p>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="rounded-md border border-white/10 bg-white/[0.07] p-3">
+      <div className="flex items-center gap-2 text-white/65">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-white/10 text-brand-lime">{icon}</span>
+        <span className="min-w-0 truncate text-[11px] font-bold uppercase tracking-wide">{label}</span>
+      </div>
+      <p className="mt-3 truncate text-2xl font-semibold leading-none text-white">{value}</p>
+    </div>
   );
 }
 
@@ -1052,23 +1068,37 @@ function AlertCards({
   items: { href: string; key: string; meta: string; title: string; tone: "error" | "warning" }[];
 }) {
   if (items.length === 0) {
-    return null;
+    return (
+      <div className="rounded-md border border-outline-variant/70 bg-white px-4 py-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-emerald-50 text-emerald-700">
+            <CheckCircle2 size={18} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-on-surface">No branch alerts</p>
+            <p className="mt-0.5 text-xs font-medium text-on-surface-variant">Current orders and waiter calls look stable.</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="grid gap-3 lg:grid-cols-2">
+    <div className="space-y-2">
       {items.map((item) => (
         <Link
           key={item.key}
           href={item.href}
-          className="flex items-start gap-3 rounded-xl border border-outline-variant/70 bg-white p-4 transition-colors hover:border-primary/25 hover:bg-surface-container-low"
+          className="flex items-start gap-3 rounded-md border border-outline-variant/70 bg-white p-3 shadow-sm transition-colors hover:border-primary/25 hover:bg-surface-container-low"
         >
-          <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${item.tone === "error" ? "bg-red-500" : "bg-amber-500"}`} />
+          <span className={`mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-md ${item.tone === "error" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}`}>
+            <AlertTriangle size={16} />
+          </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-semibold text-on-surface">{item.title}</span>
             <span className="mt-1 block truncate text-xs font-medium text-on-surface-variant">{item.meta}</span>
           </span>
-          <span className="shrink-0 rounded-lg border border-outline-variant/70 bg-surface-container-low px-3 py-1 text-xs font-bold text-on-surface-variant">Fix</span>
+          <span className="shrink-0 rounded-md border border-outline-variant/70 bg-surface-container-low px-2.5 py-1 text-xs font-bold text-on-surface-variant">Open</span>
         </Link>
       ))}
     </div>
@@ -1082,7 +1112,7 @@ function DashboardSkeleton() {
         {[0, 1, 2, 3].map((item) => (
           <Card key={item}>
             <CardContent className="space-y-4 p-5">
-              <div className="h-10 w-10 rounded-xl bg-surface-container" />
+              <div className="h-10 w-10 rounded-md bg-surface-container" />
               <div className="h-4 w-28 rounded bg-surface-container" />
               <div className="h-8 w-32 rounded bg-surface-container" />
               <div className="h-10 rounded bg-surface-container" />
@@ -1091,8 +1121,8 @@ function DashboardSkeleton() {
         ))}
       </div>
       <div className="grid gap-4 xl:grid-cols-[1.35fr_0.85fr]">
-        <div className="h-96 rounded-xl border border-outline-variant/70 bg-white" />
-        <div className="h-96 rounded-xl border border-outline-variant/70 bg-white" />
+        <div className="h-96 rounded-md border border-outline-variant/70 bg-white" />
+        <div className="h-96 rounded-md border border-outline-variant/70 bg-white" />
       </div>
     </div>
   );
@@ -1100,7 +1130,7 @@ function DashboardSkeleton() {
 
 function EmptyChart({ label }: { label: string }) {
   return (
-    <div className="grid min-h-56 place-items-center rounded-xl border border-dashed border-outline-variant/80 bg-surface-container-low px-4 text-center text-sm font-semibold text-on-surface-variant">
+    <div className="grid min-h-56 place-items-center rounded-md border border-dashed border-outline-variant/80 bg-surface-container-low px-4 text-center text-sm font-semibold text-on-surface-variant">
       {label}
     </div>
   );

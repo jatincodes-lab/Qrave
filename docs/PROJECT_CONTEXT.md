@@ -93,6 +93,10 @@ The Bareilly launch roadmap is documented in `docs/BAREILLY_GO_LIVE_PLAN.md`, wi
 - Added authenticated admin order APIs for branch order listing and status updates, backed by stored procedures and tenant-scoped repository access.
 - Added the admin branch detail kitchen orders panel with incoming order cards, item details, totals, customer/table context, refresh, and status transition buttons.
 - Upgraded the admin kitchen dashboard to a four-column live board for placed, accepted, preparing, and ready orders with a visible new-order alert and larger status transition actions.
+- Improved post-login performance by defaulting the admin dashboard to the first active branch instead of loading every branch's full report bundle immediately, while keeping the all-branches dashboard filter available.
+- Added a login-focused PostgreSQL expression index for the case-insensitive user email lookup used by `auth_getuserbyemail`.
+- Updated the local PostgreSQL runner to discover standard Windows PostgreSQL `psql.exe` installs and apply all current scripts through `020_active_order_items_everywhere.sql`, preventing API startup failures on stale local databases.
+- Redesigned the admin dashboard UI into a cleaner operations-focused layout with a stronger header, compact KPI cards, a primary sales movement panel, a service snapshot panel, integrated branch alerts, and a cleaner recent orders section.
 - Added the Bareilly phase-wise go-live roadmap covering pre-demo product polish, QR print/download, subscription control, deployment, pilot launch, pricing, and post-pilot features.
 - Added `database/migrations/002_Public_Order_Runtime_Fix.sql` as an idempotent runtime migration for the public order tables, indexes, and `PublicOrder_CreateFromQrToken` procedure when deployed databases have not yet been brought up to the order slice.
 - Mapped missing SQL object/procedure errors to a clear `503` database schema response instead of a generic server error.
@@ -262,6 +266,7 @@ The Bareilly launch roadmap is documented in `docs/BAREILLY_GO_LIVE_PLAN.md`, wi
 - Tenant-owned stored procedures filter by `TenantId`.
 - Added tenant/branch/settings indexes.
 - Added user email and tenant-user lookup indexes.
+- Added `IX_Users_EmailLower_IsActive_Login` so case-insensitive login email lookups can use an index and include the password hash needed for authentication.
 - Added menu category and item indexes for admin branch listing and public QR menu reads.
 - Added branch table indexes for admin branch listing and QR token lookup.
 - Added order indexes for branch dashboard/status reads and order item lookup by order.
@@ -419,6 +424,12 @@ The Bareilly launch roadmap is documented in `docs/BAREILLY_GO_LIVE_PLAN.md`, wi
 - `database/scripts/run-local-db.ps1 -Server "(localdb)\MSSQLLocalDB" -Database "Qrave" -Seed` completed and applied foundation scripts, migrations `002` through `006`, and demo smoke seed data.
 - Runtime API smoke test against `http://localhost:59127` passed for health, demo owner login, public QR menu lookup for `demo-table-1`, public order creation, admin order listing, public waiter-call creation, and admin waiter-call listing.
 - Frontend production runtime check against `http://localhost:3000/qr/demo-table-1` returned HTTP 200 and included seeded menu content.
+- `dotnet build src/backend/QRApp.Api/QRApp.Api.csproj --no-restore` passed after the login performance index and dashboard scope change.
+- `cmd /c "set NODE_OPTIONS=--max-old-space-size=4096&& npm --prefix E:\ETPL-04\Jatin\Transferdata\Qrave\src\frontend run build"` passed after the login performance index and dashboard scope change.
+- `database/scripts/run-local-db.ps1 -HostName localhost -Port 5432 -Database qrave -User postgres -Password Postgres123!@#` completed after the runner update and applied scripts through `020_active_order_items_everywhere.sql`.
+- Temporary API runtime check returned `GET http://localhost:59127/health` HTTP 200 after the local database was updated.
+- Timed local login checks for `owner.demo@example.com` returned HTTP 200; consecutive requests in the same API process measured about 1001 ms, 308 ms, and 251 ms.
+- `cmd /c "set NODE_OPTIONS=--max-old-space-size=4096&& npm --prefix E:\ETPL-04\Jatin\Transferdata\Qrave\src\frontend run build"` passed after the admin dashboard UI redesign.
 
 ## Pending Work
 

@@ -1,4 +1,5 @@
 CREATE INDEX IF NOT EXISTS "IX_Users_Email_IsActive" ON "Users" ("Email", "IsActive") INCLUDE ("UserId", "DisplayName");
+CREATE INDEX IF NOT EXISTS "IX_Users_EmailLower_IsActive_Login" ON "Users" (lower("Email"), "IsActive") INCLUDE ("UserId", "DisplayName", "PasswordHash");
 CREATE INDEX IF NOT EXISTS "IX_TenantUsers_UserId_IsActive" ON "TenantUsers" ("UserId", "IsActive") INCLUDE ("TenantId", "RoleCode", "BranchId");
 CREATE INDEX IF NOT EXISTS "IX_Branches_TenantId_IsActive" ON "Branches" ("TenantId", "IsActive") INCLUDE ("BranchId", "Name", "City", "CreatedAtUtc");
 CREATE INDEX IF NOT EXISTS "IX_MenuCategories_TenantId_BranchId_IsActive_DisplayOrder" ON "MenuCategories" ("TenantId", "BranchId", "IsActive", "DisplayOrder") INCLUDE ("MenuCategoryId", "Name");
