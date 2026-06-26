@@ -801,7 +801,7 @@ function KpiCard({
 
   return (
     <Card className="overflow-hidden rounded-md border-outline-variant/70 bg-white shadow-sm">
-      <CardContent className="flex min-h-[7.75rem] flex-col px-4 pb-2 pt-4">
+      <CardContent className="flex min-h-[8.35rem] flex-col px-4 pb-3 pt-5">
         <div className="flex items-start justify-between gap-3">
           <p className="min-w-0">
             <span className="block truncate text-[0.95rem] font-semibold leading-5 text-on-surface">{label}</span>
@@ -829,7 +829,7 @@ function BranchPerformanceCard({ data }: { data: BarPoint[] }) {
 
   return (
     <Card className="overflow-hidden rounded-md border-outline-variant/70 bg-white shadow-sm">
-      <CardContent className="flex min-h-[7.75rem] flex-col px-4 pb-3 pt-4">
+      <CardContent className="flex min-h-[8.35rem] flex-col px-4 pb-3 pt-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="truncate text-[0.95rem] font-semibold leading-5 text-on-surface">Branch Performance</p>
