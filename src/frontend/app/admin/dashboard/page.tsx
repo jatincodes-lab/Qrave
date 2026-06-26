@@ -11,11 +11,9 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock3,
+  MoreHorizontal,
   RefreshCw,
-  ShoppingBag,
-  Store,
-  TrendingUp,
-  Users
+  Store
 } from "lucide-react";
 import { AdminShell } from "../../../components/admin-shell";
 import { EmptyBranchState, PageError, PageLoading } from "../../../components/admin-page-common";
@@ -269,38 +267,31 @@ export default function AdminDashboardPage() {
               <DashboardSkeleton />
             ) : (
               <>
-                <section className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
+                <section className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
                   <KpiCard
-                    icon={<TrendingUp size={20} />}
-                    label="Total revenue"
+                    label="Total Sales"
                     value={formatMoney(dashboardData?.currentSummary.totalOrderValue ?? 0)}
                     change={formatChange(dashboardData?.currentSummary.totalOrderValue ?? 0, dashboardData?.previousSummary.totalOrderValue ?? 0)}
                     sparkline={trendData.map((point) => ({ label: point.label, value: point.revenue }))}
                     sparklineFormatter={formatMoney}
+                    tone="blue"
                   />
                   <KpiCard
-                    icon={<ShoppingBag size={20} />}
-                    label="Total orders"
-                    value={formatNumber(dashboardData?.currentSummary.totalOrders ?? 0)}
-                    change={formatChange(dashboardData?.currentSummary.totalOrders ?? 0, dashboardData?.previousSummary.totalOrders ?? 0)}
+                    label="Active Orders"
+                    value={formatNumber(openOrders)}
+                    note={`${formatNumber(dashboardData?.currentSummary.totalOrders ?? 0)} total orders`}
                     sparkline={trendData.map((point) => ({ label: point.label, value: point.orders }))}
                     sparklineFormatter={formatNumber}
+                    tone="teal"
                   />
+                  <BranchPerformanceCard data={branchPerformanceData.slice(0, 4)} />
                   <KpiCard
-                    icon={<ClipboardList size={20} />}
-                    label="Average order value"
-                    value={formatMoney(dashboardData?.currentSummary.averageOrderValue ?? 0)}
-                    change={formatChange(dashboardData?.currentSummary.averageOrderValue ?? 0, dashboardData?.previousSummary.averageOrderValue ?? 0)}
-                    sparkline={trendData.map((point) => ({ label: point.label, value: point.orders > 0 ? point.revenue / point.orders : 0 }))}
-                    sparklineFormatter={formatMoney}
-                  />
-                  <KpiCard
-                    icon={<Users size={20} />}
-                    label="New customers"
+                    label="New Customers"
                     value={formatNumber(newCustomerCount)}
                     note={`${formatNumber(customerCount)} total in range`}
                     sparkline={newCustomerTrendData}
                     sparklineFormatter={formatNumber}
+                    tone="green"
                   />
                 </section>
 
@@ -787,42 +778,86 @@ function DashboardPillSelect({
 
 function KpiCard({
   change,
-  icon,
   label,
   note,
   sparkline,
   sparklineFormatter = formatNumber,
+  tone = "blue",
   value
 }: {
   change?: { label: string; tone: "up" | "down" | "neutral" };
-  icon: ReactNode;
   label: string;
   note?: string;
   sparkline?: SparklinePoint[];
   sparklineFormatter?: (value: number) => string;
+  tone?: "blue" | "green" | "teal";
   value: string;
 }) {
   const toneClass = change?.tone === "up"
-    ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+    ? "bg-emerald-50 text-emerald-700"
     : change?.tone === "down"
-      ? "bg-red-50 text-red-700 ring-1 ring-red-200"
-      : "bg-surface-container text-on-surface-variant ring-1 ring-outline-variant/70";
+      ? "bg-red-50 text-red-700"
+      : "bg-surface-container text-on-surface-variant";
 
   return (
-    <Card className="rounded-md border-outline-variant/70 bg-white shadow-sm">
-      <CardContent className="flex min-h-[12rem] flex-col p-5">
+    <Card className="overflow-hidden rounded-md border-outline-variant/70 bg-white shadow-sm">
+      <CardContent className="flex min-h-[7.75rem] flex-col px-4 pb-2 pt-4">
         <div className="flex items-start justify-between gap-3">
-          <p className="flex min-w-0 items-center gap-3 text-sm font-bold leading-5 text-on-surface-variant">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-secondary-container text-primary">{icon}</span>
-            <span className="truncate">{label}</span>
+          <p className="min-w-0">
+            <span className="block truncate text-[0.95rem] font-semibold leading-5 text-on-surface">{label}</span>
+            <span className="mt-1 block truncate text-2xl font-extrabold leading-none text-on-surface">{value}</span>
           </p>
-          {change ? <span className={`shrink-0 rounded-md px-2.5 py-1 text-xs font-extrabold ${toneClass}`}>{change.label}</span> : null}
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            {change ? <span className={`rounded-full px-2.5 py-1 text-[11px] font-extrabold ${toneClass}`}>{change.label}</span> : null}
+            {note ? <span className="max-w-[7.5rem] truncate text-right text-[11px] font-semibold text-on-surface-variant">{note}</span> : null}
+          </div>
         </div>
-        <div className="mt-6">
-          <p className="truncate text-[1.75rem] font-semibold leading-tight text-on-surface">{value}</p>
-          <p className="mt-1 text-xs font-semibold text-on-surface-variant">{note ?? "vs previous period"}</p>
+        <Sparkline data={sparkline ?? []} tone={tone} valueFormatter={sparklineFormatter} />
+      </CardContent>
+    </Card>
+  );
+}
+
+function BranchPerformanceCard({ data }: { data: BarPoint[] }) {
+  const max = Math.max(...data.map((point) => point.value), 1);
+  const visibleData = data.length > 0 ? data : [
+    { label: "Branch 1", value: 0 },
+    { label: "Branch 2", value: 0 },
+    { label: "Branch 3", value: 0 },
+    { label: "Branch 4", value: 0 }
+  ];
+
+  return (
+    <Card className="overflow-hidden rounded-md border-outline-variant/70 bg-white shadow-sm">
+      <CardContent className="flex min-h-[7.75rem] flex-col px-4 pb-3 pt-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-[0.95rem] font-semibold leading-5 text-on-surface">Branch Performance</p>
+            <p className="mt-1 truncate text-[11px] font-semibold text-on-surface-variant">Revenue by location</p>
+          </div>
+          <button type="button" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container" aria-label="Branch performance options">
+            <MoreHorizontal size={17} />
+          </button>
         </div>
-        <Sparkline data={sparkline ?? []} valueFormatter={sparklineFormatter} />
+        <div className="mt-auto grid h-[4.25rem] grid-cols-4 items-end gap-3">
+          {visibleData.slice(0, 4).map((point, index) => {
+            const height = Math.max(10, (point.value / max) * 46);
+            return (
+              <div key={`${point.label}-${index}`} className="flex min-w-0 flex-col items-center gap-1.5">
+                <div className="flex h-12 w-full max-w-[2.6rem] items-end justify-center gap-1">
+                  {[0.62, 1, 0.72].map((scale, barIndex) => (
+                    <span
+                      key={scale}
+                      className="w-2 rounded-t-sm bg-emerald-600/85"
+                      style={{ height: `${Math.max(8, height * scale - barIndex * 2)}px` }}
+                    />
+                  ))}
+                </div>
+                <span className="w-full truncate text-center text-[11px] font-semibold text-on-surface-variant">{point.label}</span>
+              </div>
+            );
+          })}
+        </div>
       </CardContent>
     </Card>
   );
@@ -840,17 +875,19 @@ function SnapshotMetric({ icon, label, value }: { icon: ReactNode; label: string
   );
 }
 
-function Sparkline({ data, valueFormatter }: { data: SparklinePoint[]; valueFormatter: (value: number) => string }) {
+function Sparkline({ data, tone, valueFormatter }: { data: SparklinePoint[]; tone: "blue" | "green" | "teal"; valueFormatter: (value: number) => string }) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const safeData = data.length > 0 ? data : [{ label: "No data", value: 0 }, { label: "No data", value: 0 }];
-  const points = buildSvgPoints(safeData.map((point) => point.value), 130, 44, 6);
+  const points = buildSvgPoints(safeData.map((point) => point.value), 180, 54, 5);
   const activePoint = activeIndex === null ? null : points.coordinates[activeIndex];
   const activeData = activeIndex === null ? null : safeData[activeIndex];
+  const color = tone === "green" ? "#1f9d61" : tone === "teal" ? "#178f8d" : "#1f66c2";
+  const fill = tone === "green" ? "#dff4e8" : tone === "teal" ? "#d8f1ef" : "#e6f0ff";
 
   return (
-    <svg className="mt-auto h-16 w-full pt-3" viewBox="0 0 130 44" role="img" aria-label="Trend" onMouseLeave={() => setActiveIndex(null)}>
-      <path d={`${points.areaPath} L 124 40 L 6 40 Z`} fill="#fff1e7" opacity="0.95" />
-      <polyline points={points.polyline} fill="none" stroke="#6f94c7" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    <svg className="mt-auto h-14 w-full" viewBox="0 0 180 54" role="img" aria-label="Trend" onMouseLeave={() => setActiveIndex(null)}>
+      <path d={`${points.areaPath} L 175 52 L 5 52 Z`} fill={fill} opacity="0.95" />
+      <polyline points={points.polyline} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
       {points.coordinates.map((point, index) => (
         <g key={`${safeData[index]?.label ?? index}-${index}`}>
           <rect
@@ -858,10 +895,10 @@ function Sparkline({ data, valueFormatter }: { data: SparklinePoint[]; valueForm
             y="0"
             width={
               index === points.coordinates.length - 1
-                ? 130 - (points.coordinates[index - 1]?.x ? (points.coordinates[index - 1].x + point.x) / 2 : 0)
+                ? 180 - (points.coordinates[index - 1]?.x ? (points.coordinates[index - 1].x + point.x) / 2 : 0)
                 : ((points.coordinates[index + 1].x + point.x) / 2) - (index === 0 ? 0 : (points.coordinates[index - 1].x + point.x) / 2)
             }
-            height="44"
+            height="54"
             fill="transparent"
             tabIndex={0}
             role="button"
@@ -874,9 +911,9 @@ function Sparkline({ data, valueFormatter }: { data: SparklinePoint[]; valueForm
       ))}
       {activePoint && activeData ? (
         <g pointerEvents="none">
-          <line x1={activePoint.x} y1="6" x2={activePoint.x} y2="40" stroke="#6f94c7" strokeOpacity="0.25" strokeWidth="1" />
-          <circle cx={activePoint.x} cy={activePoint.y} r="3.5" fill="#ffffff" stroke="#6f94c7" strokeWidth="2" />
-          <g transform={`translate(${Math.min(Math.max(activePoint.x, 28), 102)} 4)`}>
+          <line x1={activePoint.x} y1="4" x2={activePoint.x} y2="51" stroke={color} strokeOpacity="0.22" strokeWidth="1" />
+          <circle cx={activePoint.x} cy={activePoint.y} r="3.5" fill="#ffffff" stroke={color} strokeWidth="2" />
+          <g transform={`translate(${Math.min(Math.max(activePoint.x, 28), 152)} 4)`}>
             <rect x="-27" y="-2" width="54" height="17" rx="5" fill="#1f2933" />
             <text x="0" y="10" textAnchor="middle" className="fill-white text-[8px] font-bold">
               {valueFormatter(activeData.value)}
