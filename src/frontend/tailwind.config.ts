@@ -85,15 +85,15 @@ const config: Config = {
         }
       },
       fontFamily: {
-        sans: ["Public Sans", "ui-sans-serif", "system-ui", "sans-serif"],
-        "display-lg": ["Public Sans", "ui-sans-serif", "system-ui", "sans-serif"],
-        "display-lg-mobile": ["Public Sans", "ui-sans-serif", "system-ui", "sans-serif"],
-        "headline-lg": ["Public Sans", "ui-sans-serif", "system-ui", "sans-serif"],
-        "headline-md": ["Public Sans", "ui-sans-serif", "system-ui", "sans-serif"],
-        "body-lg": ["Public Sans", "ui-sans-serif", "system-ui", "sans-serif"],
-        "body-md": ["Public Sans", "ui-sans-serif", "system-ui", "sans-serif"],
-        "label-md": ["Public Sans", "ui-sans-serif", "system-ui", "sans-serif"],
-        caption: ["Public Sans", "ui-sans-serif", "system-ui", "sans-serif"]
+        sans: ["Plus Jakarta Sans", "ui-sans-serif", "system-ui", "sans-serif"],
+        "display-lg": ["Plus Jakarta Sans", "ui-sans-serif", "system-ui", "sans-serif"],
+        "display-lg-mobile": ["Plus Jakarta Sans", "ui-sans-serif", "system-ui", "sans-serif"],
+        "headline-lg": ["Plus Jakarta Sans", "ui-sans-serif", "system-ui", "sans-serif"],
+        "headline-md": ["Plus Jakarta Sans", "ui-sans-serif", "system-ui", "sans-serif"],
+        "body-lg": ["Plus Jakarta Sans", "ui-sans-serif", "system-ui", "sans-serif"],
+        "body-md": ["Plus Jakarta Sans", "ui-sans-serif", "system-ui", "sans-serif"],
+        "label-md": ["Plus Jakarta Sans", "ui-sans-serif", "system-ui", "sans-serif"],
+        caption: ["Plus Jakarta Sans", "ui-sans-serif", "system-ui", "sans-serif"]
       },
       fontSize: {
         "display-lg": ["48px", { lineHeight: "56px", fontWeight: "700", letterSpacing: "0" }],

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowRight,
@@ -22,138 +21,233 @@ import {
   Users
 } from "lucide-react";
 import { FaqItems, PageShell, SiteUrl } from "./marketing";
+import { InteractiveHero } from "./interactive-hero";
 import { LandingMotion } from "./landing-motion";
+import { ProductShowcaseTabs } from "./product-showcase-tabs";
 
 export const metadata: Metadata = {
-  title: "Qrave | QR Menu Ordering for Real Restaurant Service",
+  title: "Qrave | The Restaurant Growth OS",
   description:
-    "Qrave helps restaurants run QR menus, table orders, waiter calls, live kitchen status, and customer follow-up from one practical workspace.",
+    "Qrave helps restaurants launch QR menus, accept table orders, manage kitchen workflows, reduce waiter delays, and bring customers back with WhatsApp engagement.",
   alternates: { canonical: SiteUrl },
   keywords: [
-    "restaurant QR ordering",
-    "QR menu software",
-    "digital menu for restaurants",
-    "restaurant customer CRM",
-    "restaurant ordering software"
+    "restaurant growth OS",
+    "QR menu ordering",
+    "restaurant ordering software",
+    "restaurant WhatsApp marketing",
+    "kitchen workflow software",
+    "table QR ordering"
   ],
   openGraph: {
-    title: "Qrave | QR Menu Ordering for Real Restaurant Service",
-    description: "QR menus, live table orders, waiter calls, and customer history for restaurants that need service to run cleanly.",
+    title: "Qrave | The Restaurant Growth OS",
+    description:
+      "Run digital menus, QR table orders, kitchen workflows, waiter calls, branches, customers, and WhatsApp engagement from one restaurant operating system.",
     url: SiteUrl,
     siteName: "Qrave",
-    type: "website"
+    type: "website",
+    images: [{ url: "/landing/dashboard.png", width: 1600, height: 760, alt: "Qrave restaurant operations dashboard" }]
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Qrave | The Restaurant Growth OS",
+    description: "QR menus, table ordering, kitchen workflow, waiter calls, and WhatsApp customer engagement for restaurants."
   }
 };
 
-const landingImages = {
-  hero: "/landing/dashboard.png",
-  quickService: "/landing/quick-service-card.svg",
-  fullService: "/landing/full-service-card.svg",
-  cafe: "/landing/cafe-card.svg",
-  cloudKitchen: "/landing/cloud-kitchen-card.svg",
-  menu: "/landing/qr-menu.png",
-  operations: "/landing/orders.png",
-  customers: "/landing/customer-history.png"
-};
+const heroSignals = ["QR ordering", "Kitchen workflow", "WhatsApp retention"];
 
-const businessTypes = [
+const outcomeMetrics = [
   {
-    title: "Quick-service",
-    text: "Keep dine-in QR orders, pickup orders, and counter tickets in one queue.",
-    image: landingImages.quickService,
-    accent: "bg-[#d8f1df]"
+    value: "30%",
+    label: "faster order flow",
+    detail: "Placeholder target for teams replacing manual table ordering."
   },
   {
-    title: "Full-service",
-    text: "Let guests order from the table while staff handle requests and kitchen status.",
-    image: landingImages.fullService,
-    accent: "bg-[#f6e1bf]"
+    value: "15 min",
+    label: "QR menu launch",
+    detail: "Create categories, items, and table QR codes without setup drama."
   },
   {
-    title: "Cafes",
-    text: "Update combos, seasonal specials, item photos, and repeat-visit offers fast.",
-    image: landingImages.cafe,
-    accent: "bg-[#d9e8ff]"
-  },
-  {
-    title: "Cloud kitchens",
-    text: "Control menu availability, pickup flow, customer records, and outlet reports.",
-    image: landingImages.cloudKitchen,
-    accent: "bg-[#efe4ff]"
+    value: "1 OS",
+    label: "menus, orders, guests",
+    detail: "A connected workspace for service, kitchen, branches, and growth."
   }
 ];
 
-const productTools = [
+const outcomeTags = [
+  "Faster table ordering",
+  "Lower waiter workload",
+  "More repeat customers",
+  "Live kitchen workflow",
+  "WhatsApp customer engagement"
+];
+
+const problemCards = [
   {
-    title: "QR menu ordering",
-    text: "Table-specific QR pages with categories, photos, add-ons, notes, and live availability.",
+    title: "Printed menus become outdated",
+    text: "Prices, photos, combos, and availability change faster than printed menus can keep up.",
     icon: QrCode
   },
   {
-    title: "Live order board",
-    text: "Tickets move from new to preparing to ready, with waiter calls visible beside orders.",
+    title: "Waiters miss orders in rush hours",
+    text: "Guests wait longer, staff repeat the same steps, and table requests get buried.",
+    icon: BellRing
+  },
+  {
+    title: "Kitchen teams lack order visibility",
+    text: "New, preparing, ready, and served orders need one clean view during service.",
     icon: ChefHat
   },
   {
-    title: "Guest records",
-    text: "Store visit count, spend, favorites, feedback, and consent for follow-up.",
+    title: "Customers leave once and disappear",
+    text: "Without customer history and follow-up, restaurants lose easy repeat visits.",
     icon: Users
-  },
-  {
-    title: "Owner view",
-    text: "Track orders, unavailable items, repeat customers, and branch-level performance.",
-    icon: BarChart3
   }
 ];
 
-const stats = [
-  { value: "00", label: "apps guests need to install" },
-  { value: "12", label: "sample table QR codes ready from setup" },
-  { value: "04", label: "service views: menu, orders, kitchen, guests" },
-  { value: "01", label: "workspace for branch owners and staff" }
+const flowSteps = [
+  { title: "Customer scans table QR", text: "Every table gets its own code.", icon: ScanLine },
+  { title: "Opens digital menu", text: "Live items, photos, variants, and offers.", icon: Smartphone },
+  { title: "Places order", text: "Guests order without waiting for staff.", icon: CreditCard },
+  { title: "Kitchen receives order", text: "Tickets move through prep statuses.", icon: ChefHat },
+  { title: "Staff serves faster", text: "Waiter calls and ready items stay visible.", icon: BellRing },
+  { title: "Customer returns", text: "WhatsApp campaigns bring guests back.", icon: MessageCircle }
 ];
 
-const featureRows = [
+const featureBuckets = [
   {
-    eyebrow: "Digital ordering",
-    title: "A table QR menu that still feels managed by your team",
-    text:
-      "Guests see the current menu, not yesterday's PDF. Staff can mark items unavailable, add offers, and receive table-aware orders without asking customers to download an app.",
-    image: landingImages.menu,
-    visual: "menu" as const,
+    title: "Customer Experience",
+    text: "Give guests a faster way to browse, order, request help, and discover offers.",
     icon: Smartphone,
-    bullets: ["Separate QR per table", "Item availability switch", "Add-ons, notes, and offers"]
+    features: [
+      ["Digital QR Menu", "Replace printed menus with a live, image-rich menu."],
+      ["Table Ordering", "Let guests order directly from the table QR."],
+      ["Item Images & Variants", "Show dishes clearly with add-ons and options."],
+      ["Waiter Call", "Capture service requests without missed hand waves."],
+      ["Offers & Availability", "Promote what is live and hide what is sold out."]
+    ]
   },
   {
-    eyebrow: "Restaurant operations",
-    title: "One board for orders, prep, and waiter calls",
-    text:
-      "During rush hour, staff need fewer places to check. Qrave keeps new orders, kitchen status, ready items, and table requests in one operational view.",
-    image: landingImages.operations,
-    visual: "operations" as const,
-    icon: BellRing,
-    bullets: ["Live table tickets", "Kitchen status updates", "Open waiter calls"],
-    reverse: true
+    title: "Restaurant Operations",
+    text: "Keep owners, waiters, and kitchen teams aligned from one operating view.",
+    icon: ChefHat,
+    features: [
+      ["Live Orders Dashboard", "Track every table order as it moves."],
+      ["Kitchen Workflow", "Move tickets from placed to preparing to ready."],
+      ["Table Management", "Manage table QR codes by branch and floor."],
+      ["Branch Management", "Control outlets without messy spreadsheets."],
+      ["Staff Access", "Give each role the screens they need."]
+    ]
   },
   {
-    eyebrow: "Repeat customers",
-    title: "Remember guests after they leave the table",
-    text:
-      "Every order can become useful customer context: visit count, favorite items, total spend, feedback, and WhatsApp consent for practical follow-up.",
-    image: landingImages.customers,
-    visual: "customers" as const,
-    icon: MessageCircle,
-    bullets: ["Visit and spend history", "Favorite item signals", "Consent-first follow-up"]
+    title: "Growth & Retention",
+    text: "Turn one table order into customer context and repeat business.",
+    icon: Megaphone,
+    features: [
+      ["Customer History", "See visits, spend, last order, and preferences."],
+      ["WhatsApp Campaigns", "Send offers and return prompts to opted-in guests."],
+      ["Repeat Customer Tracking", "Spot returning guests and high-value customers."],
+      ["Offers & Promotions", "Run simple campaigns without a separate tool."],
+      ["Basic Reports", "Understand orders, menu activity, and branch trends."]
+    ]
   }
 ];
 
-const operatingStack = [
-  ["Menu manager", "Categories, items, photos, prices, offers, add-ons, and availability."],
-  ["Table QR setup", "Printable table codes tied to the correct branch and table number."],
-  ["Order desk", "A staff-friendly board for new, preparing, ready, and completed tickets."],
-  ["Guest profiles", "Customer names, phone consent, visits, spend, favorites, and feedback."],
-  ["Branch reports", "Daily revenue, order status mix, repeat guests, and menu activity."],
-  ["Staff access", "Focused views for owners, managers, waiters, and kitchen teams."]
+const calculatorInputs = [
+  ["Number of tables", "18"],
+  ["Average daily customers", "120"],
+  ["Average order value", "Rs. 420"]
+];
+
+const calculatorOutputs = [
+  ["More orders handled", "+12/day", "When guests order without waiting for a waiter."],
+  ["Faster service", "8-12 min", "Potential reduction in order capture and relay time."],
+  ["Potential monthly lift", "Rs. 1.5L", "Illustrative output, based on faster table turns."]
+];
+
+const useCases = [
+  {
+    title: "Cafes",
+    text: "Move breakfast rush, combos, add-ons, and repeat guests through one QR-first workflow.",
+    icon: Store
+  },
+  {
+    title: "Restaurants",
+    text: "Give dine-in tables a faster ordering path while staff and kitchen stay synced.",
+    icon: Utensils
+  },
+  {
+    title: "Food Courts",
+    text: "Standardize ordering, pickup, and customer communication across busy counters.",
+    icon: QrCode
+  },
+  {
+    title: "Cloud Kitchens",
+    text: "Manage availability, pickup orders, customer history, and offers without a front desk.",
+    icon: ChefHat
+  },
+  {
+    title: "Multi-branch Brands",
+    text: "Control menus, staff, reports, campaigns, and branches from a central owner view.",
+    icon: Users
+  }
+];
+
+const testimonials = [
+  {
+    quote: "Qrave helped us reduce order confusion during rush hours.",
+    name: "Restaurant Owner",
+    role: "Cafe Placeholder"
+  },
+  {
+    quote: "The kitchen board made table orders easier to track from scan to serve.",
+    name: "Operations Manager",
+    role: "Restaurant Placeholder"
+  },
+  {
+    quote: "We finally had a simple way to follow up with customers after their visit.",
+    name: "Founder",
+    role: "Food Brand Placeholder"
+  }
+];
+
+const pricingPlans = [
+  {
+    name: "Starter",
+    eyebrow: "For small cafes starting with QR menus.",
+    cta: "Start Free",
+    href: "/admin/register",
+    features: ["QR Menu", "Menu Categories", "Item Images", "Table QR Codes", "Basic Dashboard"]
+  },
+  {
+    name: "Growth",
+    eyebrow: "For restaurants that want ordering and operations.",
+    cta: "Book Demo",
+    href: "/contact",
+    highlighted: true,
+    features: [
+      "Everything in Starter",
+      "QR Table Ordering",
+      "Live Orders Dashboard",
+      "Kitchen Workflow",
+      "Waiter Call",
+      "Customer History"
+    ]
+  },
+  {
+    name: "Multi-Branch",
+    eyebrow: "For growing restaurant brands.",
+    cta: "Contact Sales",
+    href: "/contact",
+    features: [
+      "Everything in Growth",
+      "Multi-Branch Management",
+      "Staff Roles",
+      "WhatsApp Campaigns",
+      "Advanced Reports",
+      "Priority Support"
+    ]
+  }
 ];
 
 const schema = {
@@ -162,12 +256,13 @@ const schema = {
   name: "Qrave",
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
-  description: "QR menu ordering, live operations, and customer CRM software for food service businesses.",
+  description:
+    "Restaurant Growth OS for QR menus, table ordering, kitchen workflow, waiter calls, branch management, customers, and WhatsApp engagement.",
   offers: {
     "@type": "Offer",
     price: "0",
     priceCurrency: "INR",
-    description: "Start free"
+    description: "Start free trial"
   }
 };
 
@@ -177,219 +272,238 @@ export default function LandingPage() {
       <LandingMotion />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
 
-      <section className="relative overflow-hidden bg-[#f7f6f2] pt-28 text-[#050505]">
-        <div className="absolute inset-x-0 top-0 h-[42rem] bg-[radial-gradient(circle_at_50%_20%,#e1f3d5_0%,#f3e0b9_34%,#f7f6f2_72%)]" />
-        <div className="relative mx-auto max-w-[1560px] px-5 pb-10 sm:px-8 lg:px-12">
-          <div className="mx-auto max-w-6xl text-center">
-            <p className="landing-reveal text-xs font-extrabold uppercase tracking-[0.22em] text-[#4b4b4b]" style={{ animationDelay: "40ms" }}>
-              Built for QR-first restaurant service
-            </p>
-            <h1 className="landing-reveal mx-auto mt-7 max-w-6xl text-[4.4rem] font-extrabold leading-[0.85] tracking-[-0.04em] sm:text-[6.5rem] lg:text-[9rem]" style={{ animationDelay: "140ms" }}>
-              Power your restaurant with Qrave
-            </h1>
-            <p className="landing-reveal mx-auto mt-8 max-w-3xl text-lg font-semibold leading-8 text-[#3f3f3f] md:text-xl" style={{ animationDelay: "260ms" }}>
-              Manage QR orders, keep kitchen and waiter teams in sync, update menus, and bring guests back with customer history built from every visit.
-            </p>
-            <div className="landing-reveal mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row" style={{ animationDelay: "360ms" }}>
-              <Link href="/contact" className="inline-flex min-w-36 items-center justify-center rounded-full border border-[#050505] bg-white px-6 py-3 text-sm font-extrabold text-[#050505] transition hover:bg-[#f0eee8]">
-                Contact sales
-              </Link>
-              <Link href="/admin/register" className="inline-flex min-w-36 items-center justify-center rounded-full bg-[#050505] px-6 py-3 text-sm font-extrabold text-white transition hover:bg-[#1e5636]">
-                Get started
-              </Link>
-            </div>
-          </div>
-
-          <div data-hero-wake="" className="landing-hero-wake relative mx-auto mt-14 max-w-7xl overflow-hidden rounded-[1.4rem] border border-black/10 bg-black p-2 shadow-[0_28px_100px_rgba(0,0,0,0.22)]">
-            <ImageReadyFrame
-              src={landingImages.hero}
-              alt="Qrave restaurant operations dashboard"
-              className="h-[14rem] rounded-[1rem] border-0 bg-[#0b0d0c] shadow-none sm:h-[22rem] md:h-[42rem]"
-              imageClassName="h-full w-full bg-[#f7f6f2] object-cover object-left-top md:object-contain"
-            >
-              <HeroProductVisual />
-            </ImageReadyFrame>
-          </div>
-        </div>
-      </section>
-
-      <section id="overview" className="bg-white px-5 py-20 sm:px-8 lg:px-12">
-        <div data-landing-reveal="" className="landing-scroll-reveal mx-auto grid max-w-[1560px] gap-10 lg:grid-cols-[0.88fr_1.12fr] lg:items-end">
-          <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#707070]">Overview</p>
-            <h2 className="mt-5 max-w-3xl text-5xl font-extrabold leading-[0.95] tracking-[-0.04em] md:text-7xl">
-              Built around what happens during a shift
-            </h2>
-          </div>
-          <div className="grid gap-6 md:grid-cols-2">
-            {[
-              "A customer at Table 8 scans, orders two items, and asks for water from the same page.",
-              "Kitchen sees the ticket as new, marks it preparing, then ready for the waiter.",
-              "Owner changes an item price or marks a dish unavailable before lunch service.",
-              "Customer details, consent, spend, and favorite items are saved for later follow-up."
-            ].map((item) => (
-              <div key={item} data-landing-reveal="" className="landing-scroll-reveal border-t border-[#cfcfcf] pt-5 text-lg font-semibold leading-7 text-[#333]">
-                {item}
+      <section className="relative overflow-hidden bg-[#050814] px-4 pb-16 pt-28 text-white sm:px-6 sm:pb-20 sm:pt-32 lg:px-8">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_14%_18%,rgba(249,115,22,0.18),transparent_34%),radial-gradient(circle_at_82%_8%,rgba(59,130,246,0.16),transparent_32%),radial-gradient(circle_at_72%_78%,rgba(15,23,42,0.92),transparent_38%),linear-gradient(145deg,#050814_0%,#0B1020_46%,#111827_100%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#F8FAFC] to-transparent" />
+        <div className="relative mx-auto max-w-7xl">
+          <div className="grid min-w-0 grid-cols-1 items-center gap-10 lg:grid-cols-[0.92fr_1.08fr]">
+            <div className="min-w-0 lg:max-w-none" style={{ width: "min(100%, calc(100vw - 2rem))" }}>
+              <p className="landing-reveal inline-flex rounded-full border border-white/15 bg-white/8 px-4 py-2 text-sm font-bold text-orange-100" style={{ animationDelay: "40ms" }}>
+                The Restaurant Growth OS
+              </p>
+              <h1 className="font-hero landing-reveal mt-6 max-w-[calc(100vw-2rem)] text-4xl font-black leading-[1.02] text-white sm:max-w-3xl sm:text-5xl lg:text-6xl" style={{ animationDelay: "120ms" }}>
+                The Restaurant Growth OS for Modern Cafes & Restaurants
+              </h1>
+              <p className="landing-reveal mt-6 max-w-[calc(100vw-2rem)] text-lg font-semibold leading-8 text-slate-200 sm:max-w-2xl" style={{ animationDelay: "200ms" }}>
+                Qrave helps restaurants replace printed menus, accept QR table orders, manage kitchen workflows, reduce waiter delays, and bring customers back with WhatsApp engagement.
+              </p>
+              <div className="landing-reveal mt-8 flex max-w-[calc(100vw-2rem)] flex-col gap-3 sm:max-w-none sm:flex-row" style={{ animationDelay: "280ms" }}>
+                <PrimaryLink href="/admin/register">Start Free Trial</PrimaryLink>
+                <SecondaryLink href="/contact">Book a Demo</SecondaryLink>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="businesses" className="bg-[#f7f6f2] px-5 py-24 sm:px-8 lg:px-12">
-        <div className="mx-auto max-w-[1560px]">
-          <div data-landing-reveal="" className="landing-scroll-reveal">
-            <SectionHeading eyebrow="Food businesses" title="Different service styles, the same operating core" />
-          </div>
-          <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-            {businessTypes.map((item) => (
-              <BusinessCard key={item.title} {...item} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="tools" className="bg-black px-5 py-24 text-white sm:px-8 lg:px-12">
-        <div className="mx-auto max-w-[1560px]">
-          <div data-landing-reveal="" className="landing-scroll-reveal grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-end">
-            <div>
-              <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#bdbdbd]">Qrave tools</p>
-              <h2 className="mt-5 max-w-3xl text-5xl font-extrabold leading-[0.95] tracking-[-0.04em] text-white md:text-7xl">
-                The parts restaurant teams open every day
-              </h2>
+              <p className="landing-reveal mt-4 text-sm font-semibold text-slate-300" style={{ animationDelay: "340ms" }}>
+                No setup headache. Launch your QR menu in minutes.
+              </p>
+              <div className="landing-reveal mt-8 flex max-w-[calc(100vw-2rem)] flex-wrap gap-3 sm:max-w-none" style={{ animationDelay: "400ms" }}>
+                {heroSignals.map((signal) => (
+                  <span key={signal} className="rounded-full border border-white/12 bg-white/7 px-3 py-2 text-xs font-bold text-slate-200">
+                    {signal}
+                  </span>
+                ))}
+              </div>
             </div>
-            <p className="max-w-2xl text-lg font-semibold leading-8 text-white/70">
-              Qrave is not just a prettier menu. It gives owners and staff the working screens they need before, during, and after service.
-            </p>
-          </div>
-          <div className="mt-14 grid gap-px overflow-hidden rounded-xl border border-white/12 bg-white/12 md:grid-cols-2 lg:grid-cols-4">
-            {productTools.map((tool) => (
-              <ProductTool key={tool.title} {...tool} />
-            ))}
+
+            <InteractiveHero />
           </div>
         </div>
       </section>
 
-      <section className="bg-white px-5 py-20 sm:px-8 lg:px-12">
-        <div className="mx-auto grid max-w-[1560px] gap-8 md:grid-cols-4">
-          {stats.map((stat) => (
-            <div key={stat.value} data-landing-reveal="" className="landing-scroll-reveal landing-count-card border-t border-[#cfcfcf] pt-6">
-              <p className="relative text-6xl font-extrabold leading-none tracking-[-0.05em] text-[#050505] md:text-8xl">{stat.value}</p>
-              <p className="mt-4 max-w-xs text-base font-extrabold leading-6 text-[#444]">{stat.label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="bg-white px-5 pb-24 sm:px-8 lg:px-12">
-        <div data-landing-reveal="" className="landing-scroll-reveal mx-auto grid max-w-[1560px] overflow-hidden rounded-xl border border-[#d8d8d8] lg:grid-cols-[0.95fr_1.05fr]">
-          <div className="bg-[#f7f6f2] p-7 md:p-10">
-            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#707070]">First week setup</p>
-            <h2 className="mt-5 max-w-2xl text-4xl font-extrabold leading-[0.95] tracking-[-0.04em] md:text-6xl">
-              Start with one branch, one menu, and the tables you already have
-            </h2>
-            <p className="mt-6 max-w-xl text-base font-semibold leading-8 text-[#555]">
-              The page should feel real because the product flow is real: configure branch details, publish menu items, print table QR codes, and let staff work from the order board.
-            </p>
-          </div>
-          <div className="grid gap-px bg-[#d8d8d8] md:grid-cols-2">
-            {[
-              ["Day 1", "Add branch profile, logo, GST/tax notes, and order settings."],
-              ["Day 2", "Create categories, upload food photos, and set item availability."],
-              ["Day 3", "Print table QR codes and test the customer ordering flow."],
-              ["Day 4", "Train staff on new orders, kitchen status, and waiter calls."]
-            ].map(([day, text]) => (
-              <article key={day} data-landing-reveal="" className="landing-scroll-reveal bg-white p-7">
-                <p className="text-sm font-extrabold text-[#707070]">{day}</p>
-                <p className="mt-3 text-lg font-extrabold leading-7 text-[#050505]">{text}</p>
+      <section aria-label="Restaurant outcomes" className="bg-[#F8FAFC] px-4 py-10 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="grid gap-4 lg:grid-cols-3">
+            {outcomeMetrics.map((metric) => (
+              <article key={metric.label} data-landing-reveal className="landing-scroll-reveal rounded-xl border border-[#E2E8F0] bg-white p-6 shadow-[0_18px_48px_rgba(15,23,42,0.06)]">
+                <p className="font-accent text-4xl font-extrabold text-[#0F172A]">{metric.value}</p>
+                <h2 className="mt-2 text-lg font-extrabold text-[#0F172A]">{metric.label}</h2>
+                <p className="mt-2 text-sm font-semibold leading-6 text-[#64748B]">{metric.detail}</p>
               </article>
             ))}
           </div>
-        </div>
-      </section>
-
-      <section id="operations" className="bg-[#f7f6f2] px-5 py-24 sm:px-8 lg:px-12">
-        <div className="mx-auto max-w-[1560px]">
-          <div data-landing-reveal="" className="landing-scroll-reveal">
-            <SectionHeading eyebrow="Operations" title="Restaurant workflows, built for the rush" centered />
-          </div>
-          <div className="mt-12 grid gap-8">
-            {featureRows.map((feature) => (
-              <FeatureRow key={feature.title} {...feature} />
+          <div className="mt-5 flex flex-wrap gap-2">
+            {outcomeTags.map((tag) => (
+              <span key={tag} data-landing-reveal className="landing-scroll-reveal rounded-full border border-[#E2E8F0] bg-white px-4 py-2 text-sm font-bold text-[#334155]">
+                {tag}
+              </span>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="bg-white px-5 py-24 sm:px-8 lg:px-12">
-        <div className="mx-auto grid max-w-[1560px] gap-10 lg:grid-cols-[0.85fr_1.15fr]">
-          <div data-landing-reveal="" className="landing-scroll-reveal">
-            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#707070]">Platform stack</p>
-            <h2 className="mt-5 max-w-2xl text-5xl font-extrabold leading-[0.95] tracking-[-0.04em] md:text-7xl">
-              Start with QR. Grow into a complete restaurant system.
-            </h2>
-          </div>
-          <div className="grid gap-px overflow-hidden rounded-xl border border-[#d8d8d8] bg-[#d8d8d8] md:grid-cols-2">
-            {operatingStack.map(([title, text]) => (
-              <article key={title} data-landing-reveal="" className="landing-scroll-reveal bg-white p-7">
-                <h3 className="text-2xl font-extrabold tracking-[-0.02em] text-[#050505]">{title}</h3>
-                <p className="mt-4 text-sm font-semibold leading-6 text-[#555]">{text}</p>
-              </article>
+      <section className="bg-white px-4 py-20 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <SectionIntro
+            eyebrow="The problem"
+            title="Restaurants lose money in small delays"
+            text="A slow menu update, one missed waiter call, or one lost customer record compounds during every busy shift."
+          />
+          <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {problemCards.map((problem) => (
+              <InfoCard key={problem.title} {...problem} />
             ))}
           </div>
-        </div>
-      </section>
-
-      <section id="faq" className="bg-[#f7f6f2] px-5 py-24 sm:px-8 lg:px-12">
-        <div className="mx-auto max-w-[1080px]">
-          <div data-landing-reveal="" className="landing-scroll-reveal">
-            <SectionHeading eyebrow="FAQ" title="Questions restaurant teams ask" centered />
-          </div>
-          <div className="mt-10 divide-y divide-[#cfcfcf] border-y border-[#cfcfcf]">
-            {FaqItems.slice(0, 5).map((item) => (
-              <article key={item.question} data-landing-reveal="" className="landing-scroll-reveal grid gap-4 py-7 md:grid-cols-[0.42fr_0.58fr]">
-                <h3 className="text-xl font-extrabold tracking-[-0.02em] text-[#050505]">{item.question}</h3>
-                <p className="text-base font-semibold leading-7 text-[#4b4b4b]">{item.answer}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-black px-5 py-24 text-white sm:px-8 lg:px-12">
-        <div data-landing-reveal="" className="landing-scroll-reveal mx-auto grid max-w-[1560px] gap-10 lg:grid-cols-[0.95fr_0.75fr] lg:items-center">
-          <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#bdbdbd]">Ready for service?</p>
-            <h2 className="mt-5 max-w-5xl text-5xl font-extrabold leading-[0.9] tracking-[-0.04em] md:text-8xl">
-              See what your first Qrave branch would look like.
-            </h2>
-            <p className="mt-7 max-w-2xl text-lg font-semibold leading-8 text-white/68">
-              Start with a real branch setup: tables, menu categories, sample order flow, and the staff screens your team would use during service.
-            </p>
-          </div>
-          <div className="rounded-xl bg-white p-5 text-black md:p-6">
-            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#707070]">Demo setup checklist</p>
-            <div className="mt-5 grid gap-3">
-              {[
-                ["Restaurant name", "Urban Tadka"],
-                ["Branch", "Civil Lines"],
-                ["Tables", "12 QR codes"],
-                ["Menu sample", "32 active items"]
-              ].map(([label, value]) => (
-                <div key={label} className="flex items-center justify-between rounded-lg border border-[#d8d8d8] px-4 py-3">
-                  <span className="text-sm font-extrabold text-[#707070]">{label}</span>
-                  <span className="text-sm font-extrabold text-[#050505]">{value}</span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
-              <Link href="/admin/register" className="inline-flex items-center justify-center gap-2 rounded-full bg-black px-6 py-3 text-sm font-extrabold text-white transition hover:bg-[#1f1f1f]">
-                Create account
+          <div data-landing-reveal className="landing-scroll-reveal mt-10 rounded-2xl bg-[#0B1020] p-6 text-white sm:p-8">
+            <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-sm font-bold text-orange-200">Qrave fixes this with one connected restaurant system.</p>
+                <h2 className="font-accent mt-2 max-w-3xl text-3xl font-extrabold leading-tight sm:text-4xl">Menus, orders, kitchen, staff, branches, and WhatsApp engagement stay in sync.</h2>
+              </div>
+              <Link href="#how-it-works" className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-extrabold text-[#0F172A] transition hover:bg-orange-100">
+                See the flow
                 <ArrowRight size={17} />
               </Link>
-              <Link href="/contact" className="inline-flex items-center justify-center rounded-full border border-black px-6 py-3 text-sm font-extrabold text-black transition hover:bg-[#f7f6f2]">
-                Talk to us
-              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="how-it-works" className="bg-[#F8FAFC] px-4 py-20 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <SectionIntro
+            eyebrow="How it works"
+            title="From table scan to repeat visit"
+            text="Qrave turns a simple QR scan into an operational workflow your team can actually run during service."
+            centered
+          />
+          <div className="relative mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+            <div className="absolute left-8 right-8 top-14 hidden h-px bg-[#CBD5E1] lg:block" />
+            {flowSteps.map((step, index) => (
+              <FlowStep key={step.title} index={index + 1} {...step} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="features" className="bg-white px-4 py-20 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <SectionIntro
+            eyebrow="Features"
+            title="Built around customer experience, daily operations, and retention"
+            text="Qrave keeps the product simple for restaurants by grouping the tools around the outcomes owners care about."
+          />
+          <div className="mt-12 grid gap-6 lg:grid-cols-3">
+            {featureBuckets.map((bucket) => (
+              <FeatureBucket key={bucket.title} {...bucket} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="overflow-hidden bg-[#070A12] px-4 py-20 text-white sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <SectionIntro
+            eyebrow="Product showcase"
+            title="Everything your restaurant needs, in one dashboard"
+            text="Use one workspace to publish menus, watch table orders, move tickets through kitchen statuses, and bring customers back."
+            dark
+          />
+          <div className="mt-10">
+            <ProductShowcaseTabs />
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white px-4 py-20 sm:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+          <div data-landing-reveal className="landing-scroll-reveal">
+            <p className="text-sm font-extrabold text-[#F97316]">ROI calculator</p>
+            <h2 className="font-accent mt-4 max-w-2xl text-4xl font-extrabold leading-tight text-[#0F172A] sm:text-5xl">
+              See what faster ordering can do for your restaurant
+            </h2>
+            <p className="mt-5 max-w-xl text-base font-semibold leading-8 text-[#64748B]">
+              This static calculator preview shows the kind of conversation Qrave creates with restaurant owners: more orders handled, faster service, and a clearer revenue story.
+            </p>
+          </div>
+          <CalculatorMockup />
+        </div>
+      </section>
+
+      <section className="bg-[#F8FAFC] px-4 py-20 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <SectionIntro
+            eyebrow="Use cases"
+            title="Designed for restaurants that need more than a digital menu"
+            text="Qrave fits QR-first service models across dine-in, counter service, pickup, and multi-branch food brands."
+            centered
+          />
+          <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            {useCases.map((useCase) => (
+              <UseCaseCard key={useCase.title} {...useCase} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="testimonials" className="bg-white px-4 py-20 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <SectionIntro
+            eyebrow="Testimonials"
+            title="Placeholder stories for the outcomes Qrave is built to improve"
+            text="These are sample testimonials until verified customer quotes are available."
+          />
+          <div className="mt-10 grid gap-5 lg:grid-cols-3">
+            {testimonials.map((testimonial) => (
+              <article key={testimonial.role} data-landing-reveal className="landing-scroll-reveal rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-6">
+                <p className="font-quote text-xl font-bold leading-8 text-[#0F172A]">"{testimonial.quote}"</p>
+                <div className="mt-8 border-t border-[#E2E8F0] pt-4">
+                  <p className="font-extrabold text-[#0F172A]">{testimonial.name}</p>
+                  <p className="mt-1 text-sm font-semibold text-[#64748B]">{testimonial.role}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="pricing" className="bg-[#F8FAFC] px-4 py-20 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <SectionIntro
+            eyebrow="Pricing"
+            title="Simple plans for QR menus, operations, and multi-branch growth"
+            text="Start with the essentials, add ordering and kitchen workflow, then expand into WhatsApp engagement and branch management."
+            centered
+          />
+          <div className="mt-12 grid gap-5 lg:grid-cols-3">
+            {pricingPlans.map((plan) => (
+              <PricingCard key={plan.name} {...plan} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" className="bg-white px-4 py-20 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-5xl">
+          <SectionIntro
+            eyebrow="FAQ"
+            title="Questions restaurant teams ask before getting started"
+            text="Clear answers about QR menus, table ordering, kitchen workflow, branches, WhatsApp engagement, and customer app requirements."
+            centered
+          />
+          <div className="mt-10 divide-y divide-[#E2E8F0] rounded-2xl border border-[#E2E8F0] bg-white">
+            {FaqItems.map((item) => (
+              <article key={item.question} data-landing-reveal className="landing-scroll-reveal grid gap-3 p-6 md:grid-cols-[0.38fr_0.62fr] md:gap-8">
+                <h3 className="text-lg font-extrabold leading-7 text-[#0F172A]">{item.question}</h3>
+                <p className="text-sm font-semibold leading-7 text-[#64748B]">{item.answer}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[#070A12] px-4 py-20 text-white sm:px-6 lg:px-8">
+        <div data-landing-reveal className="landing-scroll-reveal mx-auto max-w-7xl overflow-hidden rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_20%_0%,rgba(249,115,22,0.34),transparent_34%),linear-gradient(135deg,#0B1020,#111827)] p-8 sm:p-10 lg:p-14">
+          <div className="grid gap-10 lg:grid-cols-[1fr_0.72fr] lg:items-center">
+            <div>
+              <p className="text-sm font-extrabold text-orange-200">Ready for service?</p>
+              <h2 className="font-hero mt-4 max-w-4xl text-4xl font-black leading-tight sm:text-5xl">
+                Ready to turn your QR menu into a restaurant growth system?
+              </h2>
+              <p className="mt-5 max-w-2xl text-base font-semibold leading-8 text-slate-300">
+                Launch your digital menu, accept table orders, manage kitchen flow, and bring customers back with Qrave.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+              <PrimaryLink href="/admin/register">Start Free Trial</PrimaryLink>
+              <SecondaryLink href="/contact">Book Demo</SecondaryLink>
             </div>
           </div>
         </div>
@@ -398,323 +512,293 @@ export default function LandingPage() {
   );
 }
 
-function BusinessCard({ accent, image, text, title }: { accent: string; image: string; text: string; title: string }) {
+function PrimaryLink({ children, href }: { children: string; href: string }) {
   return (
-    <article data-landing-reveal="" className="landing-scroll-reveal landing-hover-lift group overflow-hidden rounded-xl border border-[#d8d8d8] bg-white">
-      <ImageReadyFrame src={image} alt={`${title} restaurant setup`} className={`h-[24rem] rounded-none border-0 shadow-none ${accent}`}>
-        <BusinessVisual title={title} />
-      </ImageReadyFrame>
-      <div className="p-6">
-        <div className="flex items-center justify-between gap-4">
-          <h3 className="text-2xl font-extrabold tracking-[-0.03em] text-[#050505]">{title}</h3>
-          <ArrowRight size={20} className="transition group-hover:translate-x-1" />
+    <Link href={href} className="inline-flex items-center justify-center gap-2 rounded-full bg-[#F97316] px-6 py-3 text-sm font-extrabold text-white shadow-[0_16px_34px_rgba(249,115,22,0.34)] transition hover:bg-[#EA580C] focus:outline-none focus:ring-2 focus:ring-[#FDBA74] focus:ring-offset-2 focus:ring-offset-[#070A12]">
+      {children}
+      <ArrowRight size={17} />
+    </Link>
+  );
+}
+
+function SecondaryLink({ children, href }: { children: string; href: string }) {
+  return (
+    <Link href={href} className="inline-flex items-center justify-center rounded-full border border-white/22 bg-white/8 px-6 py-3 text-sm font-extrabold text-white transition hover:border-white/42 hover:bg-white/14 focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-2 focus:ring-offset-[#070A12]">
+      {children}
+    </Link>
+  );
+}
+
+function HeroDashboardMockup() {
+  const tickets = [
+    ["Table 4", "Paneer tikka bowl x2", "Preparing", "12 min"],
+    ["Table 9", "Veg thali, cold coffee x2", "Placed", "Now"],
+    ["Table 2", "Water refill requested", "Waiter call", "2 min"]
+  ];
+
+  return (
+    <div className="landing-reveal relative w-full min-w-0 lg:max-w-full" style={{ animationDelay: "220ms", width: "min(100%, calc(100vw - 2rem))" }}>
+      <div className="relative rounded-[1.7rem] border border-white/12 bg-white/10 p-3 shadow-[0_34px_100px_rgba(0,0,0,0.45)] backdrop-blur">
+        <div className="overflow-hidden rounded-[1.25rem] bg-[#F8FAFC] text-[#0F172A]">
+          <div className="flex items-center justify-between border-b border-[#E2E8F0] bg-white px-4 py-3">
+            <div className="flex items-center gap-3">
+              <div className="grid h-9 w-9 place-items-center rounded-lg bg-[#0F172A] text-white">
+                <QrCode size={18} />
+              </div>
+              <div>
+                <p className="text-sm font-extrabold">Qrave Live</p>
+                <p className="text-xs font-bold text-[#64748B]">Urban Cafe - Dinner shift</p>
+              </div>
+            </div>
+            <span className="rounded-full bg-[#DCFCE7] px-3 py-1 text-xs font-extrabold text-[#166534]">Live</span>
+          </div>
+
+          <div className="grid min-h-[31rem] md:grid-cols-[11rem_1fr]">
+            <aside className="hidden border-r border-[#E2E8F0] bg-[#0B1020] p-4 text-white md:block">
+              <div className="grid gap-2 text-sm font-bold">
+                {["Dashboard", "Orders", "Kitchen", "Customers", "Campaigns"].map((item, index) => (
+                  <div key={item} className={index === 1 ? "rounded-lg bg-white px-3 py-2 text-[#0F172A]" : "rounded-lg px-3 py-2 text-slate-300"}>
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </aside>
+
+            <div className="p-4 sm:p-5">
+              <div className="grid gap-3 sm:grid-cols-3">
+                {[
+                  ["Orders", "42", "today"],
+                  ["Revenue", "Rs. 38k", "QR orders"],
+                  ["Repeat guests", "18", "this week"]
+                ].map(([label, value, note]) => (
+                  <div key={label} className="rounded-xl border border-[#E2E8F0] bg-white p-4 shadow-[0_12px_28px_rgba(15,23,42,0.06)]">
+                    <p className="text-xs font-bold text-[#64748B]">{label}</p>
+                    <p className="mt-2 text-2xl font-extrabold text-[#0F172A]">{value}</p>
+                    <p className="mt-1 text-xs font-bold text-[#22C55E]">{note}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_0.75fr]">
+                <div className="rounded-xl border border-[#E2E8F0] bg-white p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="font-extrabold">Live orders</h2>
+                      <p className="text-xs font-bold text-[#64748B]">Table orders and waiter calls</p>
+                    </div>
+                    <ChefHat size={20} className="text-[#F97316]" />
+                  </div>
+                  <div className="mt-4 grid gap-3">
+                    {tickets.map(([table, order, status, time]) => (
+                      <div key={`${table}-${status}`} className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="text-sm font-extrabold text-[#0F172A]">{table}</p>
+                            <p className="mt-1 text-xs font-semibold leading-5 text-[#64748B]">{order}</p>
+                          </div>
+                          <span className={status === "Waiter call" ? "rounded-full bg-orange-100 px-2.5 py-1 text-xs font-extrabold text-[#C2410C]" : "rounded-full bg-[#DCFCE7] px-2.5 py-1 text-xs font-extrabold text-[#166534]"}>
+                            {status}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-xs font-bold text-[#94A3B8]">{time}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid gap-4">
+                  <div className="rounded-xl border border-[#E2E8F0] bg-white p-4">
+                    <div className="flex items-center justify-between">
+                      <h2 className="font-extrabold">WhatsApp campaign</h2>
+                      <MessageCircle size={18} className="text-[#22C55E]" />
+                    </div>
+                    <p className="mt-4 text-2xl font-extrabold">128 sent</p>
+                    <p className="mt-1 text-xs font-bold text-[#64748B]">Return offer to lunch customers</p>
+                    <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#E2E8F0]">
+                      <div className="h-full w-[72%] rounded-full bg-[#22C55E]" />
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-[#E2E8F0] bg-white p-4">
+                    <div className="flex items-center gap-3">
+                      <img src="/landing/qr-menu.png" alt="Qrave mobile QR menu preview" className="h-28 w-16 rounded-xl object-cover object-top shadow-[0_14px_34px_rgba(15,23,42,0.18)]" />
+                      <div>
+                        <p className="text-sm font-extrabold">Table QR order</p>
+                        <p className="mt-2 text-xs font-semibold leading-5 text-[#64748B]">Guests browse, add items, and order from the phone.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <p className="mt-4 text-sm font-semibold leading-6 text-[#555]">{text}</p>
       </div>
-    </article>
+
+      <div className="absolute -left-8 bottom-28 hidden rounded-2xl border border-white/14 bg-[#111827]/94 p-4 text-white shadow-[0_20px_60px_rgba(0,0,0,0.36)] xl:block">
+        <p className="text-xs font-bold text-slate-300">New order from Table 4</p>
+        <p className="mt-1 text-lg font-extrabold">Rs. 920</p>
+      </div>
+    </div>
   );
 }
 
-function ProductTool({ icon: Icon, text, title }: { icon: LucideIcon; text: string; title: string }) {
-  return (
-    <article data-landing-reveal="" className="landing-scroll-reveal landing-hover-lift bg-[#111] p-7">
-      <div className="grid h-12 w-12 place-items-center rounded-lg bg-white text-black">
-        <Icon size={22} />
-      </div>
-      <h3 className="mt-8 text-2xl font-extrabold tracking-[-0.03em] text-white">{title}</h3>
-      <p className="mt-4 text-sm font-semibold leading-6 text-white/62">{text}</p>
-    </article>
-  );
-}
-
-function FeatureRow({
-  bullets,
+function SectionIntro({
+  centered = false,
+  dark = false,
   eyebrow,
-  icon: Icon,
-  image,
-  reverse = false,
   text,
-  title,
-  visual
+  title
 }: {
-  bullets: string[];
+  centered?: boolean;
+  dark?: boolean;
   eyebrow: string;
-  icon: LucideIcon;
-  image: string;
-  reverse?: boolean;
   text: string;
   title: string;
-  visual: "menu" | "operations" | "customers";
 }) {
   return (
-    <article data-landing-reveal="" className="landing-scroll-reveal grid overflow-hidden rounded-xl border border-[#d8d8d8] bg-white lg:grid-cols-2">
-      <div className={reverse ? "lg:order-2" : ""}>
-        <ImageReadyFrame
-          src={image}
-          alt={`${title} screenshot`}
-          className={
-            visual === "menu"
-              ? "flex h-[24rem] items-center justify-center rounded-none border-0 bg-[#d8f1df] p-5 shadow-none sm:h-[30rem] lg:h-full"
-              : "h-[20rem] rounded-none border-0 bg-[#e8efe7] shadow-none sm:h-[28rem] lg:h-full"
-          }
-          imageClassName={
-            visual === "menu"
-              ? "h-auto max-h-[21rem] w-auto max-w-full rounded-2xl bg-white object-contain shadow-[0_18px_50px_rgba(0,0,0,0.14)] sm:max-h-[27rem]"
-              : visual === "operations"
-                ? "h-full w-full bg-[#f7f6f2] object-cover object-[48%_top] sm:object-[50%_top] lg:object-contain"
-                : "h-full w-full bg-[#f7f6f2] object-cover object-[62%_top] sm:object-[58%_top] lg:object-contain"
-          }
-        >
-          <FeatureVisual visual={visual} />
-        </ImageReadyFrame>
+    <div data-landing-reveal className={`landing-scroll-reveal ${centered ? "mx-auto max-w-4xl text-center" : "max-w-4xl"}`}>
+      <p className={`text-sm font-extrabold ${dark ? "text-orange-200" : "text-[#F97316]"}`}>{eyebrow}</p>
+      <h2 className={`font-accent mt-4 text-3xl font-extrabold leading-tight sm:text-5xl ${dark ? "text-white" : "text-[#0F172A]"}`}>{title}</h2>
+      <p className={`mt-5 text-base font-semibold leading-8 ${dark ? "text-slate-300" : "text-[#64748B]"}`}>{text}</p>
+    </div>
+  );
+}
+
+function InfoCard({ icon: Icon, text, title }: { icon: LucideIcon; text: string; title: string }) {
+  return (
+    <article data-landing-reveal className="landing-scroll-reveal rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-[0_14px_36px_rgba(15,23,42,0.05)] transition hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(15,23,42,0.1)]">
+      <div className="grid h-11 w-11 place-items-center rounded-xl bg-orange-100 text-[#C2410C]">
+        <Icon size={21} />
       </div>
-      <div className={`flex min-h-[34rem] flex-col justify-center p-7 md:p-12 ${reverse ? "lg:order-1" : ""}`}>
-        <div className="grid h-12 w-12 place-items-center rounded-lg bg-black text-white">
+      <h3 className="mt-5 text-xl font-extrabold leading-7 text-[#0F172A]">{title}</h3>
+      <p className="mt-3 text-sm font-semibold leading-6 text-[#64748B]">{text}</p>
+    </article>
+  );
+}
+
+function FlowStep({ icon: Icon, index, text, title }: { icon: LucideIcon; index: number; text: string; title: string }) {
+  return (
+    <article data-landing-reveal className="landing-scroll-reveal relative rounded-2xl border border-[#E2E8F0] bg-white p-5 shadow-[0_14px_36px_rgba(15,23,42,0.05)]">
+      <div className="relative z-10 grid h-12 w-12 place-items-center rounded-xl bg-[#0B1020] text-white">
+        <Icon size={21} />
+      </div>
+      <p className="mt-5 text-xs font-extrabold text-[#F97316]">Step {index}</p>
+      <h3 className="mt-2 text-lg font-extrabold leading-7 text-[#0F172A]">{title}</h3>
+      <p className="mt-2 text-sm font-semibold leading-6 text-[#64748B]">{text}</p>
+    </article>
+  );
+}
+
+function FeatureBucket({ features, icon: Icon, text, title }: { features: string[][]; icon: LucideIcon; text: string; title: string }) {
+  return (
+    <article data-landing-reveal className="landing-scroll-reveal rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-6">
+      <div className="flex items-start gap-4">
+        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#0B1020] text-white">
           <Icon size={22} />
         </div>
-        <p className="mt-8 text-xs font-extrabold uppercase tracking-[0.18em] text-[#707070]">{eyebrow}</p>
-        <h3 className="mt-4 max-w-2xl text-4xl font-extrabold leading-[0.98] tracking-[-0.04em] md:text-6xl">{title}</h3>
-        <p className="mt-6 max-w-2xl text-base font-semibold leading-8 text-[#555]">{text}</p>
-        <div className="mt-8 grid gap-3">
-          {bullets.map((bullet) => (
-            <div key={bullet} className="flex items-center gap-3 text-sm font-extrabold text-[#050505]">
-              <Check size={18} />
-              {bullet}
-            </div>
-          ))}
+        <div>
+          <h3 className="font-accent text-2xl font-extrabold leading-8 text-[#0F172A]">{title}</h3>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#64748B]">{text}</p>
         </div>
+      </div>
+      <div className="mt-6 grid gap-3">
+        {features.map(([featureTitle, featureText]) => (
+          <div key={featureTitle} className="rounded-xl border border-[#E2E8F0] bg-white p-4">
+            <div className="flex gap-3">
+              <Check className="mt-0.5 shrink-0 text-[#22C55E]" size={18} />
+              <div>
+                <h4 className="font-extrabold leading-6 text-[#0F172A]">{featureTitle}</h4>
+                <p className="mt-1 text-sm font-semibold leading-6 text-[#64748B]">{featureText}</p>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </article>
   );
 }
 
-function ImageReadyFrame({
-  alt,
-  children,
-  className = "",
-  imageClassName = "h-full w-full bg-[#f7f6f2] object-contain",
-  src
+function CalculatorMockup() {
+  return (
+    <div data-landing-reveal className="landing-scroll-reveal rounded-3xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 shadow-[0_28px_80px_rgba(15,23,42,0.12)] sm:p-6">
+      <div className="rounded-2xl bg-white p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="font-accent text-2xl font-extrabold text-[#0F172A]">Faster ordering calculator</h3>
+            <p className="mt-1 text-sm font-semibold text-[#64748B]">Static preview for demo conversations.</p>
+          </div>
+          <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-extrabold text-[#C2410C]">Preview</span>
+        </div>
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          {calculatorInputs.map(([label, value]) => (
+            <label key={label} className="grid gap-2 text-sm font-extrabold text-[#334155]">
+              {label}
+              <input readOnly value={value} className="h-12 rounded-xl border border-[#CBD5E1] bg-[#F8FAFC] px-4 text-base font-extrabold text-[#0F172A] outline-none" />
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="mt-4 grid gap-4 md:grid-cols-3">
+        {calculatorOutputs.map(([label, value, text]) => (
+          <article key={label} className="rounded-2xl bg-[#0B1020] p-5 text-white">
+            <p className="text-sm font-bold text-slate-300">{label}</p>
+            <p className="font-accent mt-3 text-3xl font-extrabold">{value}</p>
+            <p className="mt-3 text-sm font-semibold leading-6 text-slate-300">{text}</p>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function UseCaseCard({ icon: Icon, text, title }: { icon: LucideIcon; text: string; title: string }) {
+  return (
+    <article data-landing-reveal className="landing-scroll-reveal rounded-2xl border border-[#E2E8F0] bg-white p-5">
+      <div className="grid h-11 w-11 place-items-center rounded-xl bg-[#DCFCE7] text-[#166534]">
+        <Icon size={21} />
+      </div>
+      <h3 className="mt-5 text-xl font-extrabold leading-7 text-[#0F172A]">{title}</h3>
+      <p className="mt-3 text-sm font-semibold leading-6 text-[#64748B]">{text}</p>
+    </article>
+  );
+}
+
+function PricingCard({
+  cta,
+  eyebrow,
+  features,
+  highlighted = false,
+  href,
+  name
 }: {
-  alt: string;
-  children: ReactNode;
-  className?: string;
-  imageClassName?: string;
-  src: string;
+  cta: string;
+  eyebrow: string;
+  features: string[];
+  highlighted?: boolean;
+  href: string;
+  name: string;
 }) {
   return (
-    <div className={`relative overflow-hidden rounded-xl border border-[#d8d8d8] shadow-[0_18px_60px_rgba(0,0,0,0.08)] ${className}`}>
-      {src ? <img src={src} alt={alt} className={imageClassName} /> : children}
-    </div>
-  );
-}
-
-function HeroProductVisual() {
-  return (
-    <div className="relative h-full bg-[#101312] p-5 text-white md:p-8">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_10%,rgba(136,226,173,0.28),transparent_36%),radial-gradient(circle_at_10%_80%,rgba(246,225,191,0.2),transparent_32%)]" />
-      <div className="relative grid h-full gap-5 lg:grid-cols-[1.12fr_0.88fr]">
-        <div className="rounded-xl bg-white p-4 text-black md:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#d8d8d8] pb-4">
-            <div>
-              <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#707070]">Urban Tadka - Civil Lines</p>
-              <h3 className="mt-2 text-3xl font-extrabold tracking-[-0.04em]">Saturday dinner board</h3>
-            </div>
-            <div className="flex gap-2">
-              {["Orders", "Menu", "Tables"].map((tab, index) => (
-                <span key={tab} className={index === 0 ? "rounded-full bg-black px-4 py-2 text-xs font-extrabold text-white" : "rounded-full bg-[#f0eee8] px-4 py-2 text-xs font-extrabold text-[#555]"}>
-                  {tab}
-                </span>
-              ))}
-            </div>
-          </div>
-          <div className="mt-5 grid gap-3">
-            {[
-              ["#184", "Table 4", "Preparing", "Paneer tikka bowl x2, butter naan x4", "12 min"],
-              ["#185", "Table 9", "New", "Veg thali x1, cold coffee x2", "now"],
-              ["#186", "Table 2", "Waiter call", "Water refill requested", "2 min"],
-              ["#187", "Pickup", "Ready", "Veg burger combo x1", "ready"]
-            ].map(([id, table, status, order, time], index) => (
-              <div key={id} className="landing-live-ticket grid gap-3 rounded-lg border border-[#d8d8d8] p-4 sm:grid-cols-[0.16fr_0.2fr_0.22fr_1fr_0.16fr] sm:items-center" style={{ animationDelay: `${index * 180}ms` }}>
-                <p className="font-extrabold text-[#707070]">{id}</p>
-                <p className="font-extrabold">{table}</p>
-                <p className={status === "New" || status === "Waiter call" ? "text-sm font-extrabold text-[#cc4b00]" : "text-sm font-extrabold text-[#0b7a37]"}>{status}</p>
-                <p className="text-sm font-semibold text-[#555]">{order}</p>
-                <p className="text-xs font-extrabold text-[#707070]">{time}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-5 grid gap-3 border-t border-[#d8d8d8] pt-4 sm:grid-cols-3">
-            {[
-              ["Rs. 18,420", "today's QR orders"],
-              ["6", "open tickets"],
-              ["3", "items unavailable"]
-            ].map(([value, label]) => (
-              <div key={label} className="rounded-lg bg-[#f7f6f2] p-4">
-                <p className="text-2xl font-extrabold tracking-[-0.04em]">{value}</p>
-                <p className="mt-1 text-xs font-extrabold uppercase tracking-[0.12em] text-[#707070]">{label}</p>
-              </div>
-            ))}
-          </div>
+    <article data-landing-reveal className={`landing-scroll-reveal flex min-h-full flex-col rounded-2xl border p-6 ${highlighted ? "border-[#F97316] bg-[#0B1020] text-white shadow-[0_28px_80px_rgba(15,23,42,0.22)]" : "border-[#E2E8F0] bg-white text-[#0F172A]"}`}>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className={highlighted ? "text-sm font-bold text-orange-200" : "text-sm font-bold text-[#F97316]"}>{eyebrow}</p>
+          <h3 className="font-accent mt-3 text-3xl font-extrabold">{name}</h3>
         </div>
-        <div className="hidden grid-rows-[1fr_1fr] gap-5 lg:grid">
-          <div className="rounded-xl bg-[#d8f1df] p-6 text-black">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#31573b]">Guest profile</p>
-              <MessageCircle size={22} />
-            </div>
-            <p className="mt-6 text-3xl font-extrabold tracking-[-0.04em]">Priya Sharma</p>
-            <div className="mt-5 grid grid-cols-3 gap-2">
-              {["4 visits", "Rs. 3.8k", "Opt-in"].map((item) => (
-                <span key={item} className="rounded-md bg-white px-2 py-2 text-center text-xs font-extrabold text-[#31573b]">
-                  {item}
-                </span>
-              ))}
-            </div>
-            <p className="mt-5 text-sm font-extrabold text-[#31573b]">Favorite item: Cold coffee</p>
-          </div>
-          <div className="rounded-xl bg-[#f6e1bf] p-6 text-black">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#6b4618]">Table 12 QR</p>
-              <QrCode size={24} />
-            </div>
-            <QrPattern />
-            <p className="mt-5 text-sm font-extrabold text-[#6b4618]">Printed once. Menu updates anytime.</p>
-          </div>
-        </div>
+        {highlighted ? <span className="rounded-full bg-[#F97316] px-3 py-1 text-xs font-extrabold text-white">Popular</span> : null}
       </div>
-    </div>
-  );
-}
-
-function BusinessVisual({ title }: { title: string }) {
-  const Icon = title === "Cafes" ? CreditCard : title === "Cloud kitchens" ? Store : title === "Full-service" ? Utensils : ScanLine;
-  return (
-    <div data-scroll-float="" className="landing-scroll-float relative flex h-full flex-col justify-between p-6">
-      <div className="absolute inset-x-6 top-6 h-36 rounded-t-[2rem] bg-black/10" />
-      <div className="relative mx-auto mt-2 h-48 w-36 overflow-hidden rounded-[2rem] border-[8px] border-black bg-white shadow-xl">
-        <div className="bg-black px-3 py-3 text-white">
-          <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-white/60">{title}</p>
-          <p className="mt-2 text-sm font-extrabold leading-tight">{title === "Cafes" ? "Today specials" : title === "Cloud kitchens" ? "Pickup queue" : "Table orders"}</p>
-        </div>
-        <div className="grid gap-2 p-3">
-          {[0, 1, 2].map((index) => (
-            <div key={index} className="rounded-md border border-black/10 p-2">
-              <div className="h-2 w-16 rounded-full bg-black/70" />
-              <div className="mt-2 h-2 w-20 rounded-full bg-black/10" />
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="relative rounded-xl bg-white/88 p-4 backdrop-blur">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Icon size={18} />
-            <p className="text-sm font-extrabold text-[#050505]">{title}</p>
-          </div>
-          <span className="rounded-full bg-black px-3 py-1 text-xs font-extrabold text-white">Live</span>
-        </div>
-        <p className="mt-3 text-xs font-bold leading-5 text-[#555]">{title === "Full-service" ? "8 active tables" : title === "Quick-service" ? "14 tickets today" : title === "Cafes" ? "5 combos live" : "9 pickups queued"}</p>
-      </div>
-    </div>
-  );
-}
-
-function FeatureVisual({ visual }: { visual: "menu" | "operations" | "customers" }) {
-  if (visual === "operations") {
-    return (
-      <div data-scroll-float="" className="landing-scroll-float flex h-full items-center bg-[#d9e8ff] p-6">
-        <div className="mx-auto w-full max-w-xl rounded-xl bg-white p-5">
-          <div className="flex items-center justify-between border-b border-[#d8d8d8] pb-4">
-            <h4 className="text-2xl font-extrabold tracking-[-0.03em]">Kitchen board</h4>
-            <Clock3 size={22} />
-          </div>
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            {["New", "Preparing", "Ready"].map((column, columnIndex) => (
-              <div key={column} className="rounded-lg bg-[#f7f6f2] p-3">
-                <p className="text-sm font-extrabold">{column}</p>
-                <div className="mt-3 grid gap-2">
-                  {Array.from({ length: columnIndex === 0 ? 3 : 2 }).map((_, index) => (
-                    <div key={`${column}-${index}`} className="rounded-md bg-white p-3 text-sm font-extrabold">
-                      Table {index + columnIndex + 2}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (visual === "customers") {
-    return (
-      <div data-scroll-float="" className="landing-scroll-float grid h-full place-items-center bg-[#f6e1bf] p-6">
-        <div className="grid w-full max-w-xl gap-4 sm:grid-cols-[0.8fr_1.2fr]">
-          <div className="rounded-xl bg-black p-5 text-white">
-            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-white/58">Guest profile</p>
-            <div className="mt-6 grid h-16 w-16 place-items-center rounded-full bg-white text-2xl font-extrabold text-black">P</div>
-            <h4 className="mt-5 text-2xl font-extrabold">Priya Sharma</h4>
-            <p className="mt-2 text-sm font-semibold text-white/62">4 visits - WhatsApp opt-in</p>
-          </div>
-          <div className="grid gap-3">
-            {[
-              [MessageCircle, "Return offer ready"],
-              [Megaphone, "Favorite item campaign"],
-              [ShieldCheck, "Consent captured"]
-            ].map(([Icon, label]) => {
-              const ItemIcon = Icon as LucideIcon;
-              return (
-                <div key={label as string} className="flex items-center gap-3 rounded-xl bg-white p-4">
-                  <ItemIcon size={22} />
-                  <span className="text-sm font-extrabold">{label as string}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div data-scroll-float="" className="landing-scroll-float grid h-full place-items-center bg-[#d8f1df] p-6">
-      <div className="h-[28rem] w-[16rem] overflow-hidden rounded-[2rem] border-[10px] border-black bg-white shadow-2xl">
-        <div className="bg-black p-4 text-white">
-          <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-white/56">Table 12</p>
-          <h4 className="mt-4 text-2xl font-extrabold tracking-[-0.03em]">House specials</h4>
-        </div>
-        <div className="grid gap-3 p-4">
-          {["Paneer bowl", "Veg burger", "Cold coffee"].map((item) => (
-            <div key={item} className="grid grid-cols-[3rem_1fr] gap-3 rounded-lg border border-[#d8d8d8] p-2">
-              <div className="rounded-md bg-[#f6e1bf]" />
-              <div>
-                <p className="text-sm font-extrabold">{item}</p>
-                <div className="mt-2 h-2 w-20 rounded-full bg-black/10" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function QrPattern() {
-  return (
-    <div className="landing-scan-line mt-7 grid h-28 w-28 grid-cols-5 gap-1 rounded-lg bg-white p-2">
-      {Array.from({ length: 25 }).map((_, index) => (
-        <span key={index} className={index % 3 === 0 || index === 7 || index === 18 ? "rounded-[2px] bg-black" : "rounded-[2px] bg-black/10"} />
-      ))}
-    </div>
-  );
-}
-
-function SectionHeading({ centered = false, eyebrow, title }: { centered?: boolean; eyebrow: string; title: string }) {
-  return (
-    <div className={centered ? "mx-auto max-w-5xl text-center" : "max-w-5xl"}>
-      <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#707070]">{eyebrow}</p>
-      <h2 className="mt-5 text-5xl font-extrabold leading-[0.95] tracking-[-0.04em] text-[#050505] md:text-7xl">{title}</h2>
-    </div>
+      <ul className="mt-8 grid flex-1 gap-3">
+        {features.map((feature) => (
+          <li key={feature} className={`flex gap-3 text-sm font-bold leading-6 ${highlighted ? "text-slate-200" : "text-[#334155]"}`}>
+            <Check className="mt-0.5 shrink-0 text-[#22C55E]" size={18} />
+            {feature}
+          </li>
+        ))}
+      </ul>
+      <Link href={href} className={`mt-8 inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-extrabold transition focus:outline-none focus:ring-2 ${highlighted ? "bg-[#F97316] text-white hover:bg-[#EA580C] focus:ring-[#FDBA74]" : "border border-[#0F172A] text-[#0F172A] hover:bg-[#0F172A] hover:text-white focus:ring-[#0F172A]"}`}>
+        {cta}
+        <ArrowRight size={17} />
+      </Link>
+    </article>
   );
 }

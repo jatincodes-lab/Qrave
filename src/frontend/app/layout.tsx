@@ -4,13 +4,16 @@ import { ScrollToTop } from "../components/scroll-to-top";
 import { ToastProvider } from "../components/ui/toast";
 import "./globals.css";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://qrave-six.vercel.app";
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://qrave.app"),
+  metadataBase: new URL(siteUrl),
   title: {
-    default: "Qrave | QR Menu Ordering Software",
+    default: "Qrave | The Restaurant Growth OS",
     template: "%s"
   },
-  description: "Qrave is QR menu ordering and customer CRM software for restaurants, cafes, cloud kitchens, and food service teams.",
+  description:
+    "Qrave is a QR-based restaurant growth OS for digital menus, table ordering, kitchen workflows, waiter calls, branches, customers, and WhatsApp engagement.",
   applicationName: "Qrave",
   authors: [{ name: "Qrave" }],
   creator: "Qrave",

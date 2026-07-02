@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700;9..144,800&family=Merriweather:wght@400;700;900&family=Playfair+Display:wght@700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -23,11 +23,15 @@
   --border: 105 17% 87%;
   --input: 105 17% 87%;
   --ring: 153 58% 46%;
+  --font-ui: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-hero: "Playfair Display", Georgia, serif;
+  --font-accent: "Fraunces", Georgia, serif;
+  --font-quote: "Merriweather", Georgia, serif;
 }
 
 body {
   margin: 0;
-  font-family: "Public Sans", ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-ui);
   background: hsl(var(--background));
   color: hsl(var(--foreground));
   -webkit-font-smoothing: antialiased;
@@ -77,6 +81,21 @@ input {
 }
 
 @layer components {
+  .font-hero {
+    font-family: var(--font-hero);
+    letter-spacing: 0;
+  }
+
+  .font-accent {
+    font-family: var(--font-accent);
+    letter-spacing: 0;
+  }
+
+  .font-quote {
+    font-family: var(--font-quote);
+    letter-spacing: 0;
+  }
+
   .glass-panel,
   .glass-card {
     background: rgba(255, 255, 255, 0.96);
@@ -260,6 +279,14 @@ input {
   .landing-marquee:hover {
     animation-play-state: paused;
   }
+
+  .qrave-flow-card {
+    animation: qrave-flow-card 520ms cubic-bezier(0.2, 0.82, 0.28, 1) both;
+  }
+
+  .qrave-menu-item {
+    animation: qrave-menu-item 620ms cubic-bezier(0.2, 0.82, 0.28, 1) both;
+  }
 }
 
 @keyframes landing-reveal {
@@ -342,6 +369,28 @@ input {
   100% {
     opacity: 0;
     transform: translate3d(-122px, 18px, 0) scale(0.3);
+  }
+}
+
+@keyframes qrave-flow-card {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes qrave-menu-item {
+  0% {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
